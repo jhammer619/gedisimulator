@@ -118,18 +118,20 @@ typedef struct{
 /*data structure*/
 
 typedef struct{
-  int nBins;     /*number of wavefor bins*/
-  float *wave;   /*original waveform*/
-  float *ground; /*ground wave if we are to read it*/
-  float *noised; /*noised waveform, if needed*/
-  double *z;     /*wave bin elevation*/
-  double gElev;  /*mean ground elevation*/
-  double tElev;  /*top elevation*/
-  float gStdev;  /*measure of ground width*/
-  float slope;   /*ground effective slope*/
-  float cov;     /*ALS canopy cover*/
-  float pSigma;    /*pulse length*/
-  float fSigma;    /*footprint width*/
+  int nBins;        /*number of wavefor bins*/
+  float *wave;      /*original waveform*/
+  float *ground;    /*ground wave if we are to read it*/
+  float *noised;    /*noised waveform, if needed*/
+  double *z;        /*wave bin elevation*/
+  double gElev;     /*mean ground elevation*/
+  double tElev;     /*top elevation*/
+  float gStdev;     /*measure of ground width*/
+  float slope;      /*ground effective slope*/
+  float cov;        /*ALS canopy cover*/
+  float pSigma;     /*pulse length*/
+  float fSigma;     /*footprint width*/
+  char useID;       /*use waveID or not*/
+  char waveID[200]; /*wave ID for labelling*/
 }dataStruct;
 
 
@@ -682,7 +684,9 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
 
 
   /*waveform metrics*/
-  fprintf(dimage->opooMet,"%d %.2f %.2f %.4f %.4f %.2f %.2f %.2f %.4f %.2f %.4f %.2f %.2f",numb,data->gElev,data->tElev,data->slope,\
+  if(data->useID==0)fprintf(dimage->opooMet,"%d",numb);
+  else              fprintf(dimage->opooMet,"%s",data->waveID);
+  fprintf(dimage->opooMet," %.2f %.2f %.4f %.4f %.2f %.2f %.2f %.4f %.2f %.4f %.2f %.2f",data->gElev,data->tElev,data->slope,\
     data->cov,metric->gHeight,metric->maxGround,metric->inflGround,metric->tElev,metric->bElev,metric->cov,metric->leExt,metric->teExt);
   for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rh[i]);
   for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rhMax[i]);
@@ -1270,6 +1274,7 @@ dataStruct *readData(char *namen,control *dimage)
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
   if(dimage->ground)data->ground=falloc(data->nBins,"ground",0);
+  data->useID=0;
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
@@ -1317,6 +1322,11 @@ dataStruct *readData(char *namen,control *dimage)
         if(!strncasecmp(temp2,"fSigma",6)){
           data->fSigma=atof(temp3);
           data->pSigma=atof(temp5);
+        }
+      }else if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+        if(!strncasecmp(temp2,"waveID",6)){
+          data->useID=1;
+          strcpy(&(data->waveID[0]),temp3);
         }
       }
     }
