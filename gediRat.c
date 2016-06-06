@@ -52,6 +52,8 @@ typedef struct{
   char checkCover;     /*check that the whole footprit is covered by data*/
   char cleanOut;       /*clean subterranean outliers*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
+  char waveID[200];    /*wave ID if we are to use it*/
+  char useID;          /*use wave ID*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -440,6 +442,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   else                 fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
   fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->fSigma,dimage->pSigma,dimage->res,dimage->sideLobe);
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->coord[0],dimage->coord[1]);
+  if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
 
   /*write data*/
   for(i=0;i<waves->nBins;i++){
@@ -1160,6 +1163,7 @@ control *readCommands(int argc,char **argv)
   dimage->checkCover=0;
   dimage->cleanOut=0;
   dimage->topHat=0;
+  dimage->useID=0;
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1225,8 +1229,12 @@ control *readCommands(int argc,char **argv)
         dimage->checkCover=1;
       }else if(!strncasecmp(argv[i],"-topHat",7)){
         dimage->topHat=1;
+      }else if(!strncasecmp(argv[i],"-waveID",7)){
+        checkArguments(1,i,argc,"-waveID");
+        dimage->useID=1;
+        strcpy(dimage->waveID,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
