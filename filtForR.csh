@@ -31,7 +31,7 @@ while ($#argv>0)
   endsw
 end
 
-gawk -f $bin/filtHeadForR.awk < $input > $output
+gawk -f $bin/filtHeadForR.awk < $input |sed -e s%,%_%g -e s%" "%""%g|sed -e s%_%" "%g > $output
 gawk '{if($1!="#")print $0}' < $input|sed -e s%" "%","% >> $output
 echo "Written to $output"
 
