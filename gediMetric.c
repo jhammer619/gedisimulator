@@ -703,7 +703,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
 
   /*fitted wave if required*/
   if(dimage->writeFit){
-    sprintf(waveNamen,"%s.%d.fit",dimage->outRoot,numb);
+    if(data->useID==0)sprintf(waveNamen,"%s.%d.fit",dimage->outRoot,numb);
+    else              sprintf(waveNamen,"%s.%s.fit",dimage->outRoot,data->waveID);
     if((opoo=fopen(waveNamen,"w"))==NULL){
       fprintf(stderr,"Error opening output file %s\n",waveNamen);
       exit(1);
