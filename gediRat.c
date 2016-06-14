@@ -308,10 +308,10 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         if(las->refl>0)data->refl[pUsed]=(int)las->refl;
         else           data->refl[pUsed]=1;
         data->class[pUsed]=las->classif;
+        data->retNumb[pUsed]=(char)las->field.retNumb;
 
         if(checkOneWave(las)){
           hasWave=1;
-          data->retNumb[pUsed]=(char)las->field.retNumb;
           data->packetDes[pUsed]=las->packetDes;
           for(j=0;j<3;j++)data->grad[j][pUsed]=las->grad[j];
           data->time[pUsed]=las->time;
