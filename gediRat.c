@@ -101,7 +101,7 @@ typedef struct{
   double *z;
   unsigned char *class;     /*point classification*/
   int *refl;
-  char *retNumb;            /*discrete return number*/
+  char *nRet;               /*number of discrete returns per beam*/
   unsigned char *packetDes; /*waveform or not*/
   float **grad;             /*Poynting vector*/
   float *time;              /*time in picoseconds of this wave*/
@@ -193,7 +193,7 @@ int main(int argc,char **argv)
         TIDY(data[i]->z);
         TIDY(data[i]->refl);
         TIDY(data[i]->class);
-        TIDY(data[i]->retNumb);
+        TIDY(data[i]->nRet);
         TIDY(data[i]->packetDes);
         TTIDY((void **)data[i]->grad,3);
         data[i]->grad=NULL;
@@ -276,7 +276,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     data->z=dalloc(las->nPoints,"z",0);
     data->refl=ialloc(las->nPoints,"refl",0);
     data->class=uchalloc(las->nPoints,"class",0);
-    data->retNumb=challoc(las->nPoints,"retNumb",0);
+    data->nRet=challoc(las->nPoints,"nRet",0);
     data->packetDes=uchalloc(las->nPoints,"packetDes",0);
     data->grad=fFalloc(3,"grad",0);
     for(i=0;i<3;i++)data->grad[i]=falloc(las->nPoints,"grad",i+1);
@@ -308,7 +308,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         if(las->refl>0)data->refl[pUsed]=(int)las->refl;
         else           data->refl[pUsed]=1;
         data->class[pUsed]=las->classif;
-        data->retNumb[pUsed]=(char)las->field.retNumb;
+        data->nRet[pUsed]=(char)las->field.nRet;
 
         if(checkOneWave(las)){
           hasWave=1;
@@ -354,7 +354,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
-      if(!(data->retNumb=(char *)realloc(data->retNumb,data->nPoints*sizeof(char)))){
+      if(!(data->nRet=(char *)realloc(data->nRet,data->nPoints*sizeof(char)))){
         fprintf(stderr,"Balls\n");
         exit(1);
       }
@@ -399,7 +399,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     }
   }else{/*file bounds check*/
     data->nPoints=0;
-    data->retNumb=NULL;
+    data->nRet=NULL;
     data->packetDes=NULL;
     data->grad=NULL;
     data->time=NULL;
@@ -516,8 +516,8 @@ waveStruct *makeGediWaves(control *dimage,dataStruct **data)
 
           /*discrete return*/
           refl=(float)data[numb]->refl[i]*rScale;
-          if(data[numb]->retNumb[i]>0)fracHit=1.0/(float)data[numb]->retNumb[i];
-          else                        fracHit=1.0;
+          if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
+          else                     fracHit=1.0;
           for(j=0;j<dimage->pulse->nBins;j++){
             bin=(int)((waves->maxZ-data[numb]->z[i]+(double)dimage->pulse->x[j])/(double)dimage->res);
             if((bin>=0)&&(bin<waves->nBins)){
