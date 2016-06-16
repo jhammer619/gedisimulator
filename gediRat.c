@@ -44,6 +44,7 @@ typedef struct{
   char **inList;
   int nFiles;
   char outNamen[200];
+  char pulseFile[200];
 
   /*options*/
   char ground;         /*only use ground points*/
@@ -54,6 +55,7 @@ typedef struct{
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char waveID[200];    /*wave ID if we are to use it*/
   char useID;          /*use wave ID*/
+  char readPulse;      /*read pulse to simulate with*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -1015,53 +1017,135 @@ void setGediPulse(control *dimage)
   float fwhm=0;   /*FWHM in metres*/
   float x=0,y=0;
   float max=0,tot=0;
+  void readSimPulse(control *);
+
 
   if(!(dimage->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
     fprintf(stderr,"error pulseStruct allocation.\n");
     exit(1);
   }
 
-  /*pulse length*/
-  /*calculate sigma from FWHM*/
-  if(dimage->pSigma<0.0){  /*GEDI unless specificed*/
-    fwhm=dimage->pFWHM*0.15;  /*time if for two way*/
-    dimage->pSigma=fwhm/2.355;
-  }
 
-  /*determine number of bins*/
-  dimage->pulse->nBins=0;
-  x=0.0;
-  do{
-    y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
-    x+=dimage->pRes;
-    dimage->pulse->nBins+=2;  /*both sides of peak*/
-  }while(y>=dimage->iThresh);
-
-  dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-  dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
-  dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
-
-  max=-100.0;
-  tot=0.0;
-  x=-1.0*(float)dimage->pulse->centBin*dimage->pRes;
-  for(i=0;i<dimage->pulse->nBins;i++){
-    dimage->pulse->x[i]=x;
-    dimage->pulse->y[i]=(float)gaussian((double)x,(float)dimage->pSigma,0.0);
-    if(dimage->pulse->y[i]>max){
-      max=dimage->pulse->y[i];
-      dimage->pulse->centBin=i;
+  if(dimage->readPulse==0){  /*Gaussian pulse*/
+    /*pulse length*/
+    /*calculate sigma from FWHM*/
+    if(dimage->pSigma<0.0){  /*GEDI unless specificed*/
+      fwhm=dimage->pFWHM*0.15;  /*time if for two way*/
+      dimage->pSigma=fwhm/2.355;
     }
-    tot+=dimage->pulse->y[i];
-    x+=dimage->pRes;
-  }
 
-  /*normalise to cope with rounding*/
-  for(i=0;i<dimage->pulse->nBins;i++){
-    dimage->pulse->y[i]/=tot;
+    /*determine number of bins*/
+    dimage->pulse->nBins=0;
+    x=0.0;
+    do{
+      y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
+      x+=dimage->pRes;
+        dimage->pulse->nBins+=2;  /*both sides of peak*/
+    }while(y>=dimage->iThresh);
+  
+    dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
+    dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+    dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
+
+    max=-100.0;
+    tot=0.0;
+    x=-1.0*(float)dimage->pulse->centBin*dimage->pRes;
+    for(i=0;i<dimage->pulse->nBins;i++){
+      dimage->pulse->x[i]=x;
+      dimage->pulse->y[i]=(float)gaussian((double)x,(float)dimage->pSigma,0.0);
+      if(dimage->pulse->y[i]>max){
+        max=dimage->pulse->y[i];
+        dimage->pulse->centBin=i;
+      }
+      tot+=dimage->pulse->y[i];
+      x+=dimage->pRes;
+    }
+    /*normalise to cope with rounding*/
+    for(i=0;i<dimage->pulse->nBins;i++){
+      dimage->pulse->y[i]/=tot;
+    }
+  }else{  /*read the pulse from a file*/
+    readSimPulse(dimage);
   }
 
   return;
 }/*setGediPulse*/
+
+
+/*####################################*/
+/*read pulse to use for simulator*/
+
+void readSimPulse(control *dimage)
+{
+  int i=0;
+  float CofG=0,tot=0;
+  float minSep=0,max=0;
+  char line[400];
+  char temp1[100],temp2[100];
+  FILE *ipoo=NULL;
+
+  if((ipoo=fopen(dimage->pulseFile,"r"))==NULL){
+    fprintf(stderr,"Error opening input file %s\n",dimage->pulseFile);
+    exit(1);
+  }
+
+
+  /*count number of bins*/
+  dimage->pulse->nBins=0;
+  while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))dimage->pulse->nBins++;
+
+  dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
+  dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+
+  /*rewind to start of file*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read data*/
+  i=0;
+  while(fgets(line,400,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      if(sscanf(line,"%s %s",temp1,temp2)==2){
+        dimage->pulse->x[i]=atof(temp1)*2.0;  /*multipy by 2 as it's two way time*/
+        dimage->pulse->y[i]=atof(temp2);
+        i++;
+      }
+    }
+  }
+  dimage->pRes=fabs(dimage->pulse->x[1]-dimage->pulse->x[0]);
+
+  /*determine CofG and normalise*/
+  tot=0.0;
+  CofG=0.0;
+  max=-1000.0;
+  for(i=0;i<dimage->pulse->nBins;i++){
+    if(dimage->pulse->y[i]>max){
+      max=dimage->pulse->y[i];
+      CofG=dimage->pulse->x[i];
+    }
+    tot+=dimage->pulse->y[i];
+  }
+
+  minSep=1000.0;
+  for(i=0;i<dimage->pulse->nBins;i++){
+    dimage->pulse->x[i]-=CofG;
+    dimage->pulse->y[i]/=tot;
+
+    if(fabs(dimage->pulse->x[i])<minSep){
+      minSep=fabs(dimage->pulse->x[i]);
+      dimage->pulse->centBin=i;
+    }
+  }
+
+
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return;
+}/*readSimPulse*/
 
 
 /*####################################*/
@@ -1164,6 +1248,7 @@ control *readCommands(int argc,char **argv)
   dimage->cleanOut=0;
   dimage->topHat=0;
   dimage->useID=0;
+  dimage->readPulse=0;
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1233,8 +1318,12 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-waveID");
         dimage->useID=1;
         strcpy(dimage->waveID,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-readPulse",10)){
+        checkArguments(1,i,argc,"-readPulse");
+        dimage->readPulse=1;
+        strcpy(dimage->pulseFile,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
