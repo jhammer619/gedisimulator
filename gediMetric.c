@@ -42,6 +42,7 @@ typedef struct{
   char ground;      /*read separateground wave or not*/
   char writeFit;    /*write fitted wave switch*/
   char useInt;      /*use discrete intensity instead of count*/
+  char useFrac;     /*use fraction of hits per beam for weighting*/
   int rhRes;        /*rh resolution*/
   char bayesGround; /*Bayseian ground finding*/
 
@@ -1252,7 +1253,8 @@ dataStruct *readData(char *namen,control *dimage)
   dataStruct *data=NULL;
   char line[400],temp1[100],temp2[100];
   char temp3[100],temp4[100],temp5[100];
-  char temp6[100],temp7[100];
+  char temp6[100],temp7[100],temp8[100];
+  char temp9[100],temp10[100];
   FILE *ipoo=NULL;
 
   /*open input*/
@@ -1299,6 +1301,21 @@ dataStruct *readData(char *namen,control *dimage)
             data->z[i]=atof(temp1);
             data->wave[i]=atof(temp2);
             data->ground[i]=atof(temp4);
+            i++;
+          }
+        }/*ground switch*/
+      }else if(dimage->useFrac){ /*read fraction*/
+        if(dimage->ground==0){   /*don't read ground*/
+         if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+            data->z[i]=atof(temp1);
+            data->wave[i]=atof(temp3);
+            i++;
+          }
+        }else{                   /*read ground*/
+          if(sscanf(line,"%s %s %s %s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10)==10){
+            data->z[i]=atof(temp1);
+            data->wave[i]=atof(temp8);
+            data->ground[i]=atof(temp10);
             i++;
           }
         }/*ground switch*/
@@ -1391,6 +1408,7 @@ control *readCommands(int argc,char **argv)
   dimage->writeFit=0;
   dimage->ground=0;
   dimage->useInt=0;
+  dimage->useFrac=0;
   dimage->rhRes=10;
   dimage->bayesGround=0;
   dimage->missGround=0;
@@ -1499,6 +1517,8 @@ control *readCommands(int argc,char **argv)
         dimage->den->noiseTrack=1;
       }else if(!strncasecmp(argv[i],"-useInt",7)){
         dimage->useInt=1;
+      }else if(!strncasecmp(argv[i],"-useFrac",8)){
+        dimage->useFrac=1;
       }else if(!strncasecmp(argv[i],"-rhRes",6)){
         checkArguments(1,i,argc,"-rhRes");
         dimage->rhRes=atof(argv[++i]);
@@ -1534,7 +1554,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-bitRate");
         dimage->bitRate=(char)atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-maxDN max;     maximum DN\n-bitRate n;       DN bit rate\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
