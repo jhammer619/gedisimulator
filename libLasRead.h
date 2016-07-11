@@ -56,7 +56,7 @@ typedef struct{
   uint16_t refl;       /*point intensity*/
   b_field field;         /*bit field containing all sorts*/
   unsigned char classif;  /*point classification*/
-  unsigned char scanAng;  /*scan angle*/
+  char scanAng;           /*scan angle*/
   unsigned char userData; /*user data*/
   uint16_t psID;          /*point source ID, used for Leica's AGC*/
   double gpsTime;         /*GPS time*/

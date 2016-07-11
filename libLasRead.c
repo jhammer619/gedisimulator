@@ -296,6 +296,8 @@ void readLasPoint(lasFile *las,uint32_t j)
   memcpy(&las->classif,&las->pointBuff[offset],1);
   offset=16+offTo;
   memcpy(&las->scanAng,&las->pointBuff[offset],1);
+  offset=17+offTo;
+  memcpy(&las->userData,&las->pointBuff[offset],1);
   offset=18+offTo;
   memcpy(&las->psID,&las->pointBuff[offset],2);
   if(las->pointFormat==4){   /*full waveform data*/
