@@ -113,7 +113,7 @@ void readWritePoints(control *dimage,lasFile *las)
   void readLasPoint(lasFile *,uint32_t);
   void setCoords(double *,double *,double *,lasFile *);
   char checkFileBounds(lasFile *,double,double,double,double);
-
+  FILE *opoo=NULL;
 
   /*check file bounds*/
   if(checkFileBounds(las,dimage->coord[0]-dimage->maxSep,dimage->coord[0]+dimage->maxSep,\
@@ -127,8 +127,11 @@ void readWritePoints(control *dimage,lasFile *las)
       dY=y-dimage->coord[1];
       sepSq=dX*dX+dY*dY;
       if(sepSq<=dimage->maxSepSq){
-        if(dimage->ground&&(las->classif==2))fprintf(dimage->gPoo,"%f %f %f %d\n",x,y,z,(int)(las->refl));
-        else                                 fprintf(dimage->opoo,"%f %f %f %d\n",x,y,z,(int)(las->refl));
+       
+        if(dimage->ground&&(las->classif==2))opoo=dimage->gPoo;
+        else                                 opoo=dimage->opoo;
+        fprintf(opoo,"%f %f %f %d %d\n",x,y,z,(int)(las->refl),(int)las->scanAng);
+        opoo=NULL;
       }/*separation check*/
     }/*point loop*/
   }/*file bounds check*/
@@ -168,6 +171,7 @@ void openOutput(control *dimage)
     fprintf(stderr,"Error opening output file %s\n",dimage->canNamen);
     exit(1);
   }
+  fprintf(dimage->opoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng\n");
 
   if(dimage->ground){
     sprintf(dimage->grNamen,"%s.ground.pts",dimage->outRoot);
@@ -175,6 +179,7 @@ void openOutput(control *dimage)
       fprintf(stderr,"Error opening output file %s\n",dimage->grNamen);
       exit(1);
     }
+    fprintf(dimage->gPoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng\n");
   }
 
   return;
