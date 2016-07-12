@@ -4,11 +4,13 @@ HOME =/Users/stevenhancock
 LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
 MINDIR=${HOME}/src/minpack
 GSLDIR=${HOME}/src/GSL/gsl-1.16
-INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${GSLDIR} -I${GSLDIR}/fft
+LIBDIR=${HOME}/src/libClidar
+INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${GSLDIR} -I${GSLDIR}/fft -I${LIBDIR}
 CFLAGS += -Wall
 #CFLAGS += -g
 CFLAGS += -O3
-LOCAL_OTHERS = libLasRead.o gaussFit.o libLasProcess.o tiffWrite.o
+LIBFILES = $(LIBDIR)/libLasProcess.o $(LIBDIR)/libLasRead.o $(LIBDIR)/tiffWrite.o $(LIBDIR)/gaussFit.o
+LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o
 GSLFit=linear.o
 MIN=mpfit.o
 
@@ -19,8 +21,8 @@ CC = gcc
 
 THIS=gediRat
 
-$(THIS):	$(THIS).o $(LOCAL_OTHERS) $(GSLDIR)/fit/$(GSLFIT) ${MINDIR}/$(MIN)
-		$(CC) $(CFLAGS) $(LOCAL_OTHERS) $(GSLFIT) $(MIN) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
+$(THIS):	$(THIS).o $(GSLDIR)/fit/$(GSLFIT) ${MINDIR}/$(MIN) ${LIBFILES}
+		$(CC) $(CFLAGS) $(GSLFIT) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
 
 .c.o:		$<
 		$(CC) $(CFLAGS) -I. $(INCLS) -D$(ARCH)  -c $<
