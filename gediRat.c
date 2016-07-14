@@ -1034,35 +1034,45 @@ void setGediPulse(control *dimage)
       dimage->pSigma=fwhm/2.355;
     }
 
-    /*determine number of bins*/
-    dimage->pulse->nBins=0;
-    x=0.0;
-    do{
-      y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
-      x+=dimage->pRes;
-        dimage->pulse->nBins+=2;  /*both sides of peak*/
-    }while(y>=dimage->iThresh);
+    if(dimage->pSigma>0.0){  /*if we are using a pulse width*/
+      /*determine number of bins*/
+      dimage->pulse->nBins=0;
+      x=0.0;
+      do{
+        y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
+        x+=dimage->pRes;
+          dimage->pulse->nBins+=2;  /*both sides of peak*/
+      }while(y>=dimage->iThresh);
   
-    dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-    dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
-    dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
+      dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
+      dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+      dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
 
-    max=-100.0;
-    tot=0.0;
-    x=-1.0*(float)dimage->pulse->centBin*dimage->pRes;
-    for(i=0;i<dimage->pulse->nBins;i++){
-      dimage->pulse->x[i]=x;
-      dimage->pulse->y[i]=(float)gaussian((double)x,(float)dimage->pSigma,0.0);
-      if(dimage->pulse->y[i]>max){
-        max=dimage->pulse->y[i];
-        dimage->pulse->centBin=i;
+      max=-100.0;
+      tot=0.0;
+      x=-1.0*(float)dimage->pulse->centBin*dimage->pRes;
+      for(i=0;i<dimage->pulse->nBins;i++){
+        dimage->pulse->x[i]=x;
+        dimage->pulse->y[i]=(float)gaussian((double)x,(float)dimage->pSigma,0.0);
+        if(dimage->pulse->y[i]>max){
+          max=dimage->pulse->y[i];
+          dimage->pulse->centBin=i;
+        }
+        tot+=dimage->pulse->y[i];
+        x+=dimage->pRes;
       }
-      tot+=dimage->pulse->y[i];
-      x+=dimage->pRes;
-    }
-    /*normalise to cope with rounding*/
-    for(i=0;i<dimage->pulse->nBins;i++){
-      dimage->pulse->y[i]/=tot;
+      /*normalise to cope with rounding*/
+      for(i=0;i<dimage->pulse->nBins;i++){
+        dimage->pulse->y[i]/=tot;
+      }
+    }else{  /*dirac-delta*/
+      dimage->pulse->nBins=1;
+      dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
+      dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+      dimage->pulse->centBin=0;
+
+      dimage->pulse->x[0]=0.0;
+      dimage->pulse->y[0]=1.0;
     }
   }else{  /*read the pulse from a file*/
     readSimPulse(dimage);
