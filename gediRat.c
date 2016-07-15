@@ -6,6 +6,7 @@
 #include "tools.h"
 #include "tools.c"
 #include "libLasRead.h"
+#include "libLidVoxel.h"
 #include "libLasProcess.h"
 
 
@@ -56,6 +57,7 @@ typedef struct{
   char waveID[200];    /*wave ID if we are to use it*/
   char useID;          /*use wave ID*/
   char readPulse;      /*read pulse to simulate with*/
+  char useShadow;      /*account for shadowing through voxelisation*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -90,6 +92,10 @@ typedef struct{
   int gY;
   float gridRes;
   double g0[2];  /*grid origin*/
+
+  /*for voxel shadows*/
+  float vRes[3];   /*resolution along each axis*/
+  float beamRad;   /*beam radius at ground*/
 }control;
 
 
@@ -472,19 +478,16 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
 
 waveStruct *makeGediWaves(control *dimage,dataStruct **data)
 {
-  int numb=0,bin=0,j=0,k=0;
-  int gX=0,gY=0,n=0;
-  uint32_t i=0;
-  double sep=0;
-  double dX=0,dY=0;
-  float refl=0,rScale=0;
-  float tot=0,fracHit=0;
+  int j=0,k=0;
+  float tot=0;
   waveStruct *waves=NULL;
   waveStruct *allocateGEDIwaves(control *,dataStruct **);
   void gediFromWaveform(dataStruct *,uint32_t,float,waveStruct *,control *);
   void processAggragate(control *,waveStruct *);
   void checkFootCovered(control *);
   void cleanOutliers(waveStruct *,control *);
+  void waveFromPointCloud(control *,dataStruct **,waveStruct *);
+  void waveFromShadows(control *,dataStruct **,waveStruct *);
   denPar *setDeconForGEDI(control *);
 
 
@@ -496,6 +499,140 @@ waveStruct *makeGediWaves(control *dimage,dataStruct **data)
 
   /*set up denoising if using*/
   if(dimage->doDecon)dimage->decon=setDeconForGEDI(dimage);
+
+
+  /*make waves*/
+  if(dimage->useShadow==0)waveFromPointCloud(dimage,data,waves);
+  else                    waveFromShadows(dimage,data,waves);
+
+  /*clean outliers if needed*/
+  if(dimage->cleanOut)cleanOutliers(waves,dimage);
+
+  /*deconvolve aggragated waveform*/
+  if(dimage->doDecon)processAggragate(dimage,waves);
+
+  /*normalise integral*/
+  for(k=0;k<waves->nWaves;k++){
+    tot=0.0;
+    for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->res;
+    if(tot>0.0){
+      for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
+      if(dimage->ground&&(k<3)){
+        for(j=0;j<waves->nBins;j++){
+          waves->canopy[k][j]/=tot;
+          waves->ground[k][j]/=tot;
+        }
+      }
+    }
+  }
+
+  if(dimage->decon){
+    TTIDY((void **)dimage->decon->pulse,2);
+    TIDY(dimage->decon);
+  }
+  return(waves);
+}/*makeGediWaves*/
+
+
+/*################################################################################*/
+/*make waveforms accounting for shadowing*/
+
+void waveFromShadows(control *dimage,dataStruct **data,waveStruct *waves)
+{
+  float **gaps=NULL;
+  float **voxelGap(control *,dataStruct **,waveStruct *);
+
+
+  /*gap fraction from voxelising data*/
+  gaps=voxelGap(dimage,data,waves);
+
+  /*create images*/
+
+
+  TTIDY((void **)gaps,dimage->nFiles);
+
+
+  /*convert images to waveform*/
+
+
+  return;
+}/*waveFromShadows*/
+
+
+/*################################################################################*/
+/*make a map of voxel gaps*/
+
+float **voxelGap(control *dimage,dataStruct **data,waveStruct *waves)
+{
+  int i=0,vInd=0;
+  int xBin=0,yBin=0,zBin=0;
+  uint32_t j=0;
+  float **gaps=NULL;
+  float grad[3];
+  double bounds[6];
+  voxStruct *vox=NULL;
+  voxStruct *tidyVox(voxStruct *);
+  voxStruct *voxAllocate(int,float *,double *,char);
+  void countVoxGap(double,double,double,float *,voxStruct *,int,int,float,int);
+
+
+  bounds[0]=dimage->minX;
+  bounds[1]=dimage->maxX;
+  bounds[2]=dimage->minY;
+  bounds[3]=dimage->maxY;
+  bounds[4]=waves->minZ;
+  bounds[5]=waves->maxZ;
+  grad[0]=grad[1]=0.0;
+  grad[2]=-1.0;
+
+
+fprintf(stdout,"Bounds %f %f %f %f %f %f\n", dimage->minX, dimage->maxX, dimage->minY, dimage->maxY, waves->minZ, waves->maxZ);
+
+  /*first make a voxel map*/
+  vox=voxAllocate(1,&(dimage->vRes[0]),&(bounds[0]),0);
+
+  for(i=0;i<dimage->nFiles;i++){ /*file loop*/
+    for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
+      countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(grad[0]),vox,1,1,dimage->beamRad,0);
+    }/*point loop*/
+  }/*file loop*/
+
+  /*allocate space*/
+  gaps=fFalloc(dimage->nFiles,"point gaps",0);
+
+  /*calculate gap fraction for each return*/
+  for(i=0;i<dimage->nFiles;i++){ /*file loop*/
+    gaps[i]=falloc(data[i]->nPoints,"point gaps",i+1);
+    for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
+      xBin=(int)((data[i]->x[j]-vox->bounds[0])/vox->res[0]+0.5);
+      yBin=(int)((data[i]->y[j]-vox->bounds[2])/vox->res[1]+0.5);
+      zBin=(int)((data[i]->z[j]-vox->bounds[4])/vox->res[2]+0.5);
+      vInd=xBin+vox->nX*yBin+vox->nX*vox->nY*zBin;
+
+      gaps[i][j]=vox->hits[0][vInd]/(vox->hits[0][vInd]+vox->miss[0][vInd]);
+    }/*point loop*/
+  }/*file loop*/
+
+  vox=tidyVox(vox);
+  return(gaps);
+}/*voxelGap*/
+
+
+/*################################################################################*/
+/*make waveform from point cloud*/
+
+void waveFromPointCloud(control *dimage,dataStruct **data,waveStruct *waves)
+{
+  int numb=0,bin=0,j=0;
+  int gX=0,gY=0,n=0;
+  uint32_t i=0;
+  double sep=0;
+  double dX=0,dY=0;
+  float refl=0,rScale=0,fracHit=0;
+  void gediFromWaveform(dataStruct *,uint32_t,float,waveStruct *,control *);
+  void processAggragate(control *,waveStruct *);
+  void waveFromPointCloud(control *,dataStruct **,waveStruct *);
+  denPar *setDeconForGEDI(control *);
 
   /*make waves*/
   for(n=0;n<dimage->nLobes;n++){
@@ -533,7 +670,7 @@ waveStruct *makeGediWaves(control *dimage,dataStruct **data)
                   waves->ground[2][bin]+=rScale*fracHit*dimage->pulse->y[j];
                 }else{
                   waves->canopy[0][bin]+=refl*dimage->pulse->y[j];
-                  waves->canopy[1][bin]+=rScale*dimage->pulse->y[j];     
+                  waves->canopy[1][bin]+=rScale*dimage->pulse->y[j];
                   waves->canopy[2][bin]+=rScale*fracHit*dimage->pulse->y[j];
                 }
               }/*ground recording if needed*/
@@ -551,33 +688,8 @@ waveStruct *makeGediWaves(control *dimage,dataStruct **data)
     }/*file loop*/
   }/*lobe loop*/
 
-  /*clean outliers if needed*/
-  if(dimage->cleanOut)cleanOutliers(waves,dimage);
-
-  /*deconvolve aggragated waveform*/
-  if(dimage->doDecon)processAggragate(dimage,waves);
-
-  /*normalise integral*/
-  for(k=0;k<waves->nWaves;k++){
-    tot=0.0;
-    for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->res;
-    if(tot>0.0){
-      for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
-      if(dimage->ground&&(k<3)){
-        for(j=0;j<waves->nBins;j++){
-          waves->canopy[k][j]/=tot;
-          waves->ground[k][j]/=tot;
-        }
-      }
-    }
-  }
-
-  if(dimage->decon){
-    TTIDY((void **)dimage->decon->pulse,2);
-    TIDY(dimage->decon);
-  }
-  return(waves);
-}/*makeGediWaves*/
+  return;
+}/*waveFromPointCloud*/
 
 
 /*####################################*/
@@ -1259,6 +1371,9 @@ control *readCommands(int argc,char **argv)
   dimage->topHat=0;
   dimage->useID=0;
   dimage->readPulse=0;
+  dimage->useShadow=0;
+  dimage->vRes[0]=dimage->vRes[1]=dimage->vRes[2]=1.0;
+  dimage->beamRad=0.165;    /*33 cm*/
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1332,8 +1447,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readPulse");
         dimage->readPulse=1;
         strcpy(dimage->pulseFile,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-useShadow",10)){
+        dimage->useShadow=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
