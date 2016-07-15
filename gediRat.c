@@ -100,28 +100,6 @@ typedef struct{
 
 
 /*####################################*/
-/*data structure*/
-
-typedef struct{
-  uint32_t nPoints;
-  double *x;
-  double *y;
-  double *z;
-  unsigned char *class;     /*point classification*/
-  int *refl;
-  char *nRet;               /*number of discrete returns per beam*/
-  unsigned char *packetDes; /*waveform or not*/
-  float **grad;             /*Poynting vector*/
-  float *time;              /*time in picoseconds of this wave*/
-  uint64_t *waveMap;        /*pointer to waveform in file*/
-  uint32_t *waveLen;        /*length of waveform in bins*/
-  uint64_t waveStart;       /*offset to waveform data*/
-  FILE *ipoo;               /*file pointer*/
-  char hasWave;             /*waveform included*/
-}dataStruct;
-
-
-/*####################################*/
 /*waveform structure*/
 
 typedef struct{
@@ -146,10 +124,11 @@ int main(int argc,char **argv)
   lasFile *las=NULL;
   lasFile *readLasHead(char *,uint64_t);
   lasFile *tidyLasFile(lasFile *);
-  dataStruct **data=NULL;
-  dataStruct *readALSdata(lasFile *,control *);
+  pCloudStruct **data=NULL;
+  pCloudStruct *readALSdata(lasFile *,control *);
+  pCloudStruct *tidyPointCloud(pCloudStruct *);
   waveStruct *waves=NULL;
-  waveStruct *makeGediWaves(control *,dataStruct **);
+  waveStruct *makeGediWaves(control *,pCloudStruct **);
   void writeGEDIwave(control *,waveStruct *);
   void setGediFootprint(control *);
   void setGediPulse(control *);
@@ -167,7 +146,7 @@ int main(int argc,char **argv)
   setGediFootprint(dimage);
 
   /*loop over las files*/
-  if(!(data=(dataStruct **)calloc(dimage->nFiles,sizeof(dataStruct *)))){
+  if(!(data=(pCloudStruct **)calloc(dimage->nFiles,sizeof(pCloudStruct *)))){
     fprintf(stderr,"error waveStruct allocation.\n");
     exit(1);
   }
@@ -194,27 +173,7 @@ int main(int argc,char **argv)
 
   /*tidy up*/
   if(data){
-    for(i=0;i<dimage->nFiles;i++){
-      if(data[i]){
-        TIDY(data[i]->x);
-        TIDY(data[i]->y);
-        TIDY(data[i]->z);
-        TIDY(data[i]->refl);
-        TIDY(data[i]->class);
-        TIDY(data[i]->nRet);
-        TIDY(data[i]->packetDes);
-        TTIDY((void **)data[i]->grad,3);
-        data[i]->grad=NULL;
-        TIDY(data[i]->time);
-        TIDY(data[i]->waveMap);
-        TIDY(data[i]->waveLen);
-        if(data[i]->ipoo){
-          fclose(data[i]->ipoo);
-          data[i]->ipoo=NULL;
-        }
-      }
-      TIDY(data[i]);
-    }
+    for(i=0;i<dimage->nFiles;i++)data[i]=tidyPointCloud(data[i]);
     TIDY(data);
   }
   if(waves){
@@ -257,7 +216,7 @@ void checkThisFile(lasFile *las,control *dimage,int i)
 /*####################################*/
 /*read lasFile and save relevant data*/
 
-dataStruct *readALSdata(lasFile *las,control *dimage)
+pCloudStruct *readALSdata(lasFile *las,control *dimage)
 {
   int j=0;
   int gX=0,gY=0;
@@ -265,7 +224,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
   uint32_t pUsed=0;    /*number of points used*/
   double x=0,y=0,z=0;
   double dX=0,dY=0,sepSq=0;
-  dataStruct *data=NULL;
+  pCloudStruct *data=NULL;
   void readLasPoint(lasFile *,uint32_t);
   void setCoords(double *,double *,double *,lasFile *);
   char checkFileBounds(lasFile *,double,double,double,double);
@@ -273,8 +232,8 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
   char hasWave=0;   /*has waveform data, to save RAM*/
 
   /*allocate maximum number of points*/
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error dataStruct allocation.\n");
+  if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
+    fprintf(stderr,"error pCloudStruct allocation.\n");
     exit(1);
   }
 
@@ -297,6 +256,8 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
       fprintf(stderr,"error in input filename structure.\n");
       exit(1);
     }
+    data->bounds[0]=data->bounds[1]=data->bounds[2]=10000000000.0;
+    data->bounds[3]=data->bounds[4]=data->bounds[5]=-10000000000.0;
 
     /*loop over points*/
     pUsed=0;
@@ -308,8 +269,9 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
       dX=dimage->coord[0]-x;
       dY=dimage->coord[1]-y;
       sepSq=dX*dX+dY*dY;
-
-      if((x>=dimage->minX)&&(x<=dimage->maxX)&&(y>=dimage->minY)&&(y<=dimage->maxY)&&(z>-10000.0)&&(z<10000.0)&&((sepSq<=dimage->lobe[0].maxSepSq)||(dimage->nLobes>1))){  /*the point is of use*/
+ 
+      /*is the point is of use?*/
+      if((x>=dimage->minX)&&(x<=dimage->maxX)&&(y>=dimage->minY)&&(y<=dimage->maxY)&&(z>-10000.0)&&(z<10000.0)&&((sepSq<=dimage->lobe[0].maxSepSq)||(dimage->nLobes>1))){ 
         data->x[pUsed]=x;
         data->y[pUsed]=y;
         data->z[pUsed]=z;
@@ -318,6 +280,15 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         data->class[pUsed]=las->classif;
         data->nRet[pUsed]=(char)las->field.nRet;
 
+        /*determine data bounds*/
+        if(x<data->bounds[0])data->bounds[0]=x;
+        if(y<data->bounds[1])data->bounds[1]=y;
+        if(z<data->bounds[2])data->bounds[2]=z;
+        if(x>data->bounds[3])data->bounds[3]=x;
+        if(y>data->bounds[4])data->bounds[4]=y;
+        if(z>data->bounds[5])data->bounds[5]=z;
+
+        /*record waveform if needed*/
         if(checkOneWave(las)){
           hasWave=1;
           data->packetDes[pUsed]=las->packetDes;
@@ -325,7 +296,13 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
           data->time[pUsed]=las->time;
           data->waveMap[pUsed]=las->waveMap;
           data->waveLen[pUsed]=las->waveLen;
-        }else data->packetDes[pUsed]=0;
+        }else{
+          data->packetDes[pUsed]=0;
+          data->grad[0][pUsed]=data->grad[1][pUsed]=0.0;
+          data->grad[2][pUsed]=-1.0;
+        }
+
+        /*count points here*/
         pUsed++;
       }
 
@@ -366,24 +343,27 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
+      if(dimage->useShadow){
+        for(i=0;i<3;i++){
+          if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
+            fprintf(stderr,"Balls\n");
+            exit(1);
+          }
+        }
+      }else if(hasWave==0)TTIDY((void **)data->grad,3);
     }else{
       TIDY(data->x);
       TIDY(data->y);
       TIDY(data->z);
       TIDY(data->refl);
       TIDY(data->class);
+      TTIDY((void **)data->grad,3);
     }
     if(hasWave==1){
       data->waveStart=las->waveStart;
       if(!(data->packetDes=(unsigned char *)realloc(data->packetDes,data->nPoints*sizeof(unsigned char)))){
         fprintf(stderr,"Balls\n");
         exit(1);
-      }
-      for(i=0;i<3;i++){
-        if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
-          fprintf(stderr,"Balls\n");
-          exit(1);
-        }
       }
       if(!(data->time=(float *)realloc(data->time,data->nPoints*sizeof(float)))){
         fprintf(stderr,"Balls\n");
@@ -397,9 +377,14 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
+      for(i=0;i<3;i++){
+        if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
+          fprintf(stderr,"Balls\n");
+          exit(1);
+        }
+      }
     }else{  /*clear out all the waveform bits*/
       TIDY(data->packetDes);
-      TTIDY((void **)data->grad,3);
       data->grad=NULL;
       TIDY(data->time);
       TIDY(data->waveMap);
@@ -476,18 +461,18 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
 /*####################################*/
 /*make GEDI waveforms*/
 
-waveStruct *makeGediWaves(control *dimage,dataStruct **data)
+waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 {
   int j=0,k=0;
   float tot=0;
   waveStruct *waves=NULL;
-  waveStruct *allocateGEDIwaves(control *,dataStruct **);
-  void gediFromWaveform(dataStruct *,uint32_t,float,waveStruct *,control *);
+  waveStruct *allocateGEDIwaves(control *,pCloudStruct **);
+  void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,control *);
   void processAggragate(control *,waveStruct *);
   void checkFootCovered(control *);
   void cleanOutliers(waveStruct *,control *);
-  void waveFromPointCloud(control *,dataStruct **,waveStruct *);
-  void waveFromShadows(control *,dataStruct **,waveStruct *);
+  void waveFromPointCloud(control *,pCloudStruct **,waveStruct *);
+  void waveFromShadows(control *,pCloudStruct **,waveStruct *);
   denPar *setDeconForGEDI(control *);
 
 
@@ -537,24 +522,42 @@ waveStruct *makeGediWaves(control *dimage,dataStruct **data)
 /*################################################################################*/
 /*make waveforms accounting for shadowing*/
 
-void waveFromShadows(control *dimage,dataStruct **data,waveStruct *waves)
+void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
 {
-  float **gaps=NULL;
-  float **voxelGap(control *,dataStruct **,waveStruct *);
+  float iRes=0,grad[3];
+  void voxelGap(control *,pCloudStruct **,waveStruct *);
+  void silhouetteImage(int,pCloudStruct **,rImageStruct *,lidVoxPar *);
+  rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
+  rImageStruct *allocateRangeImage(int,pCloudStruct **,float,float,float *,double,double,double);
+  lidVoxPar lidPar;
 
+
+  iRes=0.1;
+  grad[0]=grad[1]=0.0;
+  grad[2]=-1.0;
+
+  /*set lidar parameters for a downwards looking ALS*/
+  lidPar.minRefl=1.0;             /*minimum refletance value to scale between 0 and 1*/
+  lidPar.maxRefl=1.0;             /*maximum refletance value to scale between 0 and 1*/
+  lidPar.appRefl=-1.0;            /*scale between TLS reflectance and size*/
+  lidPar.beamTanDiv=0.0;          /*tan of beam divergence*/
+  lidPar.beamRad=dimage->beamRad; /*start radius*/
+  lidPar.minGap=0.00001;          /*minimum gap fraction correction to apply*/
 
   /*gap fraction from voxelising data*/
-  gaps=voxelGap(dimage,data,waves);
+  voxelGap(dimage,data,waves);
 
   /*create images*/
-
-
-  TTIDY((void **)gaps,dimage->nFiles);
-
+  rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes,iRes,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->minZ);
+  silhouetteImage(dimage->nFiles,data,rImage,&lidPar);
 
   /*convert images to waveform*/
 
 
+  if(rImage){
+    TTIDY((void **)rImage->image,rImage->nBins);
+    TIDY(rImage);
+  }
   return;
 }/*waveFromShadows*/
 
@@ -562,13 +565,11 @@ void waveFromShadows(control *dimage,dataStruct **data,waveStruct *waves)
 /*################################################################################*/
 /*make a map of voxel gaps*/
 
-float **voxelGap(control *dimage,dataStruct **data,waveStruct *waves)
+void voxelGap(control *dimage,pCloudStruct **data,waveStruct *waves)
 {
   int i=0,vInd=0;
   int xBin=0,yBin=0,zBin=0;
   uint32_t j=0;
-  float **gaps=NULL;
-  float grad[3];
   double bounds[6];
   voxStruct *vox=NULL;
   voxStruct *tidyVox(voxStruct *);
@@ -577,51 +578,45 @@ float **voxelGap(control *dimage,dataStruct **data,waveStruct *waves)
 
 
   bounds[0]=dimage->minX;
-  bounds[1]=dimage->maxX;
-  bounds[2]=dimage->minY;
-  bounds[3]=dimage->maxY;
-  bounds[4]=waves->minZ;
+  bounds[1]=dimage->minY;
+  bounds[2]=waves->minZ;
+  bounds[3]=dimage->maxX;
+  bounds[4]=dimage->maxY;
   bounds[5]=waves->maxZ;
-  grad[0]=grad[1]=0.0;
-  grad[2]=-1.0;
 
-
-fprintf(stdout,"Bounds %f %f %f %f %f %f\n", dimage->minX, dimage->maxX, dimage->minY, dimage->maxY, waves->minZ, waves->maxZ);
 
   /*first make a voxel map*/
   vox=voxAllocate(1,&(dimage->vRes[0]),&(bounds[0]),0);
 
   for(i=0;i<dimage->nFiles;i++){ /*file loop*/
     for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
-      countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(grad[0]),vox,1,1,dimage->beamRad,0);
+      countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(data[i]->grad[j][0]),vox,1,1,dimage->beamRad,0);
     }/*point loop*/
   }/*file loop*/
 
-  /*allocate space*/
-  gaps=fFalloc(dimage->nFiles,"point gaps",0);
-
   /*calculate gap fraction for each return*/
   for(i=0;i<dimage->nFiles;i++){ /*file loop*/
-    gaps[i]=falloc(data[i]->nPoints,"point gaps",i+1);
+    data[i]->gap=falloc(data[i]->nPoints,"point gaps",i+1);
     for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
       xBin=(int)((data[i]->x[j]-vox->bounds[0])/vox->res[0]+0.5);
-      yBin=(int)((data[i]->y[j]-vox->bounds[2])/vox->res[1]+0.5);
-      zBin=(int)((data[i]->z[j]-vox->bounds[4])/vox->res[2]+0.5);
+      yBin=(int)((data[i]->y[j]-vox->bounds[1])/vox->res[1]+0.5);
+      zBin=(int)((data[i]->z[j]-vox->bounds[2])/vox->res[2]+0.5);
       vInd=xBin+vox->nX*yBin+vox->nX*vox->nY*zBin;
 
-      gaps[i][j]=vox->hits[0][vInd]/(vox->hits[0][vInd]+vox->miss[0][vInd]);
+      if((vox->hits[0][vInd]+vox->miss[0][vInd])>0.0)data[i]->gap[j]=vox->hits[0][vInd]/(vox->hits[0][vInd]+vox->miss[0][vInd]);
+      else                                           data[i]->gap[j]=1.0;
     }/*point loop*/
   }/*file loop*/
 
   vox=tidyVox(vox);
-  return(gaps);
+  return;
 }/*voxelGap*/
 
 
 /*################################################################################*/
 /*make waveform from point cloud*/
 
-void waveFromPointCloud(control *dimage,dataStruct **data,waveStruct *waves)
+void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
 {
   int numb=0,bin=0,j=0;
   int gX=0,gY=0,n=0;
@@ -629,9 +624,9 @@ void waveFromPointCloud(control *dimage,dataStruct **data,waveStruct *waves)
   double sep=0;
   double dX=0,dY=0;
   float refl=0,rScale=0,fracHit=0;
-  void gediFromWaveform(dataStruct *,uint32_t,float,waveStruct *,control *);
+  void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,control *);
   void processAggragate(control *,waveStruct *);
-  void waveFromPointCloud(control *,dataStruct **,waveStruct *);
+  void waveFromPointCloud(control *,pCloudStruct **,waveStruct *);
   denPar *setDeconForGEDI(control *);
 
   /*make waves*/
@@ -824,7 +819,7 @@ void processAggragate(control *dimage,waveStruct *waves)
 /*####################################*/
 /*GEDI wave from ALS waveforms*/
 
-void gediFromWaveform(dataStruct *data,uint32_t i,float rScale,waveStruct *waves,control *dimage)
+void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *waves,control *dimage)
 {
   int j=0,bin=0;
   int buffBins=0;
@@ -924,7 +919,7 @@ denPar *setDeconForGEDI(control *dimage)
 /*####################################*/
 /*allocate wave structure*/
 
-waveStruct *allocateGEDIwaves(control *dimage,dataStruct **data)
+waveStruct *allocateGEDIwaves(control *dimage,pCloudStruct **data)
 {
   int j=0,numb=0,k=0;
   uint64_t i=0;
@@ -1273,18 +1268,18 @@ void readSimPulse(control *dimage)
 /*####################################*/
 /*read ASCII data*/
 
-dataStruct *readAsciiData(char *inNamen)
+pCloudStruct *readAsciiData(char *inNamen)
 {
   uint64_t i=0;
-  dataStruct *data=NULL;
+  pCloudStruct *data=NULL;
   char line[400],temp1[100],temp2[100];
   char temp3[100],temp4[100],temp5[100];
   char temp6[100],temp7[100],temp8[100];
   FILE *ipoo=NULL;
 
 
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error dataStruct allocation.\n");
+  if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
+    fprintf(stderr,"error pCloudStruct allocation.\n");
     exit(1);
   }
 
