@@ -1246,9 +1246,11 @@ void readSimPulse(control *dimage)
   }
 
   minSep=1000.0;
+  dimage->pSigma=0.0;
   for(i=0;i<dimage->pulse->nBins;i++){
     dimage->pulse->x[i]-=CofG;
     dimage->pulse->y[i]/=tot;
+    dimage->pSigma+=(dimage->pulse->x[i]*dimage->pulse->x[i])*dimage->pulse->y[i];
 
     if(fabs(dimage->pulse->x[i])<minSep){
       minSep=fabs(dimage->pulse->x[i]);
@@ -1256,6 +1258,8 @@ void readSimPulse(control *dimage)
     }
   }
 
+  /*pulse width*/
+  dimage->pSigma=sqrt(dimage->pSigma/tot);
 
   if(ipoo){
     fclose(ipoo);
