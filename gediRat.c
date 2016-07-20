@@ -53,6 +53,7 @@ typedef struct{
   char listFiles;      /*list waves only*/
   char checkCover;     /*check that the whole footprit is covered by data*/
   char cleanOut;       /*clean subterranean outliers*/
+  char normCover;      /*normalise for variable ALS coverage*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char waveID[200];    /*wave ID if we are to use it*/
   char useID;          /*use wave ID*/
@@ -306,14 +307,17 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         pUsed++;
       }
 
-      if(las->field.retNumb==las->field.nRet){  /*only once per beam*/
-        /*mark sampling desnity for normalisation*/
-        gX=(int)((x-dimage->g0[0])/(double)dimage->gridRes);
-        gY=(int)((y-dimage->g0[1])/(double)dimage->gridRes);
-        if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
-          dimage->nGrid[gY*dimage->gX+gX]++;
+      /*ground grid for ALS coverage*/
+      if(dimage->normCover||dimage->checkCover){
+        if(las->field.retNumb==las->field.nRet){  /*only once per beam*/
+          /*mark sampling desnity for normalisation*/
+          gX=(int)((x-dimage->g0[0])/(double)dimage->gridRes);
+          gY=(int)((y-dimage->g0[1])/(double)dimage->gridRes);
+          if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
+            dimage->nGrid[gY*dimage->gX+gX]++;
+          }
         }
-      }
+      }/*ground grid for ALS coverage*/
     }/*point loop*/
 
     /*trim data arrays*/
@@ -642,11 +646,14 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
 
         if(rScale>dimage->iThresh){  /*if bright enough to matter*/
           /*scale by sampling density*/
-          gX=(int)((data[numb]->x[i]-dimage->g0[0])/(double)dimage->gridRes);
-          gY=(int)((data[numb]->y[i]-dimage->g0[1])/(double)dimage->gridRes);
-          if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
-            if(dimage->nGrid[gY*dimage->gX+gX]>0)rScale/=(float)dimage->nGrid[gY*dimage->gX+gX];
-          }
+          if(dimage->normCover){
+            gX=(int)((data[numb]->x[i]-dimage->g0[0])/(double)dimage->gridRes);
+            gY=(int)((data[numb]->y[i]-dimage->g0[1])/(double)dimage->gridRes);
+            if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
+              if(dimage->nGrid[gY*dimage->gX+gX]>0)rScale/=(float)dimage->nGrid[gY*dimage->gX+gX];
+            }
+          }/*scale by sampling density*/
+
 
           /*discrete return*/
           refl=(float)data[numb]->refl[i]*rScale;
@@ -1086,13 +1093,15 @@ void setGediFootprint(control *dimage)
   }
 
   /*grid for normalising sampling*/
-  dimage->gridRes=1.5;
-  dimage->gX=(int)((float)(dimage->maxX-dimage->minX)/dimage->gridRes)+2;
-  dimage->gY=(int)((float)(dimage->maxY-dimage->minY)/dimage->gridRes)+2;
-  dimage->g0[0]=dimage->minX+(double)dimage->gridRes;
-  dimage->g0[1]=dimage->minY+(double)dimage->gridRes;
-  dimage->nGrid=ialloc(dimage->gX*dimage->gY,"nGrid",0);
-  for(i=dimage->gX*dimage->gY-1;i>=0;i--)dimage->nGrid[i]=0;
+  if(dimage->normCover||dimage->checkCover){
+    dimage->gridRes=1.5;
+    dimage->gX=(int)((float)(dimage->maxX-dimage->minX)/dimage->gridRes)+2;
+    dimage->gY=(int)((float)(dimage->maxY-dimage->minY)/dimage->gridRes)+2;
+    dimage->g0[0]=dimage->minX+(double)dimage->gridRes;
+    dimage->g0[1]=dimage->minY+(double)dimage->gridRes;
+    dimage->nGrid=ialloc(dimage->gX*dimage->gY,"nGrid",0);
+    for(i=dimage->gX*dimage->gY-1;i>=0;i--)dimage->nGrid[i]=0;
+  }
 
   return;
 }/*setGediFootprint*/
@@ -1366,6 +1375,7 @@ control *readCommands(int argc,char **argv)
   dimage->listFiles=0;
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->checkCover=0;
+  dimage->normCover=1;
   dimage->cleanOut=0;
   dimage->topHat=0;
   dimage->useID=0;
@@ -1434,6 +1444,8 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
         checkArguments(1,i,argc,"-pBuff");
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
+      }else if(!strncasecmp(argv[i],"-noNorm",7)){
+        dimage->normCover=0;
       }else if(!strncasecmp(argv[i],"-checkCover",11)){
         dimage->checkCover=1;
       }else if(!strncasecmp(argv[i],"-topHat",7)){
