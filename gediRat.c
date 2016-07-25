@@ -355,7 +355,10 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
           fprintf(stderr,"Balls\n");
           exit(1);
         }
-      }else if(hasWave==0)TTIDY((void **)data->grad,las->nPoints);
+      }else if(hasWave==0){
+        TTIDY((void **)data->grad,las->nPoints);
+        data->grad=NULL;
+      }
     }else{
       TIDY(data->x);
       TIDY(data->y);
@@ -363,6 +366,7 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       TIDY(data->refl);
       TIDY(data->class);
       TTIDY((void **)data->grad,las->nPoints);
+      data->grad=NULL;
     }
     if(hasWave==1){
       data->waveStart=las->waveStart;
@@ -389,7 +393,10 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       }
     }else{  /*clear out all the waveform bits*/
       TIDY(data->packetDes);
-      if(!dimage->useShadow)TTIDY((void **)data->grad,las->nPoints);
+      if(!dimage->useShadow){
+        TTIDY((void **)data->grad,las->nPoints);
+        data->grad=NULL;
+      }
       TIDY(data->time);
       TIDY(data->waveMap);
       TIDY(data->waveLen);
@@ -517,6 +524,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
   if(dimage->decon){
     TTIDY((void **)dimage->decon->pulse,2);
+    dimage->decon->pulse=NULL;
     TIDY(dimage->decon);
   }
   return(waves);
@@ -564,10 +572,12 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   waveFromImage(rImage->image,tempWave,rImage->nBins,rImage->nX,rImage->nY);
   for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%d %f %f\n",i,tempWave[0][i],tempWave[1][i]);
   TTIDY((void **)tempWave,2);
+  tempWave=NULL;
 
 
   if(rImage){
     TTIDY((void **)rImage->image,rImage->nBins);
+    rImage->image=NULL;
     TIDY(rImage);
   }
   return;
