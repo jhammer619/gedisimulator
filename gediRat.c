@@ -59,6 +59,7 @@ typedef struct{
   char useID;          /*use wave ID*/
   char readPulse;      /*read pulse to simulate with*/
   char useShadow;      /*account for shadowing through voxelisation*/
+  float maxScanAng;    /*maximum scan angle*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -246,8 +247,8 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
     data->class=uchalloc(las->nPoints,"class",0);
     data->nRet=challoc(las->nPoints,"nRet",0);
     data->packetDes=uchalloc(las->nPoints,"packetDes",0);
-    data->grad=fFalloc(3,"grad",0);
-    for(i=0;i<3;i++)data->grad[i]=falloc(las->nPoints,"grad",i+1);
+    data->grad=fFalloc(las->nPoints,"grad",0);
+    for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
     data->time=falloc(las->nPoints,"time",0);              /*time in picoseconds of this wave*/
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
       fprintf(stderr,"error in input filename structure.\n");
@@ -270,9 +271,11 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       dX=dimage->coord[0]-x;
       dY=dimage->coord[1]-y;
       sepSq=dX*dX+dY*dY;
+
  
       /*is the point is of use?*/
-      if((x>=dimage->minX)&&(x<=dimage->maxX)&&(y>=dimage->minY)&&(y<=dimage->maxY)&&(z>-10000.0)&&(z<10000.0)&&((sepSq<=dimage->lobe[0].maxSepSq)||(dimage->nLobes>1))){ 
+      if((x>=dimage->minX)&&(x<=dimage->maxX)&&(y>=dimage->minY)&&(y<=dimage->maxY)&&(z>-10000.0)&&(z<10000.0)&&\
+         ((sepSq<=dimage->lobe[0].maxSepSq)||(dimage->nLobes>1))&&(fabs((float)las->scanAng)<=dimage->maxScanAng)){ 
         data->x[pUsed]=x;
         data->y[pUsed]=y;
         data->z[pUsed]=z;
@@ -293,31 +296,30 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         if(checkOneWave(las)){
           hasWave=1;
           data->packetDes[pUsed]=las->packetDes;
-          for(j=0;j<3;j++)data->grad[j][pUsed]=las->grad[j];
+          for(j=0;j<3;j++)data->grad[pUsed][j]=las->grad[j];
           data->time[pUsed]=las->time;
           data->waveMap[pUsed]=las->waveMap;
           data->waveLen[pUsed]=las->waveLen;
         }else{
           data->packetDes[pUsed]=0;
-          data->grad[0][pUsed]=data->grad[1][pUsed]=0.0;
-          data->grad[2][pUsed]=-1.0;
+          data->grad[pUsed][0]=data->grad[pUsed][1]=data->grad[pUsed][2]=0.0;
         }
+
+        /*ground grid for ALS coverage*/
+        if(dimage->normCover||dimage->checkCover){
+          if(las->field.retNumb==las->field.nRet){  /*only once per beam*/
+            /*mark sampling desnity for normalisation*/
+            gX=(int)((x-dimage->g0[0])/(double)dimage->gridRes);
+            gY=(int)((y-dimage->g0[1])/(double)dimage->gridRes);
+            if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
+              dimage->nGrid[gY*dimage->gX+gX]++;
+            }
+          }
+        }/*ground grid for ALS coverage*/
 
         /*count points here*/
         pUsed++;
       }
-
-      /*ground grid for ALS coverage*/
-      if(dimage->normCover||dimage->checkCover){
-        if(las->field.retNumb==las->field.nRet){  /*only once per beam*/
-          /*mark sampling desnity for normalisation*/
-          gX=(int)((x-dimage->g0[0])/(double)dimage->gridRes);
-          gY=(int)((y-dimage->g0[1])/(double)dimage->gridRes);
-          if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
-            dimage->nGrid[gY*dimage->gX+gX]++;
-          }
-        }
-      }/*ground grid for ALS coverage*/
     }/*point loop*/
 
     /*trim data arrays*/
@@ -348,20 +350,19 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         exit(1);
       }
       if(dimage->useShadow){
-        for(i=0;i<3;i++){
-          if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
-            fprintf(stderr,"Balls\n");
-            exit(1);
-          }
+        for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
+        if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
+          fprintf(stderr,"Balls\n");
+          exit(1);
         }
-      }else if(hasWave==0)TTIDY((void **)data->grad,3);
+      }else if(hasWave==0)TTIDY((void **)data->grad,las->nPoints);
     }else{
       TIDY(data->x);
       TIDY(data->y);
       TIDY(data->z);
       TIDY(data->refl);
       TIDY(data->class);
-      TTIDY((void **)data->grad,3);
+      TTIDY((void **)data->grad,las->nPoints);
     }
     if(hasWave==1){
       data->waveStart=las->waveStart;
@@ -381,15 +382,14 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
-      for(i=0;i<3;i++){
-        if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
-          fprintf(stderr,"Balls\n");
-          exit(1);
-        }
+      for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
+      if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
       }
     }else{  /*clear out all the waveform bits*/
       TIDY(data->packetDes);
-      data->grad=NULL;
+      if(!dimage->useShadow)TTIDY((void **)data->grad,las->nPoints);
       TIDY(data->time);
       TIDY(data->waveMap);
       TIDY(data->waveLen);
@@ -528,9 +528,12 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
 void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
 {
+  int i=0;
+  float **tempWave=NULL;
   float iRes=0,grad[3];
   void voxelGap(control *,pCloudStruct **,waveStruct *);
   void silhouetteImage(int,pCloudStruct **,rImageStruct *,lidVoxPar *);
+  void waveFromImage(char **,float **,int,int,int);
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   rImageStruct *allocateRangeImage(int,pCloudStruct **,float,float,float *,double,double,double);
   lidVoxPar lidPar;
@@ -556,6 +559,11 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   silhouetteImage(dimage->nFiles,data,rImage,&lidPar);
 
   /*convert images to waveform*/
+  tempWave=fFalloc(2,"",0);
+  for(i=0;i<2;i++)tempWave[i]=falloc(rImage->nBins,"",i+1);
+  waveFromImage(rImage->image,tempWave,rImage->nBins,rImage->nX,rImage->nY);
+  for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%d %f %f\n",i,tempWave[0][i],tempWave[1][i]);
+  TTIDY((void **)tempWave,2);
 
 
   if(rImage){
@@ -1383,6 +1391,7 @@ control *readCommands(int argc,char **argv)
   dimage->useShadow=0;
   dimage->vRes[0]=dimage->vRes[1]=dimage->vRes[2]=1.0;
   dimage->beamRad=0.165;    /*33 cm*/
+  dimage->maxScanAng=1000000.0;   /*maximum scan angle*/
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1458,10 +1467,13 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readPulse");
         dimage->readPulse=1;
         strcpy(dimage->pulseFile,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-maxScanAng",11)){
+        checkArguments(1,i,argc,"-maxScanAng");
+        dimage->maxScanAng=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-useShadow",10)){
         dimage->useShadow=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
