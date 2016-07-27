@@ -547,14 +547,14 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   lidVoxPar lidPar;
 
 
-  iRes=0.1;
+  iRes=0.02;
   grad[0]=grad[1]=0.0;
   grad[2]=-1.0;
 
   /*set lidar parameters for a downwards looking ALS*/
   lidPar.minRefl=1.0;             /*minimum refletance value to scale between 0 and 1*/
   lidPar.maxRefl=1.0;             /*maximum refletance value to scale between 0 and 1*/
-  lidPar.appRefl=-1.0;            /*scale between TLS reflectance and size*/
+  lidPar.appRefl=1.0 ;            /*scale between TLS reflectance and size*/
   lidPar.beamTanDiv=0.0;          /*tan of beam divergence*/
   lidPar.beamRad=dimage->beamRad; /*start radius*/
   lidPar.minGap=0.00001;          /*minimum gap fraction correction to apply*/
@@ -563,14 +563,15 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   voxelGap(dimage,data,waves);
 
   /*create images*/
-  rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes,iRes,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->minZ);
+  //rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes*4.0,iRes,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ);
+  rImage=allocateRangeImage(dimage->nFiles,data,0.15,0.01,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ);
   silhouetteImage(dimage->nFiles,data,rImage,&lidPar);
 
   /*convert images to waveform*/
   tempWave=fFalloc(2,"",0);
   for(i=0;i<2;i++)tempWave[i]=falloc(rImage->nBins,"",i+1);
   waveFromImage(rImage->image,tempWave,rImage->nBins,rImage->nX,rImage->nY);
-  for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%d %f %f\n",i,tempWave[0][i],tempWave[1][i]);
+  for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
   TTIDY((void **)tempWave,2);
   tempWave=NULL;
 
@@ -1483,7 +1484,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-useShadow",10)){
         dimage->useShadow=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top jhat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
