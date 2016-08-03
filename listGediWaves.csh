@@ -1,5 +1,7 @@
 #!/bin/csh -f
 
+set inDir="."
+set list="teast.list"
 
 while ($#argv>0)
   switch("$argv[1]")
@@ -37,7 +39,7 @@ end
 
 
 pushd $inDir/
-ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep $wave sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
+ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep wave|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
 popd
 
 echo "Written to $list"
