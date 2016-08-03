@@ -37,6 +37,13 @@ while ($#argv>0)
   endsw
 end
 
+@ dirNeeded=`echo $list|gawk -F/ '{if(NF>1)print int(0);else print int(1)}'`
+
+if( $dirNeeded )then
+  set dir=`pwd`
+  set temp="$dir/$list"
+  set list="$temp"
+endif
 
 pushd $inDir/
 ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep wave|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
