@@ -53,7 +53,7 @@ if( $dirNeeded )then
 endif
 
 pushd $inDir/
-ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep $ending|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
+ls -l|gawk '{if($5>0)print $NF}'|grep $inRoot|grep $ending|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
 popd
 
 echo "Written to $list"
