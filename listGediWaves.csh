@@ -2,6 +2,7 @@
 
 set inDir="."
 set list="teast.list"
+set ending="wave"
 
 while ($#argv>0)
   switch("$argv[1]")
@@ -21,11 +22,17 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -ending
+    set ending="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inDir name;      input directory"
     echo "-inRoot name;     input filename root"
     echo "-output name;     output filename"
+    echo "-ending x;        filename ending"
     echo " "
     exit
 
@@ -46,7 +53,7 @@ if( $dirNeeded )then
 endif
 
 pushd $inDir/
-ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep wave|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
+ls|gawk '{for(i=1;i<=NF;i++)print $i}'|grep $inRoot|grep $ending|sed -e s%"*"%""%|gawk '{printf("%s/%s\n",dir,$1)}' dir="$inDir" > $list
 popd
 
 echo "Written to $list"
