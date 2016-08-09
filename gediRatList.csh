@@ -83,12 +83,12 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
-   case -topHat 
+  case -topHat 
      set topHat="-topHat"
   shift argv
   breaksw
 
-  set noNorm
+  case -noNorm
     set noNorm="-noNorm"
   shift argv
   breaksw
