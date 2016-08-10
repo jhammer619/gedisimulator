@@ -1379,7 +1379,7 @@ control *readCommands(int argc,char **argv)
   dimage->inList[0]=challoc(200,"inList",0);
   strcpy(&(dimage->inList[0][0]),"/Users/dill/data/teast/maryland_play/sc_79_112_1.las");
   strcpy(dimage->outNamen,"teast.wave");
-  dimage->pFWHM=12.0;   /*12 ns FWHM*/
+  dimage->pFWHM=15.0;   /*12 ns FWHM*/
   dimage->fWidth=5.5;  /*86% of energy within a diameter of 20-25m*/
   dimage->res=0.15;
   dimage->pRes=0.01;
