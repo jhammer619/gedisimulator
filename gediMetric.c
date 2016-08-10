@@ -126,6 +126,8 @@ typedef struct{
   double *z;        /*wave bin elevation*/
   double gElev;     /*mean ground elevation*/
   double tElev;     /*top elevation*/
+  double lon;       /*footprint centre longitude*/
+  double lat;       /*footprint centre latitude*/
   float gStdev;     /*measure of ground width*/
   float slope;      /*ground effective slope*/
   float cov;        /*ALS canopy cover*/
@@ -668,6 +670,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d gaussHalfCov, %d maxHalfCov, %d infHalfCov, %d bayHalfCov",14+4*metric->nRH+1+dimage->bayesGround,14+4*metric->nRH+1+dimage->bayesGround+1,14+4*metric->nRH+1+dimage->bayesGround+2,14+4*metric->nRH+1+dimage->bayesGround+3);
     fprintf(dimage->opooMet,", %d pSigma, %d fSigma",14+4*metric->nRH+1+dimage->bayesGround+4,14+4*metric->nRH+1+dimage->bayesGround+5);
     fprintf(dimage->opooMet,", %d linkM, %d linkCov",14+4*metric->nRH+1+dimage->bayesGround+6,14+4*metric->nRH+1+dimage->bayesGround+7);
+    fprintf(dimage->opooMet,", %d lon, %d lat",14+4*metric->nRH+1+dimage->bayesGround+8,14+4*metric->nRH+1+dimage->bayesGround+9);
     fprintf(dimage->opooMet,"\n");
   }
 
@@ -699,6 +702,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
   if(dimage->linkNoise)fprintf(dimage->opooMet," %f %f",dimage->linkM,dimage->linkCov);
   else                 fprintf(dimage->opooMet," ? ?");
+  fprintf(dimage->opooMet," %f %f",data->lon,data->lat);
   fprintf(dimage->opooMet,"\n");
 
 
@@ -1345,6 +1349,11 @@ dataStruct *readData(char *namen,control *dimage)
         if(!strncasecmp(temp2,"waveID",6)){
           data->useID=1;
           strcpy(&(data->waveID[0]),temp3);
+        }
+      }else if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
+        if(!strncasecmp(temp2,"coord",5)){
+          data->lon=atof(temp3);
+          data->lat=atof(temp4);
         }
       }
     }
