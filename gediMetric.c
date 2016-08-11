@@ -135,6 +135,7 @@ typedef struct{
   float fSigma;     /*footprint width*/
   char useID;       /*use waveID or not*/
   char waveID[200]; /*wave ID for labelling*/
+  char usable;      /*is the data usable*/
 }dataStruct;
 
 
@@ -183,34 +184,38 @@ int main(int argc,char **argv)
     /*read waveform*/
     data=readData(dimage->inList[i],dimage);
 
-    /*adjust link noise if needed*/
-    if(dimage->linkNoise&&((dimage->pSigma!=data->pSigma)||(dimage->fSigma!=data->fSigma))){
-      dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
-      dimage->pSigma=data->pSigma;
-      dimage->fSigma=data->fSigma;
-    }
+    /*is the data usable*/
+    if(data->usable){
+      /*adjust link noise if needed*/
+      if(dimage->linkNoise&&((dimage->pSigma!=data->pSigma)||(dimage->fSigma!=data->fSigma))){
+        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
+        dimage->pSigma=data->pSigma;
+        dimage->fSigma=data->fSigma;
+      }
 
-    /*determine truths before noising*/
-    determineTruth(data,dimage);
+      /*determine truths before noising*/
+      determineTruth(data,dimage);
 
-    /*add noise if needed*/
-    addNoise(data,dimage);
+      /*add noise if needed*/
+      addNoise(data,dimage);
 
-    /*process waveform*/
-    /*denoise*/
-    denoised=processFloWave(data->noised,data->nBins,dimage->den,1.0);
+      /*process waveform*/
+      /*denoise*/
+      denoised=processFloWave(data->noised,data->nBins,dimage->den,1.0);
 
-    /*Gaussian fit*/
-    processed=processFloWave(denoised,data->nBins,dimage->gFit,1.0);
+      /*Gaussian fit*/
+      processed=processFloWave(denoised,data->nBins,dimage->gFit,1.0);
 
-    /*shift Gaussian centres to align to absolute elevation*/
-    alignElevation(data->z[0],data->z[data->nBins-1],dimage->gFit->gPar,dimage->gFit->nGauss);
+      /*shift Gaussian centres to align to absolute elevation*/
+      alignElevation(data->z[0],data->z[data->nBins-1],dimage->gFit->gPar,dimage->gFit->nGauss);
 
-    /*determine metrics*/
-    findMetrics(metric,dimage->gFit->gPar,dimage->gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
+      /*determine metrics*/
+      findMetrics(metric,dimage->gFit->gPar,dimage->gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
 
-    /*write results*/
-    writeResults(data,dimage,metric,i,denoised,processed,dimage->inList[i]);
+      /*write results*/
+      writeResults(data,dimage,metric,i,denoised,processed,dimage->inList[i]);
+    }/*is the data usable*/
+
 
     /*tidy as we go along*/
     TIDY(processed);
@@ -1273,6 +1278,7 @@ dataStruct *readData(char *namen,control *dimage)
   }
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
+  data->usable=1;
 
   /*count number of wavebins*/
   data->nBins=0;
@@ -1360,6 +1366,7 @@ dataStruct *readData(char *namen,control *dimage)
   }/*line loop*/
 
   dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
+  if(dimage->den->res<TOL)data->usable=0;
   if(dimage->ground==0)data->cov=-1.0;
   if(data->fSigma<1.0)data->fSigma=dimage->fSigma;
   if(data->pSigma<1.0)data->pSigma=dimage->pSigma;
