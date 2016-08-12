@@ -423,8 +423,8 @@ void determineTruth(dataStruct *data,control *dimage)
     }
     if(totE>0.0){
       data->gStdev=sqrt(data->gStdev/totE);
-      if(data->gStdev>dimage->pSigma)data->slope=atan2(sqrt(data->gStdev*data->gStdev-dimage->pSigma*dimage->pSigma-dimage->gTol*dimage->gTol),dimage->fSigma)*180.0/M_PI;
-      else                           data->slope=0.0;
+      if(data->gStdev>(dimage->pSigma+dimage->gTol))data->slope=atan2(sqrt(data->gStdev*data->gStdev-dimage->pSigma*dimage->pSigma-dimage->gTol*dimage->gTol),dimage->fSigma)*180.0/M_PI;
+      else                                          data->slope=0.0;
     }else        data->gStdev=data->slope=-1000000.0;
   }else{/*ground finding*/
     data->gElev=data->gStdev=data->slope=-1000000.0;
