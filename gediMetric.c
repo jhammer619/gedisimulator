@@ -168,9 +168,8 @@ int main(int argc,char **argv)
 
   /*read deconvolution pulse if needed*/
   
-
-  /*set up link noise if needed*/
-  if(dimage->linkNoise)dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
+  /*set link noise if needed*/
+  dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -189,7 +188,7 @@ int main(int argc,char **argv)
     if(data->usable){
       /*adjust link noise if needed*/
       if(dimage->linkNoise&&((dimage->pSigma!=data->pSigma)||(dimage->fSigma!=data->fSigma))){
-        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
+        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,data->pSigma,data->fSigma);
         dimage->pSigma=data->pSigma;
         dimage->fSigma=data->fSigma;
       }
