@@ -74,6 +74,7 @@ typedef struct{
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
   float res;      /*range resolution*/
+  float gTol;     /*toleranve used to label ALS ground finding*/
 }control;
 
 
@@ -423,7 +424,7 @@ void determineTruth(dataStruct *data,control *dimage)
     }
     if(totE>0.0){
       data->gStdev=sqrt(data->gStdev/totE);
-      if(data->gStdev>dimage->pSigma)data->slope=atan2(sqrt(data->gStdev*data->gStdev-dimage->pSigma*dimage->pSigma),dimage->fSigma)*180.0/M_PI;
+      if(data->gStdev>dimage->pSigma)data->slope=atan2(sqrt(data->gStdev*data->gStdev-dimage->pSigma*dimage->pSigma-dimage->gTol*dimage->gTol),dimage->fSigma)*180.0/M_PI;
       else                           data->slope=0.0;
     }else        data->gStdev=data->slope=-1000000.0;
   }else{/*ground finding*/
@@ -1467,6 +1468,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=0.57/0.4;
   rhoG=0.4;
   rhoC=0.57;
+  dimage->gTol=0.0;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
@@ -1569,8 +1571,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-bitRate",8)){
         checkArguments(1,i,argc,"-bitRate");
         dimage->bitRate=(char)atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-gTol",5)){
+        checkArguments(1,i,argc,"-gTol");
+        dimage->gTol=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
