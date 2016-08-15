@@ -43,7 +43,7 @@ typedef struct{
   char writeFit;    /*write fitted wave switch*/
   char useInt;      /*use discrete intensity instead of count*/
   char useFrac;     /*use fraction of hits per beam for weighting*/
-  int rhRes;        /*rh resolution*/
+  float rhRes;      /*rh resolution*/
   char bayesGround; /*Bayseian ground finding*/
 
   /*denoising parameters*/
@@ -423,8 +423,11 @@ void determineTruth(dataStruct *data,control *dimage)
     }
     if(totE>0.0){
       data->gStdev=sqrt(data->gStdev/totE);
-      if(data->gStdev>(dimage->pSigma+dimage->gTol))data->slope=atan2(sqrt(data->gStdev*data->gStdev-dimage->pSigma*dimage->pSigma-dimage->gTol*dimage->gTol),dimage->fSigma)*180.0/M_PI;
-      else                                          data->slope=0.0;
+      if(data->gStdev>(dimage->pSigma+dimage->gTol)){
+        data->slope=atan2(sqrt(data->gStdev*data->gStdev-(dimage->pSigma+dimage->gTol)*(dimage->pSigma+dimage->gTol)),dimage->fSigma)*180.0/M_PI;
+      }else{
+        data->slope=0.0;
+      }
     }else        data->gStdev=data->slope=-1000000.0;
   }else{/*ground finding*/
     data->gElev=data->gStdev=data->slope=-1000000.0;
@@ -771,7 +774,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   double maxGround(float *,double *,int);
   double inflGround(float *,double *,int);
   double bayesGround(float *,int,control *,metStruct *,double *);
-  float *findRH(float *,double *,int,double,int,int *);
+  float *findRH(float *,double *,int,double,float,int *);
   float *smoothed=NULL;
   float *processFloWave(float *,int,denPar *,float );
   float halfCover(float *,double *,int,double,float);
@@ -1098,7 +1101,7 @@ void findSignalBounds(float *processed,double *z,int nBins,double *tElev,double 
 /*####################################################*/
 /*rh metrics*/
 
-float *findRH(float *processed,double *z,int nBins,double gHeight,int rhRes,int *nRH)
+float *findRH(float *processed,double *z,int nBins,double gHeight,float rhRes,int *nRH)
 {
   int i=0,j=0;
   float cumul=0;
@@ -1108,7 +1111,7 @@ float *findRH(float *processed,double *z,int nBins,double gHeight,int rhRes,int 
   /*total energy*/
   for(i=0;i<nBins;i++)totE+=processed[i];
 
-  *nRH=(int)(100.0/(float)rhRes)+1;
+  *nRH=(int)(100.0/rhRes)+1;
   rh=falloc(*nRH,"rh metrics",0);
   for(i=0;i<*nRH;i++)rh[i]=-1.0;
 
@@ -1425,7 +1428,7 @@ control *readCommands(int argc,char **argv)
   dimage->ground=0;
   dimage->useInt=0;
   dimage->useFrac=0;
-  dimage->rhRes=10;
+  dimage->rhRes=10.0;
   dimage->bayesGround=0;
   dimage->missGround=0;
   dimage->linkNoise=0;
