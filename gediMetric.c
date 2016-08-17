@@ -61,6 +61,8 @@ typedef struct{
   float linkM;     /*link margin*/
   float linkCov;   /*cover at which link margin is defined*/
   float linkSig;   /*link noise sigma*/
+  float linkFsig;  /*footprint sigma used for link margin*/
+  float linkPsig;  /*pulse sigma used for link margin*/
   float trueSig;   /*true noise sigma in DN*/
   float deSig;     /*detector sigma*/
   char bitRate;   /*digitiser bit rate*/
@@ -188,7 +190,7 @@ int main(int argc,char **argv)
     if(data->usable){
       /*adjust link noise if needed*/
       if(dimage->linkNoise&&((dimage->pSigma!=data->pSigma)||(dimage->fSigma!=data->fSigma))){
-        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,data->pSigma,data->fSigma);
+        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->linkPsig,dimage->linkFsig);
         dimage->pSigma=data->pSigma;
         dimage->fSigma=data->fSigma;
       }
@@ -710,7 +712,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
   if(dimage->linkNoise)fprintf(dimage->opooMet," %f %f",dimage->linkM,dimage->linkCov);
   else                 fprintf(dimage->opooMet," ? ?");
-  fprintf(dimage->opooMet," %f %f",data->lon,data->lat);
+  fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
   fprintf(dimage->opooMet,"\n");
 
 
@@ -726,6 +728,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original");
     for(i=0;i<dimage->gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+5,i+1);
     fprintf(opoo,"\n");
+    fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->res);
+    fprintf(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
     for(i=0;i<data->nBins;i++){
       fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[i]);
       for(j=0;j<dimage->gFit->nGauss;j++)fprintf(opoo," %f",dimage->gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gFit->gPar[3*j+2],dimage->gFit->gPar[3*j]));
@@ -1354,12 +1358,14 @@ dataStruct *readData(char *namen,control *dimage)
           data->fSigma=atof(temp3);
           data->pSigma=atof(temp5);
         }
-      }else if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+      }
+      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
         if(!strncasecmp(temp2,"waveID",6)){
           data->useID=1;
           strcpy(&(data->waveID[0]),temp3);
         }
-      }else if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
+      }
+      if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
         if(!strncasecmp(temp2,"coord",5)){
           data->lon=atof(temp3);
           data->lat=atof(temp4);
@@ -1371,8 +1377,8 @@ dataStruct *readData(char *namen,control *dimage)
   dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
   if(dimage->den->res<TOL)data->usable=0;
   if(dimage->ground==0)data->cov=-1.0;
-  if(data->fSigma<1.0)data->fSigma=dimage->fSigma;
-  if(data->pSigma<1.0)data->pSigma=dimage->pSigma;
+  if(data->fSigma<0.0)data->fSigma=dimage->fSigma;
+  if(data->pSigma<0.0)data->pSigma=dimage->pSigma;
 
   if(ipoo){
     fclose(ipoo);
@@ -1432,6 +1438,8 @@ control *readCommands(int argc,char **argv)
   dimage->bayesGround=0;
   dimage->missGround=0;
   dimage->linkNoise=0;
+  dimage->linkPsig=0.764331; /*pulse length*/
+  dimage->linkFsig=5.5;      /*footprint width*/
   dimage->trueSig=5.0;
   dimage->deSig=0.0; //0.1; //4.0*0.15/2.355;
   dimage->bitRate=12;
