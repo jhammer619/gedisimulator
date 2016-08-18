@@ -163,8 +163,6 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   lasFile **las=NULL;
-  lasFile *readLasHead(char *,uint64_t);
-  lasFile *tidyLasFile(lasFile *);
   dataStruct **data=NULL;
   dataStruct *readALSdata(lasFile *,control *);
   waveStruct *waves=NULL;
@@ -284,8 +282,6 @@ void setGediGrid(control *dimage,lasFile **las,int i,gridStruct *grid)
   uint32_t k=0;
   double x=0,y=0,z=0;
   double dx=0,dy=0;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);
 
 
   /*determine how many files overlap. Need to include a buffer*/
@@ -388,8 +384,6 @@ gridStruct *setUpGrid(lasFile **las,control *dimage)
 
 void checkThisFile(lasFile *las,control *dimage,int i)
 {
-  char checkFileBounds(lasFile *,double,double,double,double);
-
   if(checkFileBounds(las,dimage->minX,dimage->maxX,dimage->minY,dimage->maxY)){
     fprintf(stdout,"Need %s\n",dimage->inList[i]);
   }
@@ -410,10 +404,6 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
   double x=0,y=0,z=0;
   double dX=0,dY=0,sepSq=0;
   dataStruct *data=NULL;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);
-  char checkFileBounds(lasFile *,double,double,double,double);
-  char checkOneWave(lasFile *);
   char hasWave=0;   /*has waveform data, to save RAM*/
 
   /*allocate maximum number of points*/
@@ -829,7 +819,6 @@ void checkFootCovered(control *dimage)
 void processAggragate(control *dimage,waveStruct *waves)
 {
   int i=0;
-  float *processFloWave(float *,int,denPar *,float);
   float *processed=NULL,*smooPro=NULL;
   float *smooth(float,int,float *,float);
 
@@ -861,11 +850,8 @@ void gediFromWaveform(dataStruct *data,uint32_t i,float rScale,waveStruct *waves
   float grad[3],*smoothed=NULL,*floWave=NULL;
   float *processed=NULL,*smooPro=NULL;
   float *smooth(float,int,float *,float);
-  float *processWave(unsigned char *,int,denPar *,float);
   double x=0,y=0,z=0;
-  unsigned char *readLasWave(uint64_t,int32_t,FILE *,uint64_t);
   unsigned char *wave=NULL,*temp=NULL;
-  void binPosition(double *,double *,double *,int,double,double,double,float,float *);
 
   for(j=0;j<3;j++)grad[j]=data->grad[j][i];
   wave=readLasWave(data->waveMap[i],data->waveLen[i],data->ipoo,data->waveStart);
@@ -1276,7 +1262,6 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
-  char **readInList(int *,char *);
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");

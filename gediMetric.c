@@ -5,6 +5,7 @@
 #include "stdint.h"
 #include "tools.h"
 #include "tools.c"
+#include "libLasRead.h"
 #include "libLasProcess.h"
 
 
@@ -159,8 +160,6 @@ int main(int argc,char **argv)
   void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
   void addNoise(dataStruct *,control *);
   void determineTruth(dataStruct *,control *);
-  float *processFloWave(float *,int,denPar *,float);
-  float *processWave(unsigned char *,int,denPar *,float);
   float *processed=NULL,*denoised=NULL;;
   float setNoiseSigma(float,float,float,float);
 
@@ -780,7 +779,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   double bayesGround(float *,int,control *,metStruct *,double *);
   float *findRH(float *,double *,int,double,float,int *);
   float *smoothed=NULL;
-  float *processFloWave(float *,int,denPar *,float );
   float halfCover(float *,double *,int,double,float);
   void findSignalBounds(float *,double *,int,double *,double *,control *);
   void findWaveExtents(float *,double *,int,double,double,float *,float *);
@@ -906,7 +904,6 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   int i=0,start=0,end=0,dir=0;
   float contN=0,prob=0;
   float *processed=NULL;
-  float *processFloWave(float *,int,denPar *,float);
   float groundProb(float,float);
   double bayGround=0;
   denPar den;    /*denoising structure*/
@@ -1395,9 +1392,7 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
-  char **readInList(int *,char *);
   void setDenoiseDefault(denPar *);
-  char **readInList(int *,char *);
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){

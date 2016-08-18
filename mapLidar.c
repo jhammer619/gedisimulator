@@ -75,14 +75,11 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   lasFile **las=NULL;
-  lasFile *readLasHead(char *,uint64_t);
-  lasFile *tidyLasFile(lasFile *);
   imageStruct *image=NULL;
   imageStruct *allocateImage(control *,lasFile **);
   imageStruct *tidyImage(imageStruct *);
   void collateImage(control *,lasFile **,imageStruct *);
   void writeImage(control *,imageStruct *);
-  void readLasGeo(lasFile *);
   void writeFileBounds(lasFile *,char *,control *);
 
 
@@ -184,8 +181,6 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
   int nContP=0,nContF=0;
   uint32_t j=0;
   double x=0,y=0,z=0;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);
   float meanPoint=0,meanFoot=0;
 
   /*geolocation*/
@@ -275,9 +270,7 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
 {
   int i=0;
   /*uint32_t j=0;
-  double x=0,y=0,z=0;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);*/
+  double x=0,y=0,z=0;*/
   imageStruct *image=NULL;
 
   if(!(image=(imageStruct *)calloc(1,sizeof(imageStruct)))){

@@ -163,8 +163,6 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   lasFile **las=NULL;
-  lasFile *readLasHead(char *,uint64_t);
-  lasFile *tidyLasFile(lasFile *);
   gridStruct *grid=NULL;
   gridStruct *setUpGrid(lasFile **,control *);
   waveStruct *wave=NULL;
@@ -555,8 +553,6 @@ void readGediGrid(control *dimage,lasFile **las,int i,gridStruct *grid)
   double xOff=0,yOff=0;
   double sepSq=0;
   double xOrigin=0,yOrigin=0;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);
   void recordPoint(dataStruct *,double,double,double,lasFile *);
   char checkFootCovered(int,int,int *,float,float);
   char checkDone(gridStruct *,int,int,double,double);
@@ -1064,7 +1060,6 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
-  char **readInList(int *,char *);
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");

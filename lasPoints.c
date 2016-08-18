@@ -52,8 +52,6 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   lasFile *las=NULL;
-  lasFile *readLasHead(char *,uint64_t);
-  lasFile *tidyLasFile(lasFile *);
   void openOutput(control *);
   void readWritePoints(control *,lasFile *);
   void setArea(control *);
@@ -110,9 +108,6 @@ void readWritePoints(control *dimage,lasFile *las)
   uint32_t i=0;
   double x=0,y=0,z=0;
   double dX=0,dY=0,sepSq=0;
-  void readLasPoint(lasFile *,uint32_t);
-  void setCoords(double *,double *,double *,lasFile *);
-  char checkFileBounds(lasFile *,double,double,double,double);
   FILE *opoo=NULL;
 
   /*check file bounds*/
@@ -193,7 +188,6 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
-  char **readInList(int *,char *);
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");

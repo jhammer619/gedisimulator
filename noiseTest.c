@@ -560,7 +560,6 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
-  char **readInList(int *,char *);
 
 
   /*allocate structures*/
