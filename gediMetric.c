@@ -135,6 +135,9 @@ typedef struct{
   float gStdev;     /*measure of ground width*/
   float slope;      /*ground effective slope*/
   float cov;        /*ALS canopy cover*/
+  float gLap;       /*ground overlap with canopy*/
+  float gMinimum;   /*amplitude of minimum between ground and canopy*/
+  float gInfl;      /*amplitude of inflection point between ground and canopy*/
   float pSigma;     /*pulse length*/
   float fSigma;     /*footprint width*/
   char useID;       /*use waveID or not*/
@@ -405,6 +408,10 @@ void determineTruth(dataStruct *data,control *dimage)
   int i=0;
   float totE=0,cumul=0;
   float totC=0,totG=0;
+  float groundOverlap(float *,float *,int);
+  float groundMinAmp(float *,float *,int);
+  float groundInflection(float *,float *,int);
+
 
   /*determine ground*/
   if(dimage->ground){
@@ -460,8 +467,101 @@ void determineTruth(dataStruct *data,control *dimage)
     data->cov=-1.0;
   }
 
+
+  /*understorey metrics*/
+  data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
+  data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
+  data->gInfl=groundInflection(data->wave,data->ground,data->nBins);
+
   return;
 }/*determineTruth*/
+
+
+/*####################################################*/
+/*ground inflection point amplitude*/
+
+float groundInflection(float *wave,float *ground,int nBins)
+{
+  int i=0,maxInd=0;
+  float gInfl=0;
+  float *d2x=NULL,*d3x=NULL;
+
+  d2x=falloc(nBins,"d2x",0);
+  d3x=falloc(nBins,"d3x",0);
+
+
+  /*find end of groiund return*/
+  for(i=nBins-1;i>=0;i--){
+    if(ground[i]>0.0)maxInd=i;
+  }
+
+  /*determine derivatives*/
+  for(i=1;i<nBins-1;i++){
+    d2x[i]=2.0*wave[i]-(wave[i+1]+wave[i-1]);
+    if(i>2)d3x[i]=d2x[i]-d2x[i-1];
+  }
+
+
+  TIDY(d2x);
+  TIDY(d3x);
+  return(gInfl);
+}/*groundInflection*/
+
+
+/*####################################################*/
+/*amplitude of minimum between ground and canopy*/
+
+float groundMinAmp(float *wave,float *ground,int nBins)
+{
+  int i=0,maxInd=0;
+  float gMinimum=0;
+  float max=0,min=0;
+
+  /*determine max*/
+  max=-1000.0;
+  for(i=nBins-1;i>=0;i--){
+    if(ground[i]>0.0){
+      if(wave[i]>max){
+        max=wave[i];
+        maxInd=i;
+      }
+    }
+  }
+
+  /*find minimum after max*/
+  min=max;
+  for(i=maxInd;i>=0;i--){
+    if(ground[i]>0.0){
+      if(wave[i]<min){
+        min=wave[i];
+      }
+    }
+  }
+
+  gMinimum=max-min;
+  return(gMinimum);
+}/*groundMinAmp*/
+
+
+/*####################################################*/
+/*determine ground canopy overlap*/
+
+float groundOverlap(float *wave,float *ground,int nBins)
+{
+  int i=0;
+  float canopy=0;
+  float gLap=0,gTot=0;
+
+  gLap=gTot=0.0;
+  for(i=0;i<nBins;i++){
+    canopy=wave[i]-ground[i];
+    gLap+=(canopy>ground[i])?ground[i]:canopy;
+    gTot+=ground[i];
+  }
+
+  if(gTot>0.0)gLap/=gTot;
+  return(gLap);
+}/*groundOverlap*/
 
 
 /*####################################################*/
@@ -680,6 +780,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d pSigma, %d fSigma",14+4*metric->nRH+1+dimage->bayesGround+4,14+4*metric->nRH+1+dimage->bayesGround+5);
     fprintf(dimage->opooMet,", %d linkM, %d linkCov",14+4*metric->nRH+1+dimage->bayesGround+6,14+4*metric->nRH+1+dimage->bayesGround+7);
     fprintf(dimage->opooMet,", %d lon, %d lat",14+4*metric->nRH+1+dimage->bayesGround+8,14+4*metric->nRH+1+dimage->bayesGround+9);
+    fprintf(dimage->opooMet,", %d groundOverlap, %d groundMin, %d groundInfl",14+4*metric->nRH+1+dimage->bayesGround+10,\
+                             14+4*metric->nRH+1+dimage->bayesGround+11,14+4*metric->nRH+1+dimage->bayesGround+12);
     fprintf(dimage->opooMet,"\n");
   }
 
@@ -712,8 +814,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   if(dimage->linkNoise)fprintf(dimage->opooMet," %f %f",dimage->linkM,dimage->linkCov);
   else                 fprintf(dimage->opooMet," ? ?");
   fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
+  fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
   fprintf(dimage->opooMet,"\n");
-
 
   /*fitted wave if required*/
   if(dimage->writeFit){
@@ -1373,7 +1475,12 @@ dataStruct *readData(char *namen,control *dimage)
 
   dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
   if(dimage->den->res<TOL)data->usable=0;
-  if(dimage->ground==0)data->cov=-1.0;
+  if(dimage->ground==0){   /*set to blank*/
+    data->cov=-1.0;
+    data->gLap=-1.0;
+    data->gMinimum=-1.0;
+    data->gInfl=-1.0;
+  }
   if(data->fSigma<0.0)data->fSigma=dimage->fSigma;
   if(data->pSigma<0.0)data->pSigma=dimage->pSigma;
 
