@@ -46,6 +46,7 @@ typedef struct{
   char useFrac;     /*use fraction of hits per beam for weighting*/
   float rhRes;      /*rh resolution*/
   char bayesGround; /*Bayseian ground finding*/
+  char noRHgauss;   /*do not do Gaussian fitting*/
 
   /*denoising parameters*/
   denPar *den;   /*for denoising*/
@@ -208,7 +209,7 @@ int main(int argc,char **argv)
       denoised=processFloWave(data->noised,data->nBins,dimage->den,1.0);
 
       /*Gaussian fit*/
-      processed=processFloWave(denoised,data->nBins,dimage->gFit,1.0);
+      if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gFit,1.0);
 
       /*shift Gaussian centres to align to absolute elevation*/
       alignElevation(data->z[0],data->z[data->nBins-1],dimage->gFit->gPar,dimage->gFit->nGauss);
@@ -412,7 +413,6 @@ void determineTruth(dataStruct *data,control *dimage)
   float groundMinAmp(float *,float *,int);
   float groundInflection(float *,float *,int);
 
-
   /*determine ground*/
   if(dimage->ground){
     totE=0.0;
@@ -441,7 +441,6 @@ void determineTruth(dataStruct *data,control *dimage)
     data->gElev=data->gStdev=data->slope=-1000000.0;
   }/*no ground finding*/
 
-
   /*canopy top*/
   totE=0.0;
   for(i=0;i<data->nBins;i++)totE+=data->wave[i];
@@ -467,7 +466,6 @@ void determineTruth(dataStruct *data,control *dimage)
     data->cov=-1.0;
   }
 
-
   /*understorey metrics*/
   data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
   data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
@@ -483,16 +481,20 @@ void determineTruth(dataStruct *data,control *dimage)
 float groundInflection(float *wave,float *ground,int nBins)
 {
   int i=0,maxInd=0;
-  float gInfl=0;
+  float gInfl=0,maxG=0;
   float *d2x=NULL,*d3x=NULL;
 
   d2x=falloc(nBins,"d2x",0);
   d3x=falloc(nBins,"d3x",0);
 
 
-  /*find end of groiund return*/
+  /*find maximum of ground return*/
+  maxG=0.0;
   for(i=nBins-1;i>=0;i--){
-    if(ground[i]>0.0)maxInd=i;
+    if(ground[i]>maxG){
+      maxG=ground[i];
+      maxInd=i;
+    }
   }
 
   /*determine derivatives*/
@@ -501,6 +503,14 @@ float groundInflection(float *wave,float *ground,int nBins)
     if(i>2)d3x[i]=d2x[i]-d2x[i-1];
   }
 
+  /*find first d2x crossing point after max ground*/
+  gInfl=-1.0;
+  for(i=maxInd;i<nBins-1;i++){
+    if(((d2x[i]<0.0)&&(d2x[i-1]>=0.0))||((d2x[i]>0.0)&&(d2x[i-1]<=0.0))){
+      gInfl=d3x[i];
+      break;
+    }
+  }
 
   TIDY(d2x);
   TIDY(d3x);
@@ -880,6 +890,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   double inflGround(float *,double *,int);
   double bayesGround(float *,int,control *,metStruct *,double *);
   float *findRH(float *,double *,int,double,float,int *);
+  float *blankRH(float,int *);
   float *smoothed=NULL;
   float halfCover(float *,double *,int,double,float);
   void findSignalBounds(float *,double *,int,double *,double *,control *);
@@ -916,7 +927,8 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   smoothed=processFloWave(processed,nBins,&den,1.0);
 
   /*ground by Gaussian fit*/
-  metric->gHeight=gaussianGround(energy,mu,&gInd,nGauss,tot);
+  if(dimage->noRHgauss==0)metric->gHeight=gaussianGround(energy,mu,&gInd,nGauss,tot);
+  else                    metric->gHeight=-1.0;
 
   /*canopy cover*/
   metric->cov=gaussCover(processed,nBins,mu,energy,nGauss,gInd);
@@ -928,7 +940,8 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   metric->inflGround=inflGround(smoothed,z,nBins);
 
   /*rh metrics with Gaussian ground*/
-  metric->rh=findRH(processed,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
+  if(dimage->noRHgauss==0)metric->rh=findRH(processed,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
+  else                    metric->rh=blankRH(dimage->rhRes,&metric->nRH);
 
   /*rh metrics with maximum ground*/
   metric->rhMax=findRH(processed,z,nBins,metric->maxGround,dimage->rhRes,&metric->nRH);
@@ -1199,6 +1212,22 @@ void findSignalBounds(float *processed,double *z,int nBins,double *tElev,double 
 
   return;
 }/*findSignalBounds*/
+
+
+/*####################################################*/
+/*blank RH metric array*/
+
+float *blankRH(float rhRes,int *nRH)
+{
+  int i=0;
+  float *rh=NULL;
+
+  *nRH=(int)(100.0/rhRes)+1;
+  rh=falloc(*nRH,"rh metrics",0);
+  for(i=0;i<*nRH;i++)rh[i]=-1.0;
+
+  return(rh);
+}/*blankRH*/
 
 
 /*####################################################*/
@@ -1547,6 +1576,7 @@ control *readCommands(int argc,char **argv)
   dimage->bitRate=12;
   dimage->maxDN=4096.0; //1.0/(dimage->pSigma*sqrt(2.0*M_PI));
   dimage->minGap=0.0;
+  dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->den);
@@ -1686,8 +1716,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-gTol",5)){
         checkArguments(1,i,argc,"-gTol");
         dimage->gTol=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-noRHgauss",10)){
+        dimage->noRHgauss=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
