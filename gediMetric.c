@@ -482,11 +482,9 @@ float groundInflection(float *wave,float *ground,int nBins)
 {
   int i=0,maxInd=0;
   float gInfl=0,maxG=0;
-  float *d2x=NULL,*d3x=NULL;
+  float *d2x=NULL;
 
   d2x=falloc(nBins,"d2x",0);
-  d3x=falloc(nBins,"d3x",0);
-
 
   /*find maximum of ground return*/
   maxG=0.0;
@@ -500,20 +498,18 @@ float groundInflection(float *wave,float *ground,int nBins)
   /*determine derivatives*/
   for(i=1;i<nBins-1;i++){
     d2x[i]=2.0*wave[i]-(wave[i+1]+wave[i-1]);
-    if(i>2)d3x[i]=d2x[i]-d2x[i-1];
   }
 
   /*find first d2x crossing point after max ground*/
   gInfl=-1.0;
   for(i=maxInd;i<nBins-1;i++){
     if(((d2x[i]<0.0)&&(d2x[i-1]>=0.0))||((d2x[i]>0.0)&&(d2x[i-1]<=0.0))){
-      gInfl=d3x[i];
+      gInfl=d2x[i]-d2x[i-1];
       break;
     }
   }
 
   TIDY(d2x);
-  TIDY(d3x);
   return(gInfl);
 }/*groundInflection*/
 
