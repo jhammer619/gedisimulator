@@ -467,9 +467,11 @@ void determineTruth(dataStruct *data,control *dimage)
   }
 
   /*understorey metrics*/
-  data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
-  data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
-  data->gInfl=groundInflection(data->wave,data->ground,data->nBins);
+  if(dimage->ground){
+    data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
+    data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
+    data->gInfl=groundInflection(data->wave,data->ground,data->nBins);
+  }
 
   return;
 }/*determineTruth*/
