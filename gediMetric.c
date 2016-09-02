@@ -113,6 +113,8 @@ typedef struct{
   float covHalfI;   /*cover from Bryan's half, Inflection*/
   float covHalfM;   /*cover from Bryan's half, maximum*/
   float covHalfB;   /*cover from Bryan's half, Bayesian*/
+  float totE;       /*total energy after denoising*/
+  float blairSense; /*Blair sensitivity metric*/
 
   int nBgr;         /*number of ground estimates*/
   bGround *bGr;     /*Bayesian ground structure*/
@@ -790,6 +792,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d lon, %d lat",14+4*metric->nRH+1+dimage->bayesGround+8,14+4*metric->nRH+1+dimage->bayesGround+9);
     fprintf(dimage->opooMet,", %d groundOverlap, %d groundMin, %d groundInfl",14+4*metric->nRH+1+dimage->bayesGround+10,\
                              14+4*metric->nRH+1+dimage->bayesGround+11,14+4*metric->nRH+1+dimage->bayesGround+12);
+    fprintf(dimage->opooMet,", %d waveEnergy, %d blairSense,",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
     fprintf(dimage->opooMet,"\n");
   }
 
@@ -823,6 +826,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   else                 fprintf(dimage->opooMet," ? ?");
   fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
   fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
+  fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
   fprintf(dimage->opooMet,"\n");
 
   /*fitted wave if required*/
@@ -891,6 +895,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   float *blankRH(float,int *);
   float *smoothed=NULL;
   float halfCover(float *,double *,int,double,float);
+  float findBlairSense(metStruct *,dataStruct *,control *);
   void findSignalBounds(float *,double *,int,double *,double *,control *);
   void findWaveExtents(float *,double *,int,double,double,float *,float *);
   void setDenoiseDefault(denPar *);
@@ -914,6 +919,13 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   }
   /*normalise energy*/
   for(i=0;i<nGauss;i++)energy[i]/=tot;
+
+  /*waveform energy*/
+  metric->totE=0.0;
+  for(i=0;i<nBins;i++)metric->totE+=processed[i]*dimage->res;
+
+  /*BLair sensitivity*/
+  metric->blairSense=findBlairSense(metric,data,dimage);
 
   /*smooth waveform for fonding ground by max and inflection*/
   setDenoiseDefault(&den);
@@ -982,6 +994,45 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   TIDY(smoothed);
   return;
 }/*findMetrics*/
+
+
+/*####################################################*/
+/*determine Blair sensitivity metric*/
+
+float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
+{
+  float gAmp=0;
+  float sigEff=0,gArea=0;
+  float slope=0,tanSlope=0;
+  float blairSense=0;
+  float meanN=0,stdev=0;
+  float notNeeded=0;
+  float nNsig=0,nSsig=0;
+  float probNoise=0,probMiss=0;
+  void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
+  void gaussThresholds(float,float,float,float,float *,float *);
+
+  /*determine noise stats for sensitivity metric*/
+  meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->den->statsLen/dimage->res));
+  stdev-=meanN;
+
+  if(stdev>0.0){
+    probNoise=0.05;
+    probMiss=0.1;
+    gaussThresholds(1.0,XRES,probNoise,probMiss,&nNsig,&nSsig);
+
+    slope=2.0*M_PI/180.0;
+    tanSlope=sin(slope)/cos(slope);
+    gAmp=(nNsig+nSsig)*stdev;
+    sigEff=sqrt(dimage->linkPsig*dimage->linkPsig+dimage->linkFsig*dimage->linkFsig*tanSlope*tanSlope);
+    gArea=gAmp*sigEff*sqrt(2.0*M_PI)/metric->totE;
+
+    if(gArea>0.0)blairSense=1.0-gArea;
+    else         blairSense=0.0;
+  }else blairSense=1.0;
+
+  return(blairSense);
+}/*findBlairSense*/
 
 
 /*####################################################*/
@@ -1500,7 +1551,7 @@ dataStruct *readData(char *namen,control *dimage)
     }
   }/*line loop*/
 
-  dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
+  dimage->res=dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
   if(dimage->den->res<TOL)data->usable=0;
   if(dimage->ground==0){   /*set to blank*/
     data->cov=-1.0;
