@@ -1706,7 +1706,7 @@ control *readCommands(int argc,char **argv)
         dimage->writeFit=1;
       }else if(!strncasecmp(argv[i],"-dcBias",7)){
         checkArguments(1,i,argc,"-dcBias");
-        dimage->meanN=atof(argv[++i]);
+        dimage->meanN=dimage->offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-hNoise",7)){
         checkArguments(1,i,argc,"-hNoise");
         dimage->hNoise=atof(argv[++i]);
