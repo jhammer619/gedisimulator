@@ -89,11 +89,16 @@ typedef struct{
   denPar *decon;   /*denoising parameters*/
 
   /*grid to normalise sampling density*/
-  int *nGrid;
+  int *nGrid;    /*beam per grid cell*/
   int gX;
   int gY;
   float gridRes;
   double g0[2];  /*grid origin*/
+
+  /*point and beam density*/
+  float denseRadSq; /*radius to calculate density within*/
+  float pointDense; /*point density within 2 sigma*/
+  float beamDense;  /*beam density within 2 sigma*/
 
   /*for voxel shadows*/
   float vRes[3];   /*resolution along each axis*/
@@ -308,6 +313,12 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
           }
         }/*ground grid for ALS coverage*/
 
+        /*point and beam density*/
+        if(sepSq<=dimage->denseRadSq){
+          dimage->pointDense+=1.0;
+          if(las->field.retNumb==las->field.nRet)dimage->beamDense+=1.0;
+        }
+
         /*count points here*/
         pUsed++;
       }
@@ -437,6 +448,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   else                 fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
   fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->fSigma,dimage->pSigma,dimage->res,dimage->sideLobe);
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->coord[0],dimage->coord[1]);
+  fprintf(opoo,"# density point %f beam %f\n",dimage->pointDense,dimage->beamDense);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
 
   /*write data*/
@@ -475,6 +487,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
   void cleanOutliers(waveStruct *,control *);
   void waveFromPointCloud(control *,pCloudStruct **,waveStruct *);
   void waveFromShadows(control *,pCloudStruct **,waveStruct *);
+  void pointAndBeamDensity(control *);
   denPar *setDeconForGEDI(control *);
 
 
@@ -486,7 +499,6 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
   /*set up denoising if using*/
   if(dimage->doDecon)dimage->decon=setDeconForGEDI(dimage);
-
 
   /*make waves*/
   if(dimage->useShadow==0)waveFromPointCloud(dimage,data,waves);
@@ -513,6 +525,10 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
     }
   }
 
+  /*normalise point and beam density*/
+  pointAndBeamDensity(dimage);
+
+  /*tidy arrays*/
   if(dimage->decon){
     TTIDY((void **)dimage->decon->pulse,2);
     dimage->decon->pulse=NULL;
@@ -520,6 +536,21 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
   }
   return(waves);
 }/*makeGediWaves*/
+
+
+/*################################################################################*/
+/*calculate point and beam density*/
+
+void pointAndBeamDensity(control *dimage)
+{
+  float area=0.0;
+
+  area=M_PI*dimage->denseRadSq;
+  dimage->pointDense/=area;
+  dimage->beamDense/=area;
+
+  return;
+}/*pointAndBeamDensity*/
 
 
 /*################################################################################*/
@@ -1108,6 +1139,10 @@ void setGediFootprint(control *dimage)
     dimage->nGrid=ialloc(dimage->gX*dimage->gY,"nGrid",0);
     for(i=dimage->gX*dimage->gY-1;i>=0;i--)dimage->nGrid[i]=0;
   }
+
+  /*radius to calculate density within*/
+  dimage->denseRadSq=dimage->fSigma*dimage->fSigma*4.0;
+  dimage->pointDense=dimage->beamDense=0.0;
 
   return;
 }/*setGediFootprint*/
