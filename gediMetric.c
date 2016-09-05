@@ -79,6 +79,7 @@ typedef struct{
   float rhoRatio; /*ration of canopy to ground reflectance*/
   float res;      /*range resolution*/
   float gTol;     /*toleranve used to label ALS ground finding*/
+  int nMessages;  /*number of progress messages*/
 }control;
 
 
@@ -135,6 +136,7 @@ typedef struct{
   double tElev;     /*top elevation*/
   double lon;       /*footprint centre longitude*/
   double lat;       /*footprint centre latitude*/
+  float totE;       /*total waveform energy (not integral)*/
   float gStdev;     /*measure of ground width*/
   float slope;      /*ground effective slope*/
   float cov;        /*ALS canopy cover*/
@@ -186,7 +188,7 @@ int main(int argc,char **argv)
 
   /*loop over files*/
   for(i=0;i<dimage->nFiles;i++){
-    fprintf(stdout,"Wave %d of %d\n",i+1,dimage->nFiles);
+    if((i%dimage->nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->nFiles);
 
     /*read waveform*/
     data=readData(dimage->inList[i],dimage);
@@ -1551,8 +1553,14 @@ dataStruct *readData(char *namen,control *dimage)
     }
   }/*line loop*/
 
+  /*add up energy*/
+  data->totE=0.0;
+  for(i=0;i<data->nBins;i++)data->totE+=data->wave[i];
+
+
   dimage->res=dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
   if(dimage->den->res<TOL)data->usable=0;
+  if(data->totE<=0.0)data->usable=0;
   if(dimage->ground==0){   /*set to blank*/
     data->cov=-1.0;
     data->gLap=-1.0;
@@ -1566,6 +1574,11 @@ dataStruct *readData(char *namen,control *dimage)
     fclose(ipoo);
     ipoo=NULL;
   }
+
+  /*set up number of messages*/
+  if(dimage->nFiles>dimage->nMessages)dimage->nMessages=(int)(dimage->nFiles/dimage->nMessages);
+  else                                dimage->nMessages=1;
+
   return(data);
 }/*readData*/
 
@@ -1660,6 +1673,7 @@ control *readCommands(int argc,char **argv)
   rhoG=0.4;
   rhoC=0.57;
   dimage->gTol=0.0;
+  dimage->nMessages=200;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
