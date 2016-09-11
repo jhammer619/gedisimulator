@@ -1,3 +1,6 @@
+BEGIN{
+  first=1;
+}
 
 ($0){
   if($1=="#"){
@@ -9,7 +12,9 @@
           break;
         }
       }
-      if(notNumb==1)printf(" %s",$i);
+      if(notNumb==1){
+        printf(" %s",$i);
+      }
     }
     printf("\n");
   }

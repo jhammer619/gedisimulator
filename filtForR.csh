@@ -1,6 +1,7 @@
 #!/bin/csh -f
 
 set bin="$HOME/src/gediRat"
+@ noName=1
 
 while ($#argv>0)
   switch("$argv[1]")
@@ -12,6 +13,7 @@ while ($#argv>0)
 
   case -output
     set output="$argv[2]"
+    @ noName=0
   shift argv;shift argv
   breaksw
 
@@ -31,7 +33,11 @@ while ($#argv>0)
   endsw
 end
 
-gawk -f $bin/filtHeadForR.awk < $input |sed -e s%,%_%g -e s%" "%""%g|sed -e s%_%" "%g > $output
-gawk '{if($1!="#")print $0}' < $input >> $output
+if( $noName )then
+  set output="$input:r.csv"
+endif
+
+gawk -f $bin/filtHeadForR.awk < $input |sed -e s%,%_%g -e s%" "%""%g|sed -e s%_%","%g > $output
+gawk -f $bin/filtDataForR.awk < $input >> $output
 echo "Written to $output"
 
