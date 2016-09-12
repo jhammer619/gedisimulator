@@ -9,7 +9,7 @@ while( $i <= $nFiles )
   set file=`gawk -v i=$i '{if(i==NR)print $1}'` < $list
   set filt="$file:r.filt"
 
-  gawk '{if(($2>0)&&($2<2000)&&($6>0)&&($6<2000))print $0}' < $file > $filt
+  gawk '{if(($2>0)&&($2<10000)&&($6>0)&&($6<10000))print $0}' < $file > $filt
   echo "Written to $filt"
 
   @ i++
