@@ -1708,7 +1708,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=0.57/0.4;
   rhoG=0.4;
   rhoC=0.57;
-  dimage->gTol=0.0;
+  dimage->gTol=0.6;
   dimage->nMessages=200;
 
   /*read the command line*/
