@@ -463,8 +463,8 @@ void determineTruth(dataStruct *data,control *dimage)
     }
     if(totE>0.0){
       data->gStdev=sqrt(data->gStdev/totE);
-      if(data->gStdev>(dimage->pSigma+dimage->gTol)){
-        data->slope=atan2(sqrt(data->gStdev*data->gStdev-(dimage->pSigma+dimage->gTol)*(dimage->pSigma+dimage->gTol)),dimage->fSigma)*180.0/M_PI;
+      if(data->gStdev>(data->pSigma+dimage->gTol)){
+        data->slope=atan2(sqrt(data->gStdev*data->gStdev-(data->pSigma+dimage->gTol)*(data->pSigma+dimage->gTol)),data->fSigma)*180.0/M_PI;
       }else{
         data->slope=0.0;
       }
@@ -922,7 +922,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   double gaussianGround(float *,float *,int *,int,float);
   double maxGround(float *,double *,int);
   double inflGround(float *,double *,int);
-  double bayesGround(float *,int,control *,metStruct *,double *);
+  double bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
   float *findRH(float *,double *,int,double,float,int *);
   float *blankRH(float,int *);
   float *smoothed=NULL;
@@ -1013,7 +1013,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
-    metric->bayGround=bayesGround(processed,nBins,dimage,metric,z);
+    metric->bayGround=bayesGround(processed,nBins,dimage,metric,z,data);
     metric->covHalfB=halfCover(processed,z,nBins,metric->bayGround,dimage->rhoRatio);
   }
 
@@ -1095,7 +1095,7 @@ float halfCover(float *wave,double *z,int nBins,double gElev,float rhoRatio)
 /*####################################################*/
 /*Bayseian ground finding*/
 
-double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,double *z)
+double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,double *z,dataStruct *data)
 {
   int i=0,start=0,end=0,dir=0;
   float contN=0,prob=0;
@@ -1135,7 +1135,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   i=start;
   while(((dir==1)&&(i<=end))||((dir==-1)&&(i>=end))){
     if(wave[i]>0.0){
-      metric->bGr[0].gHeight=z[i]+(double)(dimage->pSigma/2.0);
+      metric->bGr[0].gHeight=z[i]+(double)(data->pSigma/2.0);
       metric->bGr[0].slope=0.0;
       metric->bGr[0].cov=1.0;
       break;
@@ -1148,12 +1148,12 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   for(i=1;i<metric->nBgr;i++){
     /*fit Gaussians*/
     den.gWidth=0.76;
-    den.sWidth=(float)i*dimage->pSigma/2.0;
+    den.sWidth=(float)i*data->pSigma/2.0;
     processed=processFloWave(wave,nBins,&den,1.0);
     alignElevation(z[0],z[nBins-1],den.gPar,den.nGauss);
 
     /*get parameters*/
-    gaussProps(den.gPar,den.nGauss,dimage->fSigma,sqrt(dimage->pSigma*dimage->pSigma+den.sWidth*den.sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov));
+    gaussProps(den.gPar,den.nGauss,dimage->fSigma,sqrt(data->pSigma*data->pSigma+den.sWidth*den.sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov));
 
     TIDY(den.gPar);
     TIDY(processed);
@@ -1708,7 +1708,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=0.57/0.4;
   rhoG=0.4;
   rhoC=0.57;
-  dimage->gTol=0.6;
+  dimage->gTol=0.0;
   dimage->nMessages=200;
 
   /*read the command line*/
