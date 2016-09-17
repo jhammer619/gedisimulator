@@ -30,19 +30,30 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
-
 #define TOL 0.00000001
+
+
+/*#############################*/
+/*control structure*/
+
+typedef struct{
+  char outNamen[200];   /*output filename*/
+  float res;            /*instrument resolution*/
+  float A;              /*ground amplitude*/
+  float pSig;           /*pulse length (sigma)*/
+  float fSig;           /*footprint width (sigma)*/
+  float maxSlope;       /*maximum slope, degrees*/
+  float step;           /*slope step size, derees*/
+}control;
+
 
 /*#############################*/
 /*main*/
 
-int main()
+int main(int argc,char **argv)
 {
   int nBins;
-  float res=0;
-  float pSig=0,fSig=0;
-  float A=0,slope=0,fSlope=0;
-  float maxSlope=0,step=0;
+  float slope=0,fSlope=0;
   float *wave=NULL;
   float *makeWave(float,float,float,float,int *,float);
   float stdev=0;
@@ -50,38 +61,49 @@ int main()
   float findSlope(float,float,float);
   float findMax(float *,int);
   float maxAmp=0;
+  control *dimage=NULL;
+  control *readCommands(int,char **);
+  FILE *opoo=NULL;
 
 
-  /*instrument parameters*/
-  res=0.15;
-  A=0.5;
-  pSig=0.955414;
-  fSig=5.5;
+  /*read command line*/
+  dimage=readCommands(argc,argv);
 
-  /*slope range*/
-  maxSlope=60.0*M_PI/180.0;
-  step=0.5*M_PI/180.0;
-  slope=0.0;
+  /*open output and write header*/
+  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    exit(1);
+  }
+  fprintf(opoo,"# 1 slope, 2 stdev, 3 fSlope, 4 pSig, 5 fSig, 6 maxAmp\n");
+
 
   /*loop over slopes*/
-  while(slope<=maxSlope){
+  slope=0.0;
+  while(slope<=dimage->maxSlope){
     /*make the waveform*/
-    wave=makeWave(slope,pSig,fSig,A,&nBins,res);
+    wave=makeWave(slope,dimage->pSig,dimage->fSig,dimage->A,&nBins,dimage->res);
 
     /*calculate stdev*/
-    stdev=waveStdev(wave,nBins,res);
-    TIDY(wave);
+    stdev=waveStdev(wave,nBins,dimage->res);
 
     /*determine maximum*/
     maxAmp=findMax(wave,nBins);
+    TIDY(wave);
 
     /*calculate slope*/
-    fSlope=findSlope(stdev,pSig,fSig);
+    fSlope=findSlope(stdev,dimage->pSig,dimage->fSig);
 
-    fprintf(stdout,"%f %f %f %f %f %f\n",slope*180.0/M_PI,stdev,fSlope,pSig,fSig,maxAmp);
-    slope+=step;
+    fprintf(opoo,"%f %f %f %f %f %f\n",slope*180.0/M_PI,stdev,fSlope,dimage->pSig,dimage->fSig,maxAmp);
+    slope+=dimage->step;
   }
 
+  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+
+  if(opoo){
+    fclose(opoo);
+    opoo=NULL;
+  }
+  TIDY(dimage);
   return(0);
 }/*main*/
 
@@ -197,6 +219,73 @@ float *makeWave(float slope,float pSig,float fSig,float A,int *nBins,float res)
 
   return(smoothed);
 }/*makeWave*/
+
+
+/*#############################*/
+
+control *readCommands(int argc,char **argv)
+{
+  int i=0;
+  control *dimage=NULL;
+
+  if(!(dimage=(control *)calloc(1,sizeof(control)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+
+
+  /*instrument parameters*/
+  dimage->res=0.15;
+  dimage->A=0.5;
+  dimage->pSig=0.955414;
+  dimage->fSig=5.5;
+
+  /*slope range*/
+  dimage->maxSlope=60.0;
+  dimage->step=0.5;
+
+  /*read the command line*/
+  for (i=1;i<argc;i++){
+    if (*argv[i]=='-'){
+      if(!strncasecmp(argv[i],"-output",7)){
+        checkArguments(1,i,argc,"-output");
+        strcpy(dimage->outNamen,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-res",4)){
+        checkArguments(1,i,argc,"-res");
+        dimage->res=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-A",2)){
+        checkArguments(1,i,argc,"-A");
+        dimage->A=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-pSig",5)){
+        checkArguments(1,i,argc,"-pSig");
+        dimage->pSig=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-fSig",5)){
+        checkArguments(1,i,argc,"-fSig");
+        dimage->res=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-maxSlope",9)){
+        checkArguments(1,i,argc,"-maxSlope");
+        dimage->res=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-step",5)){
+        checkArguments(1,i,argc,"-step");
+        dimage->res=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-help",5)){
+        fprintf(stdout,"\n#####\nProgram to assess the impact of slope on lidar and test slope calculation\n#####\n\n-output name;        output filename\n-res res;            waveform resolution\n-A A;                ground ampltiude\n-pSig pSig;          pulse length (sigma)\n-fSig fSig;          footprint width (sigma)\n-maxSlope maxSlope;  maximum slope to go to\n-step step;          output slope resolution\n\n");
+        exit(1);
+      }else{
+        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        exit(1);
+      }
+    }
+  }/*command parser*/
+
+
+
+  /*convert to radians*/
+  dimage->maxSlope*=M_PI/180.0;
+  dimage->step*=M_PI/180.0;
+
+  return(dimage);
+}/*readCommands*/
 
 /*the end*/
 /*#############################*/
