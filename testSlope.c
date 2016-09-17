@@ -38,6 +38,7 @@
 
 typedef struct{
   char outNamen[200];   /*output filename*/
+  char writeWave;       /*write waveform switch*/
   float res;            /*instrument resolution*/
   float A;              /*ground amplitude*/
   float pSig;           /*pulse length (sigma)*/
@@ -63,6 +64,7 @@ int main(int argc,char **argv)
   float maxAmp=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
+  void writeWave(float,float *,int,control *);
   FILE *opoo=NULL;
 
 
@@ -82,6 +84,8 @@ int main(int argc,char **argv)
   while(slope<=dimage->maxSlope){
     /*make the waveform*/
     wave=makeWave(slope,dimage->pSig,dimage->fSig,dimage->A,&nBins,dimage->res);
+
+    if(dimage->writeWave)writeWave(slope,wave,nBins,dimage);
 
     /*calculate stdev*/
     stdev=waveStdev(wave,nBins,dimage->res);
@@ -106,6 +110,35 @@ int main(int argc,char **argv)
   TIDY(dimage);
   return(0);
 }/*main*/
+
+
+/*#############################*/
+/*write waveform*/
+
+void writeWave(float slope, float *wave,int nBins,control *dimage)
+{
+  int i=0;
+  char namen[200];
+  FILE *opoo=NULL;
+
+
+  sprintf(namen,"%s.%g.wave",dimage->outNamen,slope*180.0/M_PI);
+  if((opoo=fopen(namen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",namen);
+    exit(1);
+  }
+
+  for(i=0;i<nBins;i++){
+    fprintf(opoo,"%f %f\n",(float)i*dimage->res,wave[i]);
+  }
+
+  if(opoo){
+    fclose(opoo);
+    opoo=NULL;
+  }
+  fprintf(stdout,"Written to %s\n",namen);
+  return;
+}/*writeWave*/
 
 
 /*#############################*/
@@ -180,7 +213,7 @@ float *makeWave(float slope,float pSig,float fSig,float A,int *nBins,float res)
   float *smooth(float,int,float *,float);
   double gaussian(double,double,double);
 
-  *nBins=2000;
+  *nBins=20000;
   wave=falloc(*nBins,"wave",0);
 
   /*determine footprint radius*/
@@ -228,11 +261,14 @@ control *readCommands(int argc,char **argv)
   int i=0;
   control *dimage=NULL;
 
+  /*allocate space*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
 
+  /*switches*/
+  dimage->writeWave=0;
 
   /*instrument parameters*/
   dimage->res=0.15;
@@ -261,15 +297,17 @@ control *readCommands(int argc,char **argv)
         dimage->pSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-fSig",5)){
         checkArguments(1,i,argc,"-fSig");
-        dimage->res=atof(argv[++i]);
+        dimage->fSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-maxSlope",9)){
         checkArguments(1,i,argc,"-maxSlope");
-        dimage->res=atof(argv[++i]);
+        dimage->maxSlope=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-step",5)){
         checkArguments(1,i,argc,"-step");
-        dimage->res=atof(argv[++i]);
+        dimage->step=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-writeWave",10)){
+        dimage->writeWave=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to assess the impact of slope on lidar and test slope calculation\n#####\n\n-output name;        output filename\n-res res;            waveform resolution\n-A A;                ground ampltiude\n-pSig pSig;          pulse length (sigma)\n-fSig fSig;          footprint width (sigma)\n-maxSlope maxSlope;  maximum slope to go to\n-step step;          output slope resolution\n\n");
+        fprintf(stdout,"\n#####\nProgram to assess the impact of slope on lidar and test slope calculation\n#####\n\n-output name;        output filename\n-res res;            waveform resolution\n-A A;                ground ampltiude\n-pSig pSig;          pulse length (sigma)\n-fSig fSig;          footprint width (sigma)\n-maxSlope maxSlope;  maximum slope to go to\n-step step;          output slope resolution\n-writeWave;          write waveforms\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
