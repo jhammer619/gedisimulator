@@ -48,12 +48,15 @@ int main()
   float stdev=0;
   float waveStdev(float *,int,float);
   float findSlope(float,float,float);
+  float findMax(float *,int);
+  float maxAmp=0;
+
 
   /*instrument parameters*/
   res=0.15;
   A=0.5;
-  pSig=0.764331;
-  fSig=11.0;
+  pSig=0.955414;
+  fSig=5.5;
 
   /*slope range*/
   maxSlope=60.0*M_PI/180.0;
@@ -69,15 +72,36 @@ int main()
     stdev=waveStdev(wave,nBins,res);
     TIDY(wave);
 
+    /*determine maximum*/
+    maxAmp=findMax(wave,nBins);
+
     /*calculate slope*/
     fSlope=findSlope(stdev,pSig,fSig);
 
-    fprintf(stdout,"%f %f %f %f %f\n",slope*180.0/M_PI,stdev,fSlope,pSig,fSig);
+    fprintf(stdout,"%f %f %f %f %f %f\n",slope*180.0/M_PI,stdev,fSlope,pSig,fSig,maxAmp);
     slope+=step;
   }
 
   return(0);
 }/*main*/
+
+
+/*#############################*/
+/*determine maximum amplitude*/
+
+float findMax(float *wave,int nBins)
+{
+  int i=0;
+  float maxAmp=0;
+
+  maxAmp=-109.0;
+  for(i=0;i<nBins;i++){
+    if(wave[i]>maxAmp)maxAmp=wave[i];
+  }
+
+
+  return(maxAmp);
+}/*findMax*/
 
 
 /*#############################*/
