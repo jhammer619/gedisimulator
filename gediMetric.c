@@ -1183,6 +1183,9 @@ float groundProb(float slope,float cov)
   else if(slope<30.0)prob=1.0;
   else               prob=slope/-30.0+2.0;
 
+  /*do not let it be zero or negative*/
+  if(prob<=0.0)prob=0.0001;
+
   return(prob);
 }/*groundProb*/
 
