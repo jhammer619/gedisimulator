@@ -1013,7 +1013,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
-    metric->bayGround=bayesGround(processed,nBins,dimage,metric,z,data);
+    metric->bayGround=bayesGround(wave,nBins,dimage,metric,z,data);
     metric->covHalfB=halfCover(processed,z,nBins,metric->bayGround,dimage->rhoRatio);
   }
 
@@ -1100,27 +1100,20 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   int i=0,start=0,end=0,dir=0;
   float contN=0,prob=0;
   float *processed=NULL;
-  float groundProb(float,float);
+  float groundProb(float,float,float);
+  float height=0;
   double bayGround=0;
-  denPar den;    /*denoising structure*/
-  void gaussProps(float *,int,float,float,double *,float *,float *);
+  denPar *den=NULL;    /*denoising structure*/
+  void gaussProps(float *,int,float,float,double *,float *,float *,float *);
   void  setDenoiseDefault(denPar *);
   void alignElevation(double,double,float *,int);
 
   /*allocate*/
-  metric->nBgr=5;
+  metric->nBgr=6;
   if(!(metric->bGr=(bGround *)calloc(metric->nBgr,sizeof(bGround)))){
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-
-  setDenoiseDefault(&den);
-  den.varNoise=0;
-  den.noiseTrack=1;
-  den.thresh=0.000001;
-  den.meanN=0.0;
-  den.sWidth=0.0;
-
 
   /*for first estimate, last return above noise*/
   if(z[0]>z[nBins-1]){
@@ -1143,30 +1136,45 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
     i+=dir;
   }
 
+  /*for others, make an array*/
+  if(!(den=(denPar *)calloc(metric->nBgr,sizeof(denPar)))){
+    fprintf(stderr,"error waveStruct allocation.\n");
+    exit(1);
+  }
+  for(i=1;i<metric->nBgr;i++){
+    setDenoiseDefault(&(den[i]));
+    den[i].varNoise=1;
+    den[i].gWidth=dimage->den->sWidth;
+    if(i<=3)den[i].threshScale=3.0;
+    else    den[i].threshScale=5.0;
+    den[i].noiseTrack=1;
+    den[i].fitGauss=1;
+    if(i<=3)den[i].sWidth=(float)i*data->pSigma/1.6;
+    else    den[i].sWidth=(float)(i-3)*data->pSigma/1.6;
+  }
+
   /*loop over smoothing widths*/
-  den.fitGauss=1;
   for(i=1;i<metric->nBgr;i++){
     /*fit Gaussians*/
-    den.gWidth=0.76;
-    den.sWidth=(float)i*data->pSigma/2.0;
-    processed=processFloWave(wave,nBins,&den,1.0);
-    alignElevation(z[0],z[nBins-1],den.gPar,den.nGauss);
+    processed=processFloWave(wave,nBins,&den[i],1.0);
+    alignElevation(z[0],z[nBins-1],den[i].gPar,den[i].nGauss);
 
     /*get parameters*/
-    gaussProps(den.gPar,den.nGauss,dimage->fSigma,sqrt(data->pSigma*data->pSigma+den.sWidth*den.sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov));
+    gaussProps(den[i].gPar,den[i].nGauss,dimage->fSigma,sqrt(data->pSigma*data->pSigma+den[i].sWidth*den[i].sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov),&height);
 
-    TIDY(den.gPar);
+    TIDY(den[i].gPar);
     TIDY(processed);
   }/*smoothing width loop*/
 
   contN=0.0;
   bayGround=0.0;
   for(i=0;i<metric->nBgr;i++){
-    prob=groundProb(metric->bGr[i].slope,metric->bGr[i].cov);
+    prob=groundProb(metric->bGr[i].slope,metric->bGr[i].cov,height);
     bayGround+=(double)(prob*metric->bGr[i].gHeight);
     contN+=prob;
   }
   if(contN>0.0)bayGround/=(double)contN;
+  TIDY(den);
 
   return(bayGround);
 }/*bayesGround*/
@@ -1175,13 +1183,18 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
 /*####################################################*/
 /*ground elevation probability*/
 
-float groundProb(float slope,float cov)
+float groundProb(float slope,float cov,float height)
 {
   float prob=0;
 
   if(slope<5.0)      prob=0.5+0.1*slope;
   else if(slope<30.0)prob=1.0;
   else               prob=slope/-30.0+2.0;
+  /*do not let it be zero or negative*/
+  if(prob<=0.0)prob=0.0001;
+
+  if(height>80.0)     prob*=0.000001;
+  else if(height>60.0)prob*=3.0-height/30.0;
 
   /*do not let it be zero or negative*/
   if(prob<=0.0)prob=0.0001;
@@ -1193,24 +1206,32 @@ float groundProb(float slope,float cov)
 /*####################################################*/
 /*Gaussian ground properties*/
 
-void gaussProps(float *gPar,int nGauss,float fSigma,float pSigma,double *gHeight,float *slope,float *cov)
+void gaussProps(float *gPar,int nGauss,float fSigma,float pSigma,double *gHeight,float *slope,float *cov,float *height)
 {
   int i=0,use=0;
   float totalE=0;
-  float minH=0;
+  float minH=0,maxH=0;
   float sig=0;
 
   totalE=0.0;
   minH=1000000.0;
+  maxH=-1000000.0;
   for(i=0;i<nGauss;i++)totalE+=gPar[3*i+1]*gPar[3*i+2];
   for(i=0;i<nGauss;i++){
+    sig=gPar[3*i+2];
+
     if(((gPar[3*i+1]*gPar[3*i+2])>=(totalE*0.001))&&(gPar[3*i]<minH)){
       minH=gPar[3*i];
+      use=i;
+    }
+    if(((gPar[3*i+1]*gPar[3*i+2])>=(totalE*0.001))&&(gPar[3*i]>(maxH-sig))){
+      maxH=gPar[3*i]+sig;
       use=i;
     }
   }
 
   *gHeight=minH;
+  *height=maxH-minH;
   sig=gPar[3*use+2];
   if(sig>pSigma)*slope=atan2(sqrt(sig*sig-pSigma*pSigma),fSigma)*180.0/M_PI;
   else          *slope=0.0;
