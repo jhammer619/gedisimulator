@@ -1128,7 +1128,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   i=start;
   while(((dir==1)&&(i<=end))||((dir==-1)&&(i>=end))){
     if(wave[i]>0.0){
-      metric->bGr[0].gHeight=z[i]+(double)(data->pSigma/2.0);
+      metric->bGr[0].gHeight=z[i]+(double)(data->pSigma*2.0);
       metric->bGr[0].slope=0.0;
       metric->bGr[0].cov=1.0;
       break;
