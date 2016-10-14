@@ -1,0 +1,115 @@
+#!/bin/tcsh -f
+
+
+echo "Will install the GEDI simulator and necessary libraries."
+
+setenv ARCH `uname -m`
+setenv HOSTNAME `uname -n`
+@ installHere=1
+set dirRoot=`pwd`
+@ debug=0
+set CC="gcc"
+set bin="~/bin/$ARCH"
+set shBin="~/bin/csh"
+
+
+
+
+if( ! -e $bin )mkdir $bin
+
+
+
+# determine if gcc is available
+which $CC
+if( $status )then
+  echo "$CC not installed. Specify another compiler"
+  exit(1)
+endif
+
+# determine if hg is available
+which hg
+if( $status )then
+  echo "hg not installed. This is needed to download the code"
+  exit(1)
+endif
+
+
+# determine if libgeotiff is available
+
+
+
+# libClidar
+echo "### libClidar ###"
+set dir="libClidar"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/StevenHancock/libclidar
+hg update
+echo "### libClidar installed ###"
+popd
+
+# tools
+echo "### C tools ###"
+set dir="headers"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/StevenHancock/tools
+hg update
+echo "### C tools installed ###"
+popd
+
+# minpack
+echo "### minpack ###"
+set dir="minpack"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+wget https://www.physics.wisc.edu/~craigm/idl/down/cmpfit-1.2.tar.gz
+tar -xvf cmpfit-1.2.tar.gz
+mv */* ./
+rm *.gz
+echo "### minpack installed ###"
+popd
+
+# GSL
+echo "### GSL ###"
+set dir="GSL"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+wget ftp://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz
+gunzip *.gz
+tar -xf *.tar
+rm *.tar
+set GSLdir=`ls`
+echo "### GSL installed ###"
+popd
+
+
+# compile gediRat
+echo "### gediRat ###"
+set dir="gediRat"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/umdgedi/gedisimulator
+hg update
+
+# modify the makefile
+sed -e s%hOme%$HOME%g -e s%gediDir%$dirRoot%g -e s%gslDir%$GSLdir% < makefile.base > makefile
+
+
+echo "### gediRat installed ###"
+popd 
+
+
+
+
+###
+echo "Done"
+echo "Make sure that"
+echo "$bin"
+echo "$shBin"
+echo "Are in your papth in order to run"
+echo " "
+
