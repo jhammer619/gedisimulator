@@ -420,7 +420,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-printNpoint",12)){
         dimage->printNpoint=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-noInt;          no intensity image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-noInt;          no intensity image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
