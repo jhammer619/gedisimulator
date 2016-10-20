@@ -1212,8 +1212,8 @@ void setGediPulse(control *dimage)
     /*pulse length*/
     /*calculate sigma from FWHM*/
     if(dimage->pSigma<0.0){  /*GEDI unless specificed*/
-      fwhm=dimage->pFWHM*0.15;  /*time if for two way*/
-      dimage->pSigma=fwhm/2.355;
+      fwhm=dimage->pFWHM*0.2998;  /*time for two way*/
+      dimage->pSigma=fwhm/2.35482;  /* =2*sqrt(2*ln2) */
     }
 
     if(dimage->pSigma>0.0){  /*if we are using a pulse width*/
@@ -1223,7 +1223,7 @@ void setGediPulse(control *dimage)
       do{
         y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
         x+=dimage->pRes;
-          dimage->pulse->nBins+=2;  /*both sides of peak*/
+        dimage->pulse->nBins+=2;  /*both sides of peak*/
       }while(y>=dimage->iThresh);
   
       dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
@@ -1269,9 +1269,11 @@ void setGediPulse(control *dimage)
 
 void readSimPulse(control *dimage)
 {
-  int i=0;
-  float CofG=0,tot=0;
+  int i=0,maxBin=0;
+  float CofG=0,tot=0,centre=0;
   float minSep=0,max=0;
+  float wThresh=0;
+  float p0=0,p1=0;
   char line[400];
   char temp1[100],temp2[100];
   FILE *ipoo=NULL;
@@ -1313,19 +1315,21 @@ void readSimPulse(control *dimage)
   CofG=0.0;
   max=-1000.0;
   for(i=0;i<dimage->pulse->nBins;i++){
+    CofG+=dimage->pulse->x[i]*dimage->pulse->y[i];
     if(dimage->pulse->y[i]>max){
       max=dimage->pulse->y[i];
-      CofG=dimage->pulse->x[i];
+      centre=dimage->pulse->x[i];
+      maxBin=i;
     }
     tot+=dimage->pulse->y[i];
   }
+  CofG/=tot;
 
+  /*align pulse*/
   minSep=1000.0;
   dimage->pSigma=0.0;
   for(i=0;i<dimage->pulse->nBins;i++){
-    dimage->pulse->x[i]-=CofG;
-    dimage->pulse->y[i]/=tot;
-    dimage->pSigma+=(dimage->pulse->x[i]*dimage->pulse->x[i])*dimage->pulse->y[i];
+    dimage->pulse->x[i]-=centre;
 
     if(fabs(dimage->pulse->x[i])<minSep){
       minSep=fabs(dimage->pulse->x[i]);
@@ -1334,7 +1338,27 @@ void readSimPulse(control *dimage)
   }
 
   /*pulse width*/
-  dimage->pSigma=sqrt(dimage->pSigma/tot);
+  wThresh=max*exp(-0.5);
+  minSep=1000000.0;
+  for(i=0;i<dimage->pulse->nBins;i++){
+    if(i<maxBin){
+      if(fabs(dimage->pulse->y[i]-wThresh)<minSep){
+        minSep=fabs(dimage->pulse->y[i]-wThresh);
+        p0=dimage->pulse->x[i];
+      }
+    }else if(i==maxBin){
+      minSep=1000000.0;
+    }else{
+      if(fabs(dimage->pulse->y[i]-wThresh)<minSep){
+        minSep=fabs(dimage->pulse->y[i]-wThresh);
+        p1=dimage->pulse->x[i];
+      }
+    }
+  }
+  dimage->pSigma=fabs(p1-p0)/2.0;
+
+  /*now normalise*/
+  for(i=0;i<dimage->pulse->nBins;i++)dimage->pulse->y[i]/=tot;
 
   if(ipoo){
     fclose(ipoo);
