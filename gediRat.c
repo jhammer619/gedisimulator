@@ -1212,7 +1212,7 @@ void setGediPulse(control *dimage)
     /*pulse length*/
     /*calculate sigma from FWHM*/
     if(dimage->pSigma<0.0){  /*GEDI unless specificed*/
-      fwhm=dimage->pFWHM*0.2998;  /*time for two way*/
+      fwhm=dimage->pFWHM*0.2998/2.0;  /*time for two way*/
       dimage->pSigma=fwhm/2.35482;  /* =2*sqrt(2*ln2) */
     }
 
@@ -1302,7 +1302,7 @@ void readSimPulse(control *dimage)
   while(fgets(line,400,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){
       if(sscanf(line,"%s %s",temp1,temp2)==2){
-        dimage->pulse->x[i]=atof(temp1)*2.0;  /*multipy by 2 as it's two way time*/
+        dimage->pulse->x[i]=atof(temp1);
         dimage->pulse->y[i]=atof(temp2);
         i++;
       }
