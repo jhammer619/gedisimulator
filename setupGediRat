@@ -34,7 +34,22 @@ endif
 
 
 # determine if libgeotiff is available
+set temp="/tmp/searchList.$$.dat"
+@ checker=1
+set comm=""
+while( $checker )
+  set comm="/*$comm"
+  ls $comm/geotiffio.h|gawk '{for(i=1;i<=NF;i++)print $i}' > $temp
+  @ checker=$status
+end
+set tDir=`gawk '{if(NR==1)print $1}'|gawk -F/ '{for(i=1;i<NF;i++)printf("/%s",$i)}'` < $temp
 
+
+endif
+if( ! -e /usr/local/include/geotiffio.h )then
+  
+endif
+rm $temp
 
 
 # libClidar
@@ -108,7 +123,7 @@ set dummy=$<
 hg update
 
 # modify the makefile
-sed -e s%hOme%$HOME%g -e s%gediDir%$dirRoot%g -e s%gslDir%$GSLdir% < makefile.base > makefile
+sed -e s%hOme%$HOME%g -e s%gediDir%$dirRoot%g -e s%gslDir%$GSLdir% -e s%tiffDir%$tDir% < makefile.base > makefile
 make
 make install
 make THIS=gediMetric
