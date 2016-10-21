@@ -1,0 +1,138 @@
+#!/bin/csh -f
+
+echo "########"
+echo "This will install the GEDI simulator and necessary libraries."
+echo "########"
+
+setenv ARCH `uname -m`
+setenv HOSTNAME `uname -n`
+@ installHere=1
+set dirRoot=`pwd`
+@ debug=0
+set CC="gcc"
+set bin="~/bin/$ARCH"
+set shBin="~/bin/csh"
+
+
+if( ! -e $bin )mkdir $bin
+if( ! -e $shBin )mkdir $shBin
+
+
+# determine if gcc is available
+which $CC
+if( $status )then
+  echo "$CC not installed. Specify another compiler"
+  exit(1)
+endif
+
+# determine if hg is available
+which hg
+if( $status )then
+  echo "hg not installed. This is needed to download the code"
+  exit(1)
+endif
+
+
+# determine if libgeotiff is available
+
+
+
+# libClidar
+echo " "
+echo "### libClidar ###"
+set dir="libClidar"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/StevenHancock/libclidar
+hg update
+echo "### libClidar installed ###"
+echo " "
+popd
+
+# tools
+echo " "
+echo "### C tools ###"
+set dir="headers"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/StevenHancock/tools
+hg update
+echo "### C tools installed ###"
+echo " "
+popd
+
+# minpack
+echo " "
+echo "### minpack ###"
+set dir="minpack"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+wget https://www.physics.wisc.edu/~craigm/idl/down/cmpfit-1.2.tar.gz
+tar -xvf cmpfit-1.2.tar.gz
+mv */* ./
+rm *.gz
+echo "### minpack installed ###"
+echo " "
+popd
+
+# GSL
+echo " "
+echo "### GSL ###"
+set dir="GSL"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+wget ftp://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz
+gunzip *.gz
+tar -xf *.tar
+rm *.tar
+set GSLdir=`ls`
+echo "### GSL installed ###"
+echo " "
+popd
+
+
+# compile gediRat
+echo " "
+echo "### gediRat ###"
+echo "This will ask for your bitbucket account name and password."
+echo "Press return twice after entering the password to continue"
+set dir="gediRat"
+if( ! -e $dir )mkdir $dir/
+pushd $dir/
+hg init
+hg pull https://bitbucket.org/umdgedi/gedisimulator
+echo "Press return to continue" 
+set dummy=$<
+hg update
+
+# modify the makefile
+sed -e s%hOme%$HOME%g -e s%gediDir%$dirRoot%g -e s%gslDir%$GSLdir% < makefile.base > makefile
+make
+make install
+make THIS=gediMetric
+make THIS=gediMetric install
+make THIS=lasCover
+make THIS=lasCover install
+make THIS=mapLidar
+make THIS=mapLidar install
+make THIS=lasPoints
+make THIS=lasPoints install
+echo "### gediRat installed ###"
+echo " "
+popd 
+
+
+
+
+###
+echo "#########################################"
+echo " "
+echo "Done"
+echo "Make sure that"
+echo "$bin"
+echo "$shBin"
+echo "Are in your path in order to run"
+echo " "
+
