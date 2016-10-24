@@ -134,6 +134,8 @@ make THIS=mapLidar
 make THIS=mapLidar install
 make THIS=lasPoints
 make THIS=lasPoints install
+chmod +x *.csh
+cp *.csh $shBin/
 echo "### gediRat installed ###"
 echo " "
 popd 
