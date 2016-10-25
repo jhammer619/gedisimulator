@@ -1,11 +1,11 @@
 # Makefile for iter_thresh
 #
-HOME =/Users/dill
+HOME =/Users/stevenhancock
 LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
 MINDIR=${HOME}/src/minpack
 GSLDIR=${HOME}/src/GSL/gsl-1.16
 LIBDIR=${HOME}/src/libClidar
-INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${GSLDIR} -I${GSLDIR}/fft -I${LIBDIR}
+INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${GSLDIR} -I${GSLDIR}/fft -I${LIBDIR} -I${GSLDIR}/err
 CFLAGS += -Wall
 #CFLAGS += -g
 CFLAGS += -O3
