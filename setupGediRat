@@ -98,7 +98,8 @@ echo "### GSL ###"
 set dir="GSL"
 if( ! -e $dir )mkdir $dir/
 pushd $dir/
-wget ftp://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz
+wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
+#wget ftp://ftp.gnu.org/gnu/gsl/gsl-latest.tar.gz
 gunzip *.gz
 tar -xf *.tar
 rm *.tar
