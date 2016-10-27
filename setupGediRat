@@ -92,7 +92,7 @@ echo "### minpack installed ###"
 echo " "
 popd
 
-# GSL
+## GSL
 echo " "
 echo "### GSL ###"
 set dir="GSL"
@@ -135,7 +135,14 @@ make THIS=mapLidar
 make THIS=mapLidar install
 make THIS=lasPoints
 make THIS=lasPoints install
-chmod +x *.csh
+# sort out the csh files
+set list=`ls *.csh`
+foreach file( $list )
+  set temp="/tmp/temp.$$.csh"
+  sed -e  s%\$HOME/src/gediRat%$dirRoot/gediRat% < $file > $temp
+  mv $temp $file
+  chmod +x $file
+end
 cp *.csh $shBin/
 echo "### gediRat installed ###"
 echo " "
