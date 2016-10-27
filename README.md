@@ -19,11 +19,15 @@ https://bitbucket.org/umdgedi/gedisimulator/src/2d34db078333b56f42d8c28ef95bacdc
 It depends on these libraries:
 
 Gnu Scientific Library
+
 Minpack (Levenberg-Maruqardt)
+
 Geotiff
 
 Once they're installed, it also requires two less common, "special", libraries:
+
 C-tools: https://bitbucket.org/StevenHancock/tools
+
 libClidar: https://bitbucket.org/StevenHancock/libclidar
 
 
