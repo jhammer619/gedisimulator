@@ -1,6 +1,6 @@
 # Makefile for iter_thresh
 #
-HOME =/Users/stevenhancock
+HOME =/Users/dill
 LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
 MINDIR=${HOME}/src/minpack
 GSLDIR=${HOME}/src/GSL/gsl-1.16
