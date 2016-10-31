@@ -234,7 +234,7 @@ int main(int argc,char **argv)
       }
 
       /*denoise and change pulse if needed*/
-      modifyTruth(data,dimage);
+      if(dimage->renoiseWave)modifyTruth(data,dimage);
 
       /*determine truths before noising*/
       determineTruth(data,dimage);
