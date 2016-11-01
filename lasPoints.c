@@ -137,7 +137,7 @@ void readWritePoints(control *dimage,lasFile *las)
 
   /*check file bounds*/
   if(checkFileBounds(las,dimage->coord[0]-dimage->maxSep,dimage->coord[0]+dimage->maxSep,\
-                         dimage->coord[1]-dimage->maxSep,dimage->coord[1]+dimage->maxSep)){
+                         dimage->coord[1]-dimage->maxSep,dimage->coord[1]+dimage->maxSep)||dimage->writeAll){
     for(i=0;i<las->nPoints;i++){
       /*read one point*/
       readLasPoint(las,i);
