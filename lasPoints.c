@@ -51,6 +51,7 @@ typedef struct{
   char grNamen[200];   /*ground filename*/
   float thresh;        /*maximum intensity of area of interest*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
+  char writeAll;       /*write all points*/
 
   /*output files*/
   FILE *opoo;  /*non-ground*/
@@ -145,7 +146,7 @@ void readWritePoints(control *dimage,lasFile *las)
       dX=x-dimage->coord[0];
       dY=y-dimage->coord[1];
       sepSq=dX*dX+dY*dY;
-      if(sepSq<=dimage->maxSepSq){
+      if((sepSq<=dimage->maxSepSq)||dimage->writeAll){
        
         if(dimage->ground&&(las->classif==2))opoo=dimage->gPoo;
         else                                 opoo=dimage->opoo;
@@ -226,6 +227,7 @@ control *readCommands(int argc,char **argv)
   strcpy(dimage->outRoot,"gTest");
   dimage->opoo=NULL;
   dimage->gPoo=NULL;
+  dimage->writeAll=0;
 
   dimage->fSigma=11.0;  /*GEDI*/
   dimage->coord[0]=826367.0;
@@ -257,6 +259,8 @@ control *readCommands(int argc,char **argv)
         checkArguments(2,i,argc,"-coord");
         dimage->coord[0]=atof(argv[++i]);
         dimage->coord[1]=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-allPoints",10)){
+        dimage->writeAll=1;
       }else if(!strncasecmp(argv[i],"-LVIS",5)){
         dimage->fSigma=6.25;  /*LVIS*/
       }else if(!strncasecmp(argv[i],"-ground",7)){
@@ -268,7 +272,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(2,i,argc,"-thresh");
         dimage->thresh=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-allPoints;      write all points\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
