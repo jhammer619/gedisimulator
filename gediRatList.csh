@@ -22,6 +22,7 @@ set topHat=" "
 set noNorm=" "
 set checkCove=" "
 set maxScanAng=" "
+set pFile=" "
 
 
 # read options
@@ -103,6 +104,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -pFile
+    set pFile="-readPulse $argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -112,6 +118,7 @@ while ($#argv>0)
     echo "-LVIS;             use LVIS pulse size"
     echo "-pSigma sigma;     pulse width, sigma in m"
     echo "-pFWHM fwhm;       pulse FWHM in ns"
+    echo "-pFile name;       read the pulse from an ASCII file"
     echo "-fSigma sigma;     footprint width, sigma in m"
     echo "-ground;           output ground and canopy waveforms"
     echo "-sideLobe;         use the old side-lobes"
@@ -147,7 +154,7 @@ while( $i <= $nCoords )
   if( ! -e $output )then
     touch $output
     overlapLasFiles.csh -input $inList -coord $x $y -rad 100 -output $temp
-    gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng
+    gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile
   endif
 
   if( -e $temp )rm $temp
