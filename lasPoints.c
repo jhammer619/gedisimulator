@@ -167,15 +167,16 @@ void setArea(control *dimage)
 {
   float x=0,y=0,res=0;
 
-  res=0.05;
-  x=0.0;
-  do{
-    y=(float)gaussian((double)x,(double)dimage->fSigma,0.0);
-    x+=res;
-  }while(y>=dimage->thresh);
-
-  dimage->maxSep=(double)x;
-  dimage->maxSepSq=(double)(x*x);
+  if(dimage->fSigma>=0.0){  /*unless the radius has already been declared*/
+    res=0.05;
+    x=0.0;
+    do{
+      y=(float)gaussian((double)x,(double)dimage->fSigma,0.0);
+      x+=res;
+    }while(y>=dimage->thresh);
+    dimage->maxSep=(double)x;
+  }
+  dimage->maxSepSq=dimage->maxSep*dimage->maxSep;
 
   return;
 }/*setArea*/
@@ -229,7 +230,7 @@ control *readCommands(int argc,char **argv)
   dimage->gPoo=NULL;
   dimage->writeAll=0;
 
-  dimage->fSigma=11.0;  /*GEDI*/
+  dimage->fSigma=5.5;  /*GEDI*/
   dimage->coord[0]=826367.0;
   dimage->coord[1]=1152271.0;
   dimage->ground=0;
@@ -259,6 +260,13 @@ control *readCommands(int argc,char **argv)
         checkArguments(2,i,argc,"-coord");
         dimage->coord[0]=atof(argv[++i]);
         dimage->coord[1]=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-fSigma",7)){
+        checkArguments(1,i,argc,"-fSigma");
+        dimage->fSigma=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-rad",4)){
+        checkArguments(1,i,argc,"-rad");
+        dimage->fSigma=-1.0;
+        dimage->maxSep=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-allPoints",10)){
         dimage->writeAll=1;
       }else if(!strncasecmp(argv[i],"-LVIS",5)){
@@ -272,7 +280,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(2,i,argc,"-thresh");
         dimage->thresh=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-allPoints;      write all points\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-fSigma sigma;   footprint width\n-rad rad;        radius to output\n-allPoints;      write all points\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
