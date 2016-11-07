@@ -107,6 +107,7 @@ typedef struct{
   float rhoRatio; /*ration of canopy to ground reflectance*/
   float res;      /*range resolution*/
   float gTol;     /*toleranve used to label ALS ground finding*/
+  float zen;      /*zenith angle*/
   int nMessages;  /*number of progress messages*/
 }control;
 
@@ -178,6 +179,8 @@ typedef struct{
   char usable;      /*is the data usable*/
   float beamDense;  /*beam density*/
   float pointDense; /*point denisty*/
+  float res;        /*range resolution*/
+  float zen;        /*beam zenith angle (degrees)*/
 }dataStruct;
 
 
@@ -888,7 +891,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d groundOverlap, %d groundMin, %d groundInfl",14+4*metric->nRH+1+dimage->bayesGround+10,\
                              14+4*metric->nRH+1+dimage->bayesGround+11,14+4*metric->nRH+1+dimage->bayesGround+12);
     fprintf(dimage->opooMet,", %d waveEnergy, %d blairSense",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
-    fprintf(dimage->opooMet,", %d pointDense, %d beamDense,",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
+    fprintf(dimage->opooMet,", %d pointDense, %d beamDense",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
+    fprintf(dimage->opooMet,", %d zenith,",14+4*metric->nRH+1+dimage->bayesGround+17);
     fprintf(dimage->opooMet,"\n");
   }
 
@@ -924,6 +928,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
   fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
   fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
+  fprintf(dimage->opooMet," %f",data->zen);
   fprintf(dimage->opooMet,"\n");
 
   /*fitted wave if required*/
@@ -1584,6 +1589,7 @@ dataStruct *readData(char *namen,control *dimage)
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
   data->usable=1;
+  data->zen=0.0;        /*straight down*/
 
   /*count number of wavebins*/
   data->nBins=0;
@@ -1673,6 +1679,12 @@ dataStruct *readData(char *namen,control *dimage)
         if(!strncasecmp(temp2,"density",5)){
           data->pointDense=atof(temp4);
           data->beamDense=atof(temp6);
+        }
+      }
+      if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
+        if(!strncasecmp(temp2,"lvis",4)){
+          data->res=atof(temp4);
+          data->zen=atof(temp6);
         }
       }
     }
