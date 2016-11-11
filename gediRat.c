@@ -86,6 +86,7 @@ typedef struct{
   char useShadow;      /*account for shadowing through voxelisation*/
   float maxScanAng;    /*maximum scan angle*/
   char polyGr;         /*fit a polynomial to the ground*/
+  char nnGr;           /*ground DEM from nearest neighbour*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -168,7 +169,6 @@ int main(int argc,char **argv)
   void checkThisFile(lasFile *,control *,int);
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
 
-
  
   /*read command line*/
   dimage=readCommands(argc,argv);
@@ -201,7 +201,7 @@ int main(int argc,char **argv)
     waves=makeGediWaves(dimage,data);
 
     /*find the ground if needed*/
-    if(dimage->ground&&dimage->polyGr)groundFromDEM(data,dimage,waves);
+    if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
 
     /*output results*/
     writeGEDIwave(dimage,waves);
@@ -247,6 +247,7 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   double minX=0,minY=0;
   double *gDEM=NULL,minZ=0;
   double *findGroundPoly(pCloudStruct **,int,double *,double *,float,int *,int *);
+  double *findGroundNN(pCloudStruct **,int,double *,double *,float,int *,int *);
   void groundProperties(float *,int,double,float,waveStruct *,float);
 
 
@@ -254,7 +255,8 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   rRes=0.15;
 
   /*make DEM*/
-  gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
+  if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
+  else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
 
   /*make gap filled ground waveform*/
   gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->coord[0],dimage->coord[1],dimage->fSigma,rRes,&minZ,&nBins);
@@ -381,6 +383,10 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
     exit(1);
   }
 
+  /*set nonsense bounds*/
+  data->bounds[0]=data->bounds[1]=data->bounds[2]=10000000000.0;
+  data->bounds[3]=data->bounds[4]=data->bounds[5]=-10000000000.0;
+
   if(checkFileBounds(las,dimage->minX,dimage->maxX,dimage->minY,dimage->maxY)){
     data->x=dalloc(las->nPoints,"x",0);
     data->y=dalloc(las->nPoints,"y",0);
@@ -400,8 +406,6 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       fprintf(stderr,"error in input filename structure.\n");
       exit(1);
     }
-    data->bounds[0]=data->bounds[1]=data->bounds[2]=10000000000.0;
-    data->bounds[3]=data->bounds[4]=data->bounds[5]=-10000000000.0;
 
     /*loop over points*/
     pUsed=0;
@@ -596,7 +600,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->coord[0],dimage->coord[1]);
   fprintf(opoo,"# density point %f beam %f\n",dimage->pointDense,dimage->beamDense);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
-  if(dimage->ground&&dimage->polyGr)fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
+  if(dimage->ground&&(dimage->polyGr||dimage->nnGr))fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
 
 
   /*write data*/
@@ -1597,6 +1601,8 @@ control *readCommands(int argc,char **argv)
   dimage->beamRad=0.165;    /*33 cm*/
   dimage->maxScanAng=1000000.0;   /*maximum scan angle*/
   dimage->polyGr=0;     /*don't fit a polynomial through the ground*/
+  dimage->nnGr=0;       /*don't make a DEM from nearest neighbour*/
+
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1679,8 +1685,10 @@ control *readCommands(int argc,char **argv)
         dimage->useShadow=1;
       }else if(!strncasecmp(argv[i],"-polyGround",11)){
         dimage->polyGr=1;
+      }else if(!strncasecmp(argv[i],"-nnGround",99)){
+        dimage->nnGr=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
