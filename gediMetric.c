@@ -181,6 +181,7 @@ typedef struct{
   float pointDense; /*point denisty*/
   float res;        /*range resolution*/
   float zen;        /*beam zenith angle (degrees)*/
+  char demGround;   /*use the defined DEM ground values*/
 }dataStruct;
 
 
@@ -455,32 +456,34 @@ void determineTruth(dataStruct *data,control *dimage)
   float groundInflection(float *,float *,int);
 
   /*determine ground*/
-  if(dimage->ground){
-    totE=0.0;
-    data->gElev=0.0;
-    for(i=0;i<data->nBins;i++){
-      totE+=data->ground[i];
-      data->gElev+=(double)data->ground[i]*data->z[i];
-    }
-    if(totE>0.0)data->gElev/=(double)totE;
-    else        data->gElev=-1000000.0;
-
-    /*standard deviation as a measure of slope*/
-    data->gStdev=0.0;
-    for(i=0;i<data->nBins;i++){
-      data->gStdev+=(float)((data->z[i]-data->gElev)*(data->z[i]-data->gElev))*data->ground[i];
-    }
-    if(totE>0.0){
-      data->gStdev=sqrt(data->gStdev/totE);
-      if(data->gStdev>(data->pSigma+dimage->gTol)){
-        data->slope=atan2(sqrt(data->gStdev*data->gStdev-(data->pSigma+dimage->gTol)*(data->pSigma+dimage->gTol)),data->fSigma)*180.0/M_PI;
-      }else{
-        data->slope=0.0;
+  if(!data->demGround){  /*unless it's already been calculalated from the DEM*/
+    if(dimage->ground){
+      totE=0.0;
+      data->gElev=0.0;
+      for(i=0;i<data->nBins;i++){
+        totE+=data->ground[i];
+        data->gElev+=(double)data->ground[i]*data->z[i];
       }
-    }else        data->gStdev=data->slope=-1000000.0;
-  }else{/*ground finding*/
-    data->gElev=data->gStdev=data->slope=-1000000.0;
-  }/*no ground finding*/
+      if(totE>0.0)data->gElev/=(double)totE;
+      else        data->gElev=-1000000.0;
+
+      /*standard deviation as a measure of slope*/
+      data->gStdev=0.0;
+      for(i=0;i<data->nBins;i++){
+        data->gStdev+=(float)((data->z[i]-data->gElev)*(data->z[i]-data->gElev))*data->ground[i];
+      }
+      if(totE>0.0){
+        data->gStdev=sqrt(data->gStdev/totE);
+        if(data->gStdev>(data->pSigma+dimage->gTol)){
+          data->slope=atan2(sqrt(data->gStdev*data->gStdev-(data->pSigma+dimage->gTol)*(data->pSigma+dimage->gTol)),data->fSigma)*180.0/M_PI;
+        }else{
+          data->slope=0.0;
+        }
+      }else        data->gStdev=data->slope=-1000000.0;
+    }else{/*ground finding*/
+      data->gElev=data->gStdev=data->slope=-1000000.0;
+    }/*no ground finding*/
+  }/*is the ground already defined from the DEM*/
 
   /*canopy top*/
   totE=0.0;
@@ -1599,6 +1602,7 @@ dataStruct *readData(char *namen,control *dimage)
   data->z=dalloc(data->nBins,"z",0);
   if(dimage->ground)data->ground=falloc(data->nBins,"ground",0);
   data->useID=0;
+  data->demGround=0;
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
@@ -1673,16 +1677,17 @@ dataStruct *readData(char *namen,control *dimage)
         if(!strncasecmp(temp2,"coord",5)){
           data->lon=atof(temp3);
           data->lat=atof(temp4);
+        }else if(!strncasecmp(temp2,"ground",6)){
+          data->gElev=atof(temp3);
+          data->slope=atof(temp4);
+          data->demGround=1;
         }
       }
       if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
         if(!strncasecmp(temp2,"density",5)){
           data->pointDense=atof(temp4);
           data->beamDense=atof(temp6);
-        }
-      }
-      if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
-        if(!strncasecmp(temp2,"lvis",4)){
+        }else if(!strncasecmp(temp2,"lvis",4)){
           data->res=atof(temp4);
           data->zen=atof(temp6);
         }
