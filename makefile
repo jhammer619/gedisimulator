@@ -8,8 +8,8 @@ LIBDIR=${HOME}/src/libClidar
 INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${LIBDIR}
 # -I${GSLDIR} -I${GSLDIR}/fft -I${GSLDIR}/err
 CFLAGS += -Wall
-#CFLAGS += -g
-CFLAGS += -O3
+CFLAGS += -g
+#CFLAGS += -O3
 LIBFILES = $(LIBDIR)/libLasProcess.o $(LIBDIR)/libLasRead.o $(LIBDIR)/tiffWrite.o $(LIBDIR)/gaussFit.o $(LIBDIR)/libLidVoxel.o 
 LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o libLidVoxel.o
 GSLFit=linear.o

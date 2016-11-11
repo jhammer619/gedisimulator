@@ -85,6 +85,7 @@ typedef struct{
   char readPulse;      /*read pulse to simulate with*/
   char useShadow;      /*account for shadowing through voxelisation*/
   float maxScanAng;    /*maximum scan angle*/
+  char polyGr;         /*fit a polynomial to the ground*/
 
   /*GEDI fotprint parameters*/
   char sideLobe;     /*side lobe switch*/
@@ -138,6 +139,8 @@ typedef struct{
   float **wave;  /*waveforms*/
   float **canopy;/*canopy waveform*/
   float **ground;/*ground waveform*/
+  double gElev;  /*gorund elevation if calculated*/
+  float gSlope;  /*ground sope if calculated*/
   double minZ;   /*elevation bounds*/
   double maxZ;   /*elevation bounds*/
   int nBins;     /*number of wave bins*/
@@ -163,6 +166,8 @@ int main(int argc,char **argv)
   void setGediPulse(control *);
   void tidySMoothPulse();
   void checkThisFile(lasFile *,control *,int);
+  void groundFromDEM(pCloudStruct **,control *,waveStruct *);
+
 
  
   /*read command line*/
@@ -194,6 +199,9 @@ int main(int argc,char **argv)
   if(dimage->listFiles==0){
     /*make waveforms*/
     waves=makeGediWaves(dimage,data);
+
+    /*find the ground if needed*/
+    if(dimage->ground&&dimage->polyGr)groundFromDEM(data,dimage,waves);
 
     /*output results*/
     writeGEDIwave(dimage,waves);
@@ -227,6 +235,120 @@ int main(int argc,char **argv)
 }/*main*/
 
 
+/*##############################################*/
+/*determine ground properties with e DEM*/
+
+void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
+{
+  int nX=0,nY=0,nBins=0;
+  float res=0,rRes=0;
+  float *gWave=NULL;
+  float *waveFromDEM(double *,int,int,float,double,double,double,double,float,float,double *,int *);
+  double minX=0,minY=0;
+  double *gDEM=NULL,minZ=0;
+  double *findGroundPoly(pCloudStruct **,int,double *,double *,float,int *,int *);
+  void groundProperties(float *,int,double,float,waveStruct *,float);
+
+
+  res=0.1;
+  rRes=0.15;
+
+  /*make DEM*/
+  gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
+
+  /*make gap filled ground waveform*/
+  gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->coord[0],dimage->coord[1],dimage->fSigma,rRes,&minZ,&nBins);
+  TIDY(gDEM);
+
+  /*ground properties*/
+  groundProperties(gWave,nBins,minZ,rRes,waves,dimage->fSigma);
+
+  TIDY(gWave);
+  return;
+}/*groundFromDEM*/
+
+
+/*####################################*/
+/*ground properties*/
+
+void groundProperties(float *gWave,int nBins,double minZ,float rRes,waveStruct *waves,float fSigma)
+{
+  int i=0;
+  float total=0;
+  double z=0,gStdev=0;
+
+  /*CofG*/
+  waves->gElev=0.0;
+  total=0.0;
+  for(i=0;i<nBins;i++){
+    z=(double)i*(double)rRes+minZ;
+    waves->gElev+=z*(double)gWave[i];
+    total+=gWave[i];
+  }
+  if(total>0.0)waves->gElev/=total;
+  else{
+    fprintf(stderr,"No ground?\n");
+    exit(1);
+  }
+
+
+  /*stdev*/
+  gStdev=0.0;
+  for(i=0;i<nBins;i++){
+    z=(double)i*(double)rRes+minZ;
+    gStdev+=pow(z-waves->gElev,2.0)*(double)gWave[i];
+    total+=gWave[i];
+  }
+  gStdev=sqrt(gStdev/total);
+
+  waves->gSlope=atan2(sqrt(gStdev*gStdev),fSigma)*180.0/M_PI;
+
+  return;
+}/*groundProperties*/
+
+
+/*####################################*/
+/*make waveform from DEM*/
+
+float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,double x0,double y0,float fSigma,float rRes,double *minZ,int *nBins)
+{
+  int i=0,j=0;
+  int bin=0,place=0;
+  float *gWave=NULL;
+  float weight=0;
+  double maxZ=0,x=0,y=0;
+  double sep=0;
+
+  /*mind min and max*/
+  maxZ=-10000000.0;
+  *minZ=1000000000.0;
+  for(i=nX*nY-1;i>=0;i--){
+    if(gDEM[i]<*minZ)*minZ=gDEM[i];
+    if(gDEM[i]>maxZ)maxZ=gDEM[i];
+  }
+
+  *nBins=(int)((maxZ-*minZ)/rRes+0.5);
+  gWave=falloc(*nBins,"ground wave",3);
+  for(i=*nBins-1;i>=0;i--)gWave[i]=0.0;
+
+  /*add up DEM*/
+  for(i=0;i<nX;i++){
+    x=((double)i+0.5)*(double)res+minX;
+    for(j=0;j<nY;j++){
+      y=((double)j+0.5)*(double)res+minY;
+      place=j*nX+i;
+
+      sep=sqrt((x-x0)*(x-x0)+(y-y0)*(y-y0));
+      bin=(int)((gDEM[place]-*minZ)/rRes);
+      weight=(float)gaussian(sep,(double)fSigma,0.0);
+      if((bin>=0)&&(bin<*nBins))gWave[bin]+=weight;
+    }
+  }
+
+  return(gWave);
+}/*waveFromDEM*/
+
+
 /*####################################*/
 /*write name if overlap*/
 
@@ -235,7 +357,6 @@ void checkThisFile(lasFile *las,control *dimage,int i)
   if(checkFileBounds(las,dimage->minX,dimage->maxX,dimage->minY,dimage->maxY)){
     fprintf(stdout,"Need %s\n",dimage->inList[i]);
   }
-
   return;
 }/*checkThisFile*/
 
@@ -475,6 +596,8 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->coord[0],dimage->coord[1]);
   fprintf(opoo,"# density point %f beam %f\n",dimage->pointDense,dimage->beamDense);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
+  if(dimage->ground&&dimage->polyGr)fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
+
 
   /*write data*/
   for(i=0;i<waves->nBins;i++){
@@ -1473,6 +1596,7 @@ control *readCommands(int argc,char **argv)
   dimage->vRes[0]=dimage->vRes[1]=dimage->vRes[2]=1.0;
   dimage->beamRad=0.165;    /*33 cm*/
   dimage->maxScanAng=1000000.0;   /*maximum scan angle*/
+  dimage->polyGr=0;     /*don't fit a polynomial through the ground*/
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
@@ -1553,8 +1677,10 @@ control *readCommands(int argc,char **argv)
         dimage->maxScanAng=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-useShadow",10)){
         dimage->useShadow=1;
+      }else if(!strncasecmp(argv[i],"-polyGround",11)){
+        dimage->polyGr=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
