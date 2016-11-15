@@ -293,13 +293,16 @@ set output="$outRoot.metric.txt"
 while( $i < $nCores )
   set thisList="$tempList.$i"
   set thisOut="$tempOut.$i.metric.txt"
+  set thisGauss="$tempOut.$i.gauss.txt"
 
   if( $i == 0 )then
     cat $thisOut > $output
   else
     gawk '(NR>1){print $0}' < $thisOut >> $output
   endif
+
   if( -e $thisList )rm $thisList
+  if( -e $thisGauss )rm $thisGauss
   if( -e $thisOut )rm $thisOut
   @ i++
 end
