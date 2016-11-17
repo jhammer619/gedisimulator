@@ -7,6 +7,7 @@
 #include "tools.c"
 #include "libLasRead.h"
 #include "libLasProcess.h"
+#include "tiffWrite.h"
 
 
 /*#########################*/
@@ -188,8 +189,6 @@ void writeFileBounds(lasFile *las,char *namen,control *dimage)
 
 void writeImage(control *dimage,imageStruct *image)
 {
-  void drawTiff(char *,double *,int *,double,unsigned char *,int,int,double,uint16_t);
-
   drawTiff(dimage->outNamen,&(image->geoL[0]),&(image->geoI[0]),(double)dimage->res,image->image,image->nX,image->nY,1.0,image->epsg);
 
   return;
