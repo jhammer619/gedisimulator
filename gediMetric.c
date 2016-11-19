@@ -996,7 +996,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   double maxGround(float *,double *,int);
   double inflGround(float *,double *,int);
   double bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
-  float *findRH(float *,double *,int,double,float,int *);
   float *blankRH(float,int *);
   float *smoothed=NULL;
   float halfCover(float *,double *,int,double,float);
@@ -1406,46 +1405,6 @@ float *blankRH(float rhRes,int *nRH)
 
   return(rh);
 }/*blankRH*/
-
-
-/*####################################################*/
-/*rh metrics*/
-
-float *findRH(float *processed,double *z,int nBins,double gHeight,float rhRes,int *nRH)
-{
-  int i=0,j=0;
-  float cumul=0;
-  float totE=0,r=0;
-  float *rh=NULL;
-
-  /*total energy*/
-  for(i=0;i<nBins;i++)totE+=processed[i];
-
-  *nRH=(int)(100.0/rhRes)+1;
-  rh=falloc(*nRH,"rh metrics",0);
-  for(i=0;i<*nRH;i++)rh[i]=-1.0;
-
-  cumul=0.0;
-  if(z[nBins-i]<z[0]){   /*wave is from from top to bottom*/
-    for(i=nBins-1;i>=0;i--){
-      for(j=0;j<(*nRH);j++){
-        r=((float)j*(float)(rhRes/100.0))*totE;
-        if((rh[j]<0.0)&&(cumul>(r-TOL)))rh[j]=(float)(z[i]-gHeight);
-      }
-      cumul+=processed[i];
-    }
-  }else{
-    for(i=0;i<nBins;i++){  /*wave is from bottom to top*/
-      for(j=0;j<(*nRH);j++){
-        r=((float)j*(float)(rhRes/100.0))*totE;
-        if((rh[j]<0.0)&&(cumul>(r-TOL)))rh[j]=(float)(z[i]-gHeight);
-      }
-      cumul+=processed[i];
-    }
-  }
-
-  return(rh);
-}/*findRH*/
 
 
 /*####################################################*/
