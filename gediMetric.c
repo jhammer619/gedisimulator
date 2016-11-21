@@ -130,7 +130,13 @@ typedef struct{
   float *rhMax;     /*rh metrics using max ground*/
   float *rhInfl;    /*rh metrics using inflection ground*/
   float *rhReal;    /*rh metric from real ground*/
-  int nRH;
+  int nRH;          /*number of RH metrics*/
+  float FHD;        /*foliage height diversity*/
+  int nLm;          /*number of L-moments*/
+  //float *LmomGau;   /*L-moments from Gaussian fit*/
+  //float *LmomRea;   /*L-moments from ALS ground*/
+  //float *LmomInf;   /*L-moments from inflection point*/
+  //float *LmomMax;   /*L-moments from maximum*/
   float cov;        /*canopy cover for gaussian fitting*/
   double gHeight;   /*ground height from Gaussians*/
   double maxGround; /*ground height from maximum*/
@@ -283,6 +289,10 @@ int main(int argc,char **argv)
     TIDY(metric->rhReal);
     TIDY(metric->rh);
     TIDY(metric->bGr);
+    //TIDY(metric->LmomGau);
+    //TIDY(metric->LmomRea);
+    //TIDY(metric->LmomInf);
+    //TIDY(metric->LmomMax);
   }/*file loop*/
 
   fprintf(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
@@ -895,8 +905,12 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
                              14+4*metric->nRH+1+dimage->bayesGround+11,14+4*metric->nRH+1+dimage->bayesGround+12);
     fprintf(dimage->opooMet,", %d waveEnergy, %d blairSense",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
     fprintf(dimage->opooMet,", %d pointDense, %d beamDense",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
-    fprintf(dimage->opooMet,", %d zenith,",14+4*metric->nRH+1+dimage->bayesGround+17);
-    fprintf(dimage->opooMet,"\n");
+    fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+19+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+19+metric->nLm+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+19+2*metric->nLm+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomReal%d",14+4*metric->nRH+1+dimage->bayesGround+19+3*metric->nLm+i,i+1);
+    fprintf(dimage->opooMet,",\n");
   }
 
   if(dimage->gFit->nGauss>dimage->maxGauss)fprintf(stderr,"More Gaussians than header entries %d\n",dimage->gFit->nGauss);
@@ -931,7 +945,11 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
   fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
   fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
-  fprintf(dimage->opooMet," %f",data->zen);
+  fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
+  /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
+  for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
+  for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
+  for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomRea[i]);*/
   fprintf(dimage->opooMet,"\n");
 
   /*fitted wave if required*/
@@ -1070,12 +1088,21 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
     for(i=0;i<metric->nRH;i++)metric->rhReal[i]=-1.0;
   }
 
+  /*foliage height diversity*/
+  metric->FHD=foliageHeightDiversity(processed,nBins);
+
   /*signal start and end*/
   findSignalBounds(processed,z,nBins,&metric->tElev,&metric->bElev,dimage);
 
   /*Lefsky's leading and trailing edge extents*/
   findWaveExtents(processed,z,nBins,metric->tElev,metric->bElev,&metric->leExt,&metric->teExt);
 
+  /*L moments*/
+  /*metric->nLm=4;
+  metric->LmomGau=waveLmoments(metric->rh,metric->nRH,dimage->rhRes,metric->nLm);
+  metric->LmomRea=waveLmoments(metric->rhReal,metric->nRH,dimage->rhRes,metric->nLm);
+  metric->LmomInf=waveLmoments(metric->rhInfl,metric->nRH,dimage->rhRes,metric->nLm);
+  metric->LmomMax=waveLmoments(metric->rhMax,metric->nRH,dimage->rhRes,metric->nLm);*/
 
   /*cover estimates using Bryan's half feature method*/
   metric->covHalfG=halfCover(processed,z,nBins,metric->gHeight,dimage->rhoRatio);
