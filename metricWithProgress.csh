@@ -86,7 +86,6 @@ while ($#argv>0)
   shift argv
   breaksw
 
-
   case -gTol
     set gTol="-gTol $argv[2]"
   shift argv;shift argv
@@ -101,7 +100,6 @@ while ($#argv>0)
     set dcBias="-dcBias $argv[2]"
   shift argv;shift argv
   breaksw
-
 
   case -nSig
     set nSig="-nSig $argv[2]"
@@ -118,6 +116,7 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -linkNoise
     set linkNoise="-linkNoise $argv[2] $argv[3]"
   shift argv;shift argv;shift argv
   breaksw
@@ -126,7 +125,6 @@ while ($#argv>0)
     set trueSig="-trueSig $argv[2]"
   shift argv;shift argv
   breaksw
-
 
   case -renoise
     set renoise="-renoise"
