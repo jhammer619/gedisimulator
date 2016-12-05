@@ -122,7 +122,6 @@ while ($#argv>0)
   shift argv;shift argv;shift argv
   breaksw
 
-
   case -trueSig
     set trueSig="-trueSig $argv[2]"
   shift argv;shift argv
@@ -232,7 +231,7 @@ while ($#argv>0)
   default:
     echo "Unknown argument $argv[1]"
     echo "Who knows"
-    echo "Type echi.rat -help"
+    echo "Type metricWithProgress.csh -help"
     exit;
 
   endsw

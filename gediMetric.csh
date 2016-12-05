@@ -123,12 +123,10 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
-
   case -linkNoise
     set linkNoise="-linkNoise $argv[2] $argv[3]"
   shift argv;shift argv;shift argv
   breaksw
-
 
   case -trueSig
     set trueSig="-trueSig $argv[2]"
@@ -284,7 +282,7 @@ while ($#argv>0)
   default:
     echo "Unknown argument $argv[1]"
     echo "Who knows"
-    echo "Type echi.rat -help"
+    echo "Type gediMetric.csh -help"
     exit;
 
   endsw
