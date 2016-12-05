@@ -133,7 +133,6 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
-
   case -renoise
     set renoise="-renoise"
   shift argv
@@ -150,7 +149,7 @@ while ($#argv>0)
   breaksw
 
   case -maxDN
-    set maxDN="-maxDN $maxDN"
+    set maxDN="-maxDN $argv[2]"
   shift argv;shift argv
   breaksw
 
