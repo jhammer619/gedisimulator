@@ -1437,7 +1437,7 @@ void readSimPulse(control *dimage)
   }
   dimage->pRes=fabs(dimage->pulse->x[1]-dimage->pulse->x[0]);
 
-  /*determine CofG and normalise*/
+  /*determine maximum to centre and total to normalise*/
   tot=0.0;
   CofG=0.0;
   max=-1000.0;
