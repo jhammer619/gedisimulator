@@ -141,6 +141,7 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,int minN)
   float *fitSingleGauss(float *,float *,int,float,int *,float **);
   float *x=NULL,*fitWave=NULL;
   float *gaussPar=NULL,CofG=0;
+  float total=0;
   float findCofG(float *,float *,int);
   float **meanWaves=NULL;
   denPar den;
@@ -225,6 +226,13 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,int minN)
         for(;i>=0;i--)meanWaves[numb][i]=0.0;
       }
     }
+  }
+
+  /*normalise*/
+  for(numb=0;numb<2;numb++){
+    total=0.0;
+    for(i=0;i<(*meanBins);i++)total+=meanWaves[numb][i];
+    for(i=0;i<(*meanBins);i++)meanWaves[numb][i]/=total;
   }
 
   TIDY(x);
