@@ -50,7 +50,8 @@ typedef struct{
   char inNamen[200];
   char outNamen[200];
   int meanBins;
-  float oRes;
+  float inRes;     /*input resolution*/
+  float oRes;      /*output resolution*/
   int minN;
 }control;
 
@@ -74,7 +75,7 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct *data=NULL;
   dataStruct *readData(char *);
-  float **fitPulseGauss(dataStruct *,int *,float,int);
+  float **fitPulseGauss(dataStruct *,int *,float,float,int);
   float **meanWaves=NULL;
   void writeResults(float **,int,float,char *);
 
@@ -86,7 +87,7 @@ int main(int argc,char **argv)
   data=readData(dimage->inNamen);
 
   /*perform fits*/
-  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->minN);
+  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN);
 
   /*write results*/
   writeResults(meanWaves,dimage->meanBins,dimage->oRes,dimage->outNamen);
@@ -132,7 +133,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen)
 /*############################################################*/
 /*fit Gaussian to pulse*/
 
-float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,int minN)
+float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN)
 {
   int i=0,numb=0,nGauss=0;
   int **nIn=NULL,bin=0;
@@ -153,6 +154,7 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,int minN)
   den.threshScale=5.0;
   den.noiseTrack=1;
   den.statsLen=3.0;
+  den.res=inRes;
 
   (*meanBins)=(int)((float)data->nBins*den.res/oRes);
   meanWaves=fFalloc(2,"meanWaves",0);
@@ -389,7 +391,8 @@ control *readCommands(int argc,char **argv)
 
   strcpy(dimage->inNamen,"/Users/stevenhancock/data/teast/pulse/howland.waves");
   strcpy(dimage->outNamen,"teast.dat");
-  dimage->oRes=0.15;
+; dimage->oRes=0.15;
+  dimage->inRes=0.3;
   dimage->minN=100;
 
 
@@ -405,11 +408,14 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-res",4)){
         checkArguments(1,i,argc,"-res");
         dimage->oRes=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-inRes",6)){
+        checkArguments(1,i,argc,"-inRes");
+        dimage->inRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-minN",5)){
         checkArguments(1,i,argc,"-minN");
         dimage->minN=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-minN min;     minimum number of samples to trust\n\n");
+        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
