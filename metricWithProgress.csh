@@ -142,7 +142,7 @@ while ($#argv>0)
   breaksw
 
   case -maxDN
-    set maxDN="-maxDN $maxDN"
+    set maxDN="-maxDN $argv[2]"
   shift argv;shift argv
   breaksw
 
@@ -239,7 +239,7 @@ end
 touch $progRoot
 
 # extract metrics
-gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset 
+gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
 
 # mark finishing
 rm $progRoot
