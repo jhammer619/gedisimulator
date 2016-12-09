@@ -703,15 +703,19 @@ void modifyTruth(dataStruct *data,control *dimage)
   tempWave=denoiseTruth(data->wave,data->nBins,dimage);
 
   /*change pulse width*/
-  if(dimage->newPsig<data->pSigma){   /*reduce pulse width*/
-    fprintf(stderr,"Can't deconvolve for new pulse length just yet\n");
-    exit(1);
-  }else if(dimage->newPsig>data->pSigma){  /*increase pulse width*/
-    sigDiff=sqrt(data->pSigma*data->pSigma-dimage->newPsig*dimage->newPsig);
+  if(dimage->newPsig>0.0){
+    if(dimage->newPsig<data->pSigma){   /*reduce pulse width*/
+      fprintf(stderr,"Can't deconvolve for new pulse length just yet\n");
+      exit(1);
+    }else if(dimage->newPsig>data->pSigma){  /*increase pulse width*/
+      sigDiff=sqrt(dimage->newPsig*dimage->newPsig-data->pSigma*data->pSigma);
+      TIDY(data->wave);
+      data->wave=smooth(sigDiff,data->nBins,tempWave,data->res);
+    }else{  /*do not change*/
+      doNothing=1;
+    }
+  }else doNothing=1;
 
-  }else{  /*do not change*/
-    doNothing=1;
-  }
 
   if(doNothing==1){
     TIDY(data->wave);
@@ -719,6 +723,7 @@ void modifyTruth(dataStruct *data,control *dimage)
     tempWave=NULL;
   }
 
+  TIDY(tempWave);
   return;
 }/*modifyTruth*/
 
@@ -737,7 +742,7 @@ float *denoiseTruth(float *wave,int nBins,control *dimage)
   den.varNoise=1;
   den.statsLen=15.0;
   den.noiseTrack=1;
-  den.threshScale=2.0;
+  den.threshScale=4.0;
 
   /*denoise*/
   tempWave=processFloWave(wave,nBins,&den,1.0);
@@ -1768,6 +1773,7 @@ control *readCommands(int argc,char **argv)
   dimage->minGap=0.0;
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
+  dimage->newPsig=-1.0;   /*leave blank*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->den);
@@ -1912,8 +1918,14 @@ control *readCommands(int argc,char **argv)
         dimage->noRHgauss=1;
       }else if(!strncasecmp(argv[i],"-renoise",8)){
        dimage->renoiseWave=1;
+      }else if(!strncasecmp(argv[i],"-newPsig",8)){
+        checkArguments(1,i,argc,"-newPsig");
+        dimage->newPsig=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-oldPsig",8)){
+        checkArguments(1,i,argc,"-oldPsig");
+        dimage->pSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
