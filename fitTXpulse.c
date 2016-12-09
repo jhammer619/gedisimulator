@@ -75,9 +75,9 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct *data=NULL;
   dataStruct *readData(char *);
-  float **fitPulseGauss(dataStruct *,int *,float,float,int);
-  float **meanWaves=NULL;
-  void writeResults(float **,int,float,char *);
+  float **fitPulseGauss(dataStruct *,int *,float,float,int,float *);
+  float **meanWaves=NULL,meanSig=0;
+  void writeResults(float **,int,float,char *,float);
 
 
   /*read command Line*/
@@ -87,10 +87,10 @@ int main(int argc,char **argv)
   data=readData(dimage->inNamen);
 
   /*perform fits*/
-  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN);
+  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN,&meanSig);
 
   /*write results*/
-  writeResults(meanWaves,dimage->meanBins,dimage->oRes,dimage->outNamen);
+  writeResults(meanWaves,dimage->meanBins,dimage->oRes,dimage->outNamen,meanSig);
 
   /*tidy up*/
   TTIDY((void **)meanWaves,2);
@@ -108,7 +108,7 @@ int main(int argc,char **argv)
 /*############################################################*/
 /*write results*/
 
-void writeResults(float **meanWaves,int nBins,float res,char *outNamen)
+void writeResults(float **meanWaves,int nBins,float res,char *outNamen,float meanSig)
 {
   int i=0;
   FILE *opoo=NULL;
@@ -119,6 +119,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen)
   }
 
   fprintf(opoo,"# 1 x, 2 CofG, 3 Gaussian\n");
+  fprintf(opoo,"# meanSig %f\n",meanSig);
   for(i=0;i<nBins;i++)fprintf(opoo,"%f %f %f\n",(float)(i-nBins/2)*res,meanWaves[0][i],meanWaves[1][i]);
 
   if(opoo){
@@ -133,10 +134,11 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen)
 /*############################################################*/
 /*fit Gaussian to pulse*/
 
-float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN)
+float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN,float *meanSig)
 {
   int i=0,numb=0,nGauss=0;
   int **nIn=NULL,bin=0;
+  int contN=0;
   float *temp=NULL,*denoise=NULL;
   float *copyLastFeature(float *,int);
   float *fitSingleGauss(float *,float *,int,float,int *,float **);
@@ -155,6 +157,10 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   den.noiseTrack=1;
   den.statsLen=3.0;
   den.res=inRes;
+
+  /*mean width*/
+  (*meanSig)=0.0;
+  contN=0;
 
   (*meanBins)=(int)((float)data->nBins*den.res/oRes);
   meanWaves=fFalloc(2,"meanWaves",0);
@@ -187,6 +193,12 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     /*fit a single Gaussian*/
     fitWave=fitSingleGauss(x,temp,data->nBins,0.5,&nGauss,&gaussPar);
     CofG=findCofG(x,temp,data->nBins);
+
+    if(gaussPar[2]>0.0){
+      (*meanSig)+=gaussPar[2];
+      contN++;
+    }
+    
 
     /*load into mean arrays*/
     for(i=0;i<data->nBins;i++){
@@ -236,6 +248,9 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     for(i=0;i<(*meanBins);i++)total+=meanWaves[numb][i];
     for(i=0;i<(*meanBins);i++)meanWaves[numb][i]/=total;
   }
+
+  if(contN>0)(*meanSig)/=(float)contN;
+  else       (*meanSig)=-1.0;
 
   TIDY(x);
   TTIDY((void **)nIn,2);
