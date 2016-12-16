@@ -1686,6 +1686,8 @@ dataStruct *readData(char *namen,control *dimage)
     }
   }/*line loop*/
 
+  if(data->res<=0.0)data->res=dimage->res;
+
   /*add up energy*/
   data->totE=0.0;
   for(i=0;i<data->nBins;i++)data->totE+=data->wave[i];
