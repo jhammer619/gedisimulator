@@ -151,6 +151,8 @@ typedef struct{
   float covHalfB;   /*cover from Bryan's half, Bayesian*/
   float totE;       /*total energy after denoising*/
   float blairSense; /*Blair sensitivity metric*/
+  float niM2;       /*Ni metric with c=2*/
+  float niM21;      /*Ni metric with c=2.1*/
 
   int nBgr;         /*number of ground estimates*/
   bGround *bGr;     /*Bayesian ground structure*/
@@ -911,10 +913,11 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d waveEnergy, %d blairSense",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
     fprintf(dimage->opooMet,", %d pointDense, %d beamDense",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
     fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
-    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+19+i,i+1);
-    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+19+metric->nLm+i,i+1);
-    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+19+2*metric->nLm+i,i+1);
-    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomReal%d",14+4*metric->nRH+1+dimage->bayesGround+19+3*metric->nLm+i,i+1);
+    fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
+    //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomReal%d",14+4*metric->nRH+1+dimage->bayesGround+21+3*metric->nLm+i,i+1);
     fprintf(dimage->opooMet,",\n");
   }
 
@@ -951,6 +954,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
   fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
   fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
+  fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
@@ -1114,6 +1118,9 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   metric->covHalfM=halfCover(processed,z,nBins,metric->maxGround,dimage->rhoRatio);
   metric->covHalfI=halfCover(processed,z,nBins,metric->inflGround,dimage->rhoRatio);
 
+  /*Wenge Ni's metrics*/
+  metric->niM2=niMetric(processed,z,nBins,dimage->res,metric->gHeight,2.0);
+  metric->niM21=niMetric(processed,z,nBins,dimage->res,metric->gHeight,2.1);
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
