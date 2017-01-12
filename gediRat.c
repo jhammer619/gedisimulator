@@ -250,7 +250,6 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   double *findGroundNN(pCloudStruct **,int,double *,double *,float,int *,int *);
   void groundProperties(float *,int,double,float,waveStruct *,float);
 
-
   res=0.1;
   rRes=0.15;
 
@@ -287,15 +286,17 @@ void groundProperties(float *gWave,int nBins,double minZ,float rRes,waveStruct *
     waves->gElev+=z*(double)gWave[i];
     total+=gWave[i];
   }
-  if(total>0.0)waves->gElev/=total;
-  else{
+  if(total>0.0){
+    waves->gElev/=total;
+    for(i=0;i<nBins;i++)gWave[i]/=total;
+  }else{
     fprintf(stderr,"No ground?\n");
     exit(1);
   }
 
 
   /*stdev*/
-  gStdev=0.0;
+  gStdev=total=0.0;
   for(i=0;i<nBins;i++){
     z=(double)i*(double)rRes+minZ;
     gStdev+=pow(z-waves->gElev,2.0)*(double)gWave[i];
@@ -341,9 +342,9 @@ float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,
       place=j*nX+i;
 
       sep=sqrt((x-x0)*(x-x0)+(y-y0)*(y-y0));
-      bin=(int)((gDEM[place]-*minZ)/rRes);
+      bin=(int)((gDEM[place]-(*minZ))/rRes);
       weight=(float)gaussian(sep,(double)fSigma,0.0);
-      if((bin>=0)&&(bin<*nBins))gWave[bin]+=weight;
+      if((bin>=0)&&(bin<(*nBins)))gWave[bin]+=weight;
     }
   }
 
