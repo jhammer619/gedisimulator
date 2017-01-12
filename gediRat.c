@@ -142,6 +142,7 @@ typedef struct{
   float **ground;/*ground waveform*/
   double gElev;  /*gorund elevation if calculated*/
   float gSlope;  /*ground sope if calculated*/
+  float meanScanAng;/*mean ALS scan angle*/
   double minZ;   /*elevation bounds*/
   double maxZ;   /*elevation bounds*/
   int nBins;     /*number of wave bins*/
@@ -395,6 +396,7 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
     data->refl=ialloc(las->nPoints,"refl",0);
     data->class=uchalloc(las->nPoints,"class",0);
     data->nRet=challoc(las->nPoints,"nRet",0);
+    data->scanAng=challoc(las->nPoints,"scanAng",0);
     data->packetDes=uchalloc(las->nPoints,"packetDes",0);
     data->grad=fFalloc(las->nPoints,"grad",0);
     for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
@@ -430,6 +432,7 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         else           data->refl[pUsed]=1;
         data->class[pUsed]=las->classif;
         data->nRet[pUsed]=(char)las->field.nRet;
+        data->scanAng[pUsed]=las->scanAng;
 
         /*determine data bounds*/
         if(x<data->bounds[0])data->bounds[0]=x;
@@ -499,6 +502,10 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
         exit(1);
       }
       if(!(data->nRet=(char *)realloc(data->nRet,data->nPoints*sizeof(char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->scanAng=(char *)realloc(data->scanAng,data->nPoints*sizeof(char)))){
         fprintf(stderr,"Balls\n");
         exit(1);
       }
@@ -600,6 +607,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->fSigma,dimage->pSigma,dimage->res,dimage->sideLobe);
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->coord[0],dimage->coord[1]);
   fprintf(opoo,"# density point %f beam %f\n",dimage->pointDense,dimage->beamDense);
+  fprintf(opoo,"# meanScanAng %f\n",waves->meanScanAng);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
   if(dimage->ground&&(dimage->polyGr||dimage->nnGr))fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
 
@@ -821,11 +829,14 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
   uint32_t i=0;
   double sep=0;
   double dX=0,dY=0;
-  float refl=0,rScale=0,fracHit=0;
+  float refl=0,rScale=0,fracHit=0,totAng=0;
   void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,control *);
   void processAggragate(control *,waveStruct *);
   void waveFromPointCloud(control *,pCloudStruct **,waveStruct *);
   denPar *setDeconForGEDI(control *);
+
+  /*reset mean scan angle*/
+  waves->meanScanAng=totAng=0.0;
 
   /*make waves*/
   for(n=0;n<dimage->nLobes;n++){
@@ -872,6 +883,8 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
               }/*ground recording if needed*/
             }/*bin bound check*/
           }/*pulse bin loop*/
+          waves->meanScanAng+=rScale*fracHit*(float)data[numb]->scanAng[i];
+          totAng+=rScale*fracHit;
 
           /*full-waveform*/
           if(dimage->readWave&&data[numb]->hasWave){
@@ -883,6 +896,9 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
       }/*point loop*/
     }/*file loop*/
   }/*lobe loop*/
+
+  /*normalise mean scan angle*/
+  if(totAng>0.0)waves->meanScanAng/=totAng;
 
   return;
 }/*waveFromPointCloud*/
