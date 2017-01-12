@@ -883,7 +883,7 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
               }/*ground recording if needed*/
             }/*bin bound check*/
           }/*pulse bin loop*/
-          waves->meanScanAng+=rScale*fracHit*(float)data[numb]->scanAng[i];
+          waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
           totAng+=rScale*fracHit;
 
           /*full-waveform*/
