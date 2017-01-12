@@ -1669,6 +1669,8 @@ dataStruct *readData(char *namen,control *dimage)
         if(!strncasecmp(temp2,"waveID",6)){
           data->useID=1;
           strcpy(&(data->waveID[0]),temp3);
+        }else if(!strncasecmp(temp2,"meanScanAng",11)){
+          data->zen=atof(temp3);
         }
       }
       if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
@@ -1682,7 +1684,7 @@ dataStruct *readData(char *namen,control *dimage)
         }
       }
       if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
-        if(!strncasecmp(temp2,"density",5)){
+        if(!strncasecmp(temp2,"density",7)){
           data->pointDense=atof(temp4);
           data->beamDense=atof(temp6);
         }else if(!strncasecmp(temp2,"lvis",4)){
