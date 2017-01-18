@@ -726,7 +726,6 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   void silhouetteImage(int,pCloudStruct **,rImageStruct *,lidVoxPar *);
   void waveFromImage(char **,float **,int,int,int);
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
-  rImageStruct *allocateRangeImage(int,pCloudStruct **,float,float,float *,double,double,double);
   lidVoxPar lidPar;
 
 
@@ -747,7 +746,7 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
 
   /*create images*/
   //rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes*4.0,iRes,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ);
-  rImage=allocateRangeImage(dimage->nFiles,data,0.15,0.01,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ);
+  rImage=allocateRangeImage(dimage->nFiles,data,NULL,0.15,0.01,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ,NULL);
   silhouetteImage(dimage->nFiles,data,rImage,&lidPar);
 
   /*convert images to waveform*/
