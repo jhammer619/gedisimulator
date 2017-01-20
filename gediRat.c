@@ -1193,7 +1193,6 @@ void setGediFootprint(control *dimage)
 {
   int i=0;
   float maxSep=0;
-  float determineGaussSep(float,float);
   float totE=0;
   float az=0;
   double tX=0,tY=0;
@@ -1312,23 +1311,6 @@ void setGediFootprint(control *dimage)
 
   return;
 }/*setGediFootprint*/
-
-
-/*####################################*/
-/*maximum significant distance*/
-
-float determineGaussSep(float fSigma,float thresh)
-{
-  float x=0,y=0;
-
-  x=0.0;
-  do{
-    y=(float)gaussian((double)x,(double)fSigma,0.0);
-    x+=0.2;
-  }while(y>=thresh);
-
-  return(x);
-}/*determineGaussSep*/
 
 
 /*####################################*/
