@@ -750,7 +750,7 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   /*convert images to waveform*/
   tempWave=fFalloc(2,"",0);
   for(i=0;i<2;i++)tempWave[i]=falloc(rImage->nBins,"",i+1);
-  waveFromImage(rImage->image,tempWave,rImage->nBins,rImage->nX,rImage->nY);
+  waveFromImage(rImage,tempWave,1,dimage->fSigma,dimage->pSigma);
   for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
   TTIDY((void **)tempWave,2);
   tempWave=NULL;
