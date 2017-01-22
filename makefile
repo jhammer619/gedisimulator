@@ -10,8 +10,8 @@ INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${LIBDIR}
 CFLAGS += -Wall
 #CFLAGS += -g
 CFLAGS += -O3
-LIBFILES = $(LIBDIR)/libLasProcess.o $(LIBDIR)/libLasRead.o $(LIBDIR)/tiffWrite.o $(LIBDIR)/gaussFit.o $(LIBDIR)/libLidVoxel.o 
-LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o libLidVoxel.o
+LIBFILES = $(LIBDIR)/libLasProcess.o $(LIBDIR)/libLasRead.o $(LIBDIR)/tiffWrite.o $(LIBDIR)/gaussFit.o $(LIBDIR)/libLidVoxel.o  $(LIBDIR)/libTLSread.o
+LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o libLidVoxel.o libTLSread.o
 GSLFit=linear.o
 MIN=mpfit.o
 

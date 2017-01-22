@@ -744,7 +744,11 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
 
   /*create images*/
   //rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes*4.0,iRes,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ);
-  rImage=allocateRangeImage(dimage->nFiles,data,NULL,0.15,0.01,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ,NULL);
+  //rImage=allocateRangeImage(dimage->nFiles,data,NULL,0.15,0.01,&(grad[0]),dimage->coord[0],dimage->coord[1],waves->maxZ,NULL);
+  fprintf(stderr,"THis method is no longer operational. Do not use\n");
+  exit(1);
+
+
   silhouetteImage(dimage->nFiles,data,NULL,rImage,&lidPar,NULL,0,NULL);
 
   /*convert images to waveform*/
