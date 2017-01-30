@@ -721,13 +721,14 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
 {
   int i=0;
   float **tempWave=NULL;
-  float iRes=0,grad[3];
+  //float iRes=0,grad[3];
+  float grad[3];
   void voxelGap(control *,pCloudStruct **,waveStruct *);
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   lidVoxPar lidPar;
 
 
-  iRes=0.02;
+  //iRes=0.02;
   grad[0]=grad[1]=0.0;
   grad[2]=-1.0;
 
