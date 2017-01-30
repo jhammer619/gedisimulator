@@ -1,6 +1,6 @@
 #!/bin/csh -f
 
-set bin="$HOME/src/gediRat"
+set bin=$GEDIRAT_ROOT
 
 @ useCircle=0
 set rad=80
@@ -10,7 +10,7 @@ set minX=-100000000
 set maxX=100000000
 set minY=-100000000
 set maxY=100000000
-set output="teast.list"
+set output="test.list"
 
 
 while ($#argv>0)

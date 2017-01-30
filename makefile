@@ -1,39 +1,31 @@
-# Makefile for iter_thresh
-#
-HOME =/Users/dill
+# Makefile for GEDI simulator tools
+
 LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
-MINDIR=${HOME}/src/minpack
-GSLDIR=${HOME}/src/GSL/gsl-1.16
-LIBDIR=${HOME}/src/libClidar
-INCLS = -I/usr/local/include -I${HOME}/src/headers -I$(MINDIR) -I${LIBDIR}
-# -I${GSLDIR} -I${GSLDIR}/fft -I${GSLDIR}/err
+INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${GSL_ROOT} -I${GSL_ROOT}/fft -I${LIBCLIDAR_ROOT}
 CFLAGS += -Wall
-#CFLAGS += -g
 CFLAGS += -O3
-LIBFILES = $(LIBDIR)/libLasProcess.o $(LIBDIR)/libLasRead.o $(LIBDIR)/tiffWrite.o $(LIBDIR)/gaussFit.o $(LIBDIR)/libLidVoxel.o  $(LIBDIR)/libTLSread.o
+LIBFILES = $(LIBCLIDAR_ROOT)/libLasProcess.o $(LIBCLIDAR_ROOT)/libLasRead.o $(LIBCLIDAR_ROOT)/tiffWrite.o $(LIBCLIDAR_ROOT)/gaussFit.o $(LIBCLIDAR_ROOT)/libLidVoxel.o  $(LIBCLIDAR_ROOT)/libTLSread.o
 LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o libLidVoxel.o libTLSread.o
 GSLFit=linear.o
 MIN=mpfit.o
+ARCH=$(shell uname -m)
 
 CC = gcc
-#CC= /opt/SUNWspro/bin/cc
 
-#CFLAGS += -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+TARGET=gediRat
 
-THIS=gediRat
-
-$(THIS):	$(THIS).o $(GSLDIR)/fit/$(GSLFIT) ${MINDIR}/$(MIN) ${LIBFILES}
-		$(CC) $(CFLAGS) $(GSLFIT) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
+$(TARGET):	$(TARGET).o $(GSL_ROOT)/fit/$(GSLFIT) ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
+		$(CC) $(CFLAGS) $(GSLFIT) ${CMPFIT_ROOT}/$(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
 
 .c.o:		$<
 		$(CC) $(CFLAGS) -I. $(INCLS) -D$(ARCH)  -c $<
 
 clean:
-		\rm -f *% *~ *.o #$(TOOLDIR)/*.o
+		\rm -f *% *~ *.o
 
 install:
-		touch $(HOME)/bin/$(ARCH)/$(THIS)
-		mv $(HOME)/bin/$(ARCH)/$(THIS) $(HOME)/bin/$(ARCH)/$(THIS).old
-		cp $(THIS) $(HOME)/bin/$(ARCH)/$(THIS)
+		touch $(HOME)/bin/$(ARCH)/$(TARGET)
+		mv $(HOME)/bin/$(ARCH)/$(TARGET) $(HOME)/bin/$(ARCH)/$(TARGET).old
+		cp $(TARGET) $(HOME)/bin/$(ARCH)/$(TARGET)
 
 

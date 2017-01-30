@@ -1,6 +1,6 @@
 #!/bin/csh -f
 
-set bin="$HOME/src/gediRat"
+set bin=$GEDIRAT_ROOT
 @ noName=1
 
 while ($#argv>0)
