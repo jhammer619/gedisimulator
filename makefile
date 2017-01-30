@@ -12,10 +12,10 @@ ARCH=$(shell uname -m)
 
 CC = gcc
 
-TARGET=gediRat
+THIS=gediRat
 
-$(TARGET):	$(TARGET).o $(GSL_ROOT)/fit/$(GSLFIT) ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
-		$(CC) $(CFLAGS) $(GSLFIT) ${CMPFIT_ROOT}/$(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
+$(THIS):	$(THIS).o $(GSL_ROOT)/fit/$(GSLFIT) ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
+		$(CC) $(CFLAGS) $(GSLFIT) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
 
 .c.o:		$<
 		$(CC) $(CFLAGS) -I. $(INCLS) -D$(ARCH)  -c $<
@@ -24,8 +24,8 @@ clean:
 		\rm -f *% *~ *.o
 
 install:
-		touch $(HOME)/bin/$(ARCH)/$(TARGET)
-		mv $(HOME)/bin/$(ARCH)/$(TARGET) $(HOME)/bin/$(ARCH)/$(TARGET).old
-		cp $(TARGET) $(HOME)/bin/$(ARCH)/$(TARGET)
+		touch $(HOME)/bin/$(ARCH)/$(THIS)
+		mv $(HOME)/bin/$(ARCH)/$(THIS) $(HOME)/bin/$(ARCH)/$(THIS).old
+		cp $(THIS) $(HOME)/bin/$(ARCH)/$(THIS)
 
 
