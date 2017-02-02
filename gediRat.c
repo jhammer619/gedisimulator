@@ -147,6 +147,7 @@ typedef struct{
   double maxZ;   /*elevation bounds*/
   int nBins;     /*number of wave bins*/
   int nWaves;    /*number of different ways*/
+  double groundBreakElev;  /*break in ground*/
 }waveStruct;
 
 
@@ -247,16 +248,16 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   float *waveFromDEM(double *,int,int,float,double,double,double,double,float,float,double *,int *);
   double minX=0,minY=0;
   double *gDEM=NULL,minZ=0;
-  double *findGroundPoly(pCloudStruct **,int,double *,double *,float,int *,int *);
-  double *findGroundNN(pCloudStruct **,int,double *,double *,float,int *,int *);
+  double *findGroundPoly(pCloudStruct **,int,double *,double *,float,int *,int *,double);
+  double *findGroundNN(pCloudStruct **,int,double *,double *,float,int *,int *,double);
   void groundProperties(float *,int,double,float,waveStruct *,float);
 
   res=0.1;
   rRes=0.15;
 
   /*make DEM*/
-  if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
-  else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->nFiles,&minX,&minY,res,&nX,&nY);
+  if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
+  else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
 
   /*make gap filled ground waveform*/
   gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->coord[0],dimage->coord[1],dimage->fSigma,rRes,&minZ,&nBins);
@@ -667,6 +668,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
   /*clean outliers if needed*/
   if(dimage->cleanOut)cleanOutliers(waves,dimage);
+  else                waves->groundBreakElev=-100000000.0;
 
   /*deconvolve aggragated waveform*/
   if(dimage->doDecon)processAggragate(dimage,waves);
@@ -945,6 +947,7 @@ void cleanOutliers(waveStruct *waves,control *dimage)
       if(pastGround)gGap+=dimage->res;
     }
     if(gGap>maxGap){  /*too big a break, delete*/
+      waves->groundBreakElev=waves->maxZ-(double)i*(double)dimage->res;
       for(;i<waves->nBins;i++){
         waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
         for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
