@@ -22,6 +22,7 @@ set topHat=" "
 set noNorm=" "
 set checkCove=" "
 set maxScanAng=" "
+set polyGround=" "
 set pFile=" "
 set res=" "
 
@@ -115,6 +116,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -polyGround
+    set polyGround="-polyGround"
+  shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -134,6 +140,7 @@ while ($#argv>0)
     echo "-noNorm;           do not normalise for footprint density"
     echo "-checkCover;       check that at least 2/3 of footprint is covered by ALS"
     echo "-maxScanAng ang;   maximimum scan angle to use, degrees"
+    echo "-polyGround;       find the ground by fitting polynomial"
     echo " "
     exit
 
@@ -161,7 +168,7 @@ while( $i <= $nCoords )
   if( ! -e $output )then
     touch $output
     overlapLasFiles.csh -input $inList -coord $x $y -rad 100 -output $temp
-    gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res
+    gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround
   endif
 
   if( -e $temp )rm $temp
