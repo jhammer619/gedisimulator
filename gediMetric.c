@@ -970,13 +970,15 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
       exit(1);
     }
 
-    fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original");
-    for(i=0;i<dimage->gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+5,i+1);
+    fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original, 6 ground, 7 canopy");
+    for(i=0;i<dimage->gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+8,i+1);
     fprintf(opoo,"\n");
     fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->res);
     fprintf(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
     for(i=0;i<data->nBins;i++){
       fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[i]);
+      if(dimage->ground)fprintf(opoo," %f %f",data->ground[i],data->wave[i]-data->ground[i]);
+      else              fprintf(opoo," 0 0");
       for(j=0;j<dimage->gFit->nGauss;j++)fprintf(opoo," %f",dimage->gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gFit->gPar[3*j+2],dimage->gFit->gPar[3*j]));
       fprintf(opoo,"\n");
     }
