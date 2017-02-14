@@ -975,6 +975,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(opoo,"\n");
     fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->res);
     fprintf(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
+    fprintf(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
+    fprintf(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
     for(i=0;i<data->nBins;i++){
       fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[i]);
       if(dimage->ground)fprintf(opoo," %f %f",data->ground[i],data->wave[i]-data->ground[i]);
