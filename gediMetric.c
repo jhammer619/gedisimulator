@@ -74,6 +74,7 @@ typedef struct{
   char bayesGround; /*Bayseian ground finding*/
   char noRHgauss;   /*do not do Gaussian fitting*/
   char renoiseWave; /*remove noise before adding*/
+  char dontTrustGround; /*don't trust ground included with waveforms*/
 
   /*denoising parameters*/
   denPar *den;   /*for denoising*/
@@ -1682,9 +1683,11 @@ dataStruct *readData(char *namen,control *dimage)
           data->lon=atof(temp3);
           data->lat=atof(temp4);
         }else if(!strncasecmp(temp2,"ground",6)){
-          data->gElev=atof(temp3);
-          data->slope=atof(temp4);
-          data->demGround=1;
+          if(!dimage->dontTrustGround){
+            data->gElev=atof(temp3);
+            data->slope=atof(temp4);
+            data->demGround=1;
+          }else data->demGround=0;
         }
       }
       if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
@@ -1789,6 +1792,7 @@ control *readCommands(int argc,char **argv)
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
   dimage->newPsig=-1.0;   /*leave blank*/
+  dimage->dontTrustGround=0;  /*do trust ground in waveforms, if there*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->den);
@@ -1939,8 +1943,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-oldPsig",8)){
         checkArguments(1,i,argc,"-oldPsig");
         dimage->pSigma=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-dontTrustGround",16)){
+        dimage->dontTrustGround=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss; do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
