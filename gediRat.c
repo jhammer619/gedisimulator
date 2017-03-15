@@ -140,10 +140,12 @@ typedef struct{
   float **wave;  /*waveforms*/
   float **canopy;/*canopy waveform*/
   float **ground;/*ground waveform*/
-  double gElev;  /*gorund elevation if calculated*/
-  float gSlope;  /*ground sope if calculated*/
+  double gElev;   /*ground elevation if calculated*/
+  float gSlope;    /*ground sope if calculated*/
+  double gElevSimp; /*simple ground elevation if calculated*/
+  float gSlopeSimp;  /*simple ground sope if calculated*/
   float meanScanAng;/*mean ALS scan angle*/
-  double minZ;   /*elevation bounds*/
+  double minZ;    /*elevation bounds*/
   double maxZ;   /*elevation bounds*/
   int nBins;     /*number of wave bins*/
   int nWaves;    /*number of different ways*/
@@ -611,7 +613,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   fprintf(opoo,"# meanScanAng %f\n",waves->meanScanAng);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",dimage->waveID);
   if(dimage->ground&&(dimage->polyGr||dimage->nnGr))fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
-
+  if(dimage->ground)fprintf(opoo,"# simpleGround %f\n",waves->gElevSimp);
 
   /*write data*/
   for(i=0;i<waves->nBins;i++){
@@ -833,6 +835,7 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
   uint32_t i=0;
   double sep=0;
   double dX=0,dY=0;
+  double totGround=0;     /*contrbution to ground estimate*/
   float refl=0,rScale=0,fracHit=0,totAng=0;
   void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,control *);
   void processAggragate(control *,waveStruct *);
@@ -841,6 +844,11 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
 
   /*reset mean scan angle*/
   waves->meanScanAng=totAng=0.0;
+  /*ground elevation estimate*/
+  if(dimage->ground){
+    waves->gElevSimp=0.0;
+    totGround=0.0;
+  }
 
   /*make waves*/
   for(n=0;n<dimage->nLobes;n++){
@@ -887,6 +895,12 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
               }/*ground recording if needed*/
             }/*bin bound check*/
           }/*pulse bin loop*/
+          if(dimage->ground){
+            if(data[numb]->class[i]==2){
+              waves->gElevSimp+=rScale*data[numb]->z[i];
+              totGround+=rScale;
+            }
+          }
           waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
           totAng+=rScale*fracHit;
 
@@ -903,6 +917,8 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
 
   /*normalise mean scan angle*/
   if(totAng>0.0)waves->meanScanAng/=totAng;
+  if(totGround>=0.0)waves->gElevSimp/=totGround;
+  else              waves->gElevSimp=-9999.0;
 
   return;
 }/*waveFromPointCloud*/
