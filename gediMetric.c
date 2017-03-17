@@ -219,8 +219,8 @@ int main(int argc,char **argv)
   /*read command Line*/
   dimage=readCommands(argc,argv);
 
-  /*read deconvolution pulse if needed*/
-  
+
+
   /*set link noise if needed*/
   dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
 
@@ -1742,6 +1742,7 @@ control *readCommands(int argc,char **argv)
   int i=0;
   control *dimage=NULL;
   void setDenoiseDefault(denPar *);
+  void readPulse(denPar *);
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
@@ -1871,7 +1872,7 @@ control *readCommands(int argc,char **argv)
         dimage->den->sWidth=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-psWidth",8)){
         checkArguments(1,i,argc,"-psWidth");
-        dimage->den->psWidth=0.0;
+        dimage->den->psWidth=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gWidth",7)){
         checkArguments(1,i,argc,"-gWidth");
         dimage->den->gWidth=atof(argv[++i]);
@@ -1892,6 +1893,18 @@ control *readCommands(int argc,char **argv)
         dimage->den->threshScale=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noiseTrack",11)){
         dimage->den->noiseTrack=1;
+      }else if(!strncasecmp(argv[i],"-pFile",6)){
+        checkArguments(1,i,argc,"-pFile");
+        strcpy(dimage->den->pNamen,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-gold",5)){
+        dimage->den->deconMeth=0;
+      }else if(!strncasecmp(argv[i],"-deconTol",9)){
+        checkArguments(1,i,argc,"-deconTol");
+        dimage->den->deChang=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-preMatchF",10)){
+        dimage->den->preMatchF=1;
+      }else if(!strncasecmp(argv[i],"-postMatchF",11)){
+        dimage->den->posMatchF=1;
       }else if(!strncasecmp(argv[i],"-useInt",7)){
         dimage->useInt=1;
       }else if(!strncasecmp(argv[i],"-useFrac",8)){
@@ -1946,7 +1959,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-dontTrustGround",16)){
         dimage->dontTrustGround=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss; do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-rhRes r;        percentage energy resolution of RH metrics\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss; do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -1954,6 +1967,9 @@ control *readCommands(int argc,char **argv)
       }
     }
   }
+
+  /*read deconvolution pulse if needed*/
+  if(dimage->den->preMatchF||dimage->den->preMatchF||dimage->den->deconMeth>=0)readPulse(dimage->den); 
 
   return(dimage);
 }/*readCommands*/

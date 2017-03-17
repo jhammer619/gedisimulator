@@ -3,7 +3,8 @@
 LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
 INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${GSL_ROOT} -I${GSL_ROOT}/fft -I${LIBCLIDAR_ROOT}
 CFLAGS += -Wall
-CFLAGS += -O3
+#CFLAGS += -O3
+CFLAGS += -g
 LIBFILES = $(LIBCLIDAR_ROOT)/libLasProcess.o $(LIBCLIDAR_ROOT)/libLasRead.o $(LIBCLIDAR_ROOT)/tiffWrite.o $(LIBCLIDAR_ROOT)/gaussFit.o $(LIBCLIDAR_ROOT)/libLidVoxel.o  $(LIBCLIDAR_ROOT)/libTLSread.o
 LOCLIB = libLasProcess.o libLasRead.o tiffWrite.o gaussFit.o libLidVoxel.o libTLSread.o
 GSLFit=linear.o
