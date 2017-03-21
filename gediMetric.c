@@ -316,7 +316,7 @@ int main(int argc,char **argv)
     }
     if(dimage->den){
       TTIDY((void **)dimage->den->pulse,2);
-      if(dimage->den->deconMeth>=0)TIDY(dimage->den->matchPulse);
+      TIDY(dimage->den->matchPulse);
       TIDY(dimage->den->hardPulse);
       TIDY(dimage->den);
     }
