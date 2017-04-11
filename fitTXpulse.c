@@ -148,6 +148,8 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   float findCofG(float *,float *,int);
   float **meanWaves=NULL;
   denPar den;
+  char checkSignal=0;
+  char hasSignal(float *,int);
   void setDenoiseDefault(denPar *);
 
   /*denoising parameters*/
@@ -190,6 +192,9 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     /*keep last waveform*/
     temp=copyLastFeature(denoise,data->nBins);
 
+    /*check we have some signal*/
+    checkSignal=hasSignal(temp,data->nBins);
+
     /*fit a single Gaussian*/
     fitWave=fitSingleGauss(x,temp,data->nBins,0.5,&nGauss,&gaussPar);
     CofG=findCofG(x,temp,data->nBins);
@@ -201,16 +206,18 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     
 
     /*load into mean arrays*/
-    for(i=0;i<data->nBins;i++){
-      bin=(int)((x[i]-CofG)/oRes+0.5)+(*meanBins)/2;
-      if((bin>=0)&&(bin<(*meanBins))){
-        meanWaves[0][bin]+=temp[i];
-        nIn[0][bin]++;
-      }
-      bin=(int)((x[i]-gaussPar[0])/oRes+0.5)+(*meanBins)/2;
-      if((bin>=0)&&(bin<(*meanBins))){
-        meanWaves[1][bin]+=temp[i];
-        nIn[1][bin]++;
+    if(checkSignal){
+      for(i=0;i<data->nBins;i++){
+        bin=(int)((x[i]-CofG)/oRes+0.5)+(*meanBins)/2;
+        if((bin>=0)&&(bin<(*meanBins))){
+          meanWaves[0][bin]+=temp[i];
+          nIn[0][bin]++;
+        }
+        bin=(int)((x[i]-gaussPar[0])/oRes+0.5)+(*meanBins)/2;
+        if((bin>=0)&&(bin<(*meanBins))){
+          meanWaves[1][bin]+=temp[i];
+          nIn[1][bin]++;
+        }
       }
     }
     TIDY(temp);
@@ -256,6 +263,25 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   TTIDY((void **)nIn,2);
   return(meanWaves);
 }/*fitPulseGauss*/
+
+
+/*############################################################*/
+/*does the denoised waveform contain signal*/
+
+char hasSignal(float *wave,int nBins)
+{
+  int i=0;
+  char checkWave=0;
+
+  for(i=0;i<nBins;i++){
+    if(wave[i]>0.0){
+      checkWave=1;
+      break;
+    }
+  }
+
+  return(checkWave);
+}/*hasSignal*/
 
 
 /*############################################################*/
