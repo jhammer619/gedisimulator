@@ -53,6 +53,8 @@ typedef struct{
   float inRes;     /*input resolution*/
   float oRes;      /*output resolution*/
   int minN;
+  char txStats;    /*write TX stats switch*/
+  char statsNamen[200];
 }control;
 
 
@@ -75,7 +77,7 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct *data=NULL;
   dataStruct *readData(char *);
-  float **fitPulseGauss(dataStruct *,int *,float,float,int,float *);
+  float **fitPulseGauss(dataStruct *,int *,float,float,int,float *,control *);
   float **meanWaves=NULL,meanSig=0;
   void writeResults(float **,int,float,char *,float);
 
@@ -87,7 +89,7 @@ int main(int argc,char **argv)
   data=readData(dimage->inNamen);
 
   /*perform fits*/
-  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN,&meanSig);
+  meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN,&meanSig,dimage);
 
   /*write results*/
   writeResults(meanWaves,dimage->meanBins,dimage->oRes,dimage->outNamen,meanSig);
@@ -134,7 +136,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen,float mea
 /*############################################################*/
 /*fit Gaussian to pulse*/
 
-float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN,float *meanSig)
+float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN,float *meanSig,control *dimage)
 {
   int i=0,numb=0,nGauss=0;
   int **nIn=NULL,bin=0;
@@ -150,7 +152,9 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   denPar den;
   char checkSignal=0;
   char hasSignal(float *,int);
+  void getTXstats(FILE *,float *,int,float *,float);
   void setDenoiseDefault(denPar *);
+  FILE *statsOpoo=NULL;
 
   /*denoising parameters*/
   setDenoiseDefault(&den);
@@ -163,6 +167,15 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   /*mean width*/
   (*meanSig)=0.0;
   contN=0;
+
+  /*open stats output file if needed*/
+  if(dimage->txStats){
+    if((statsOpoo=fopen(dimage->statsNamen,"w"))==NULL){
+      fprintf(stderr,"Error opening input file %s\n",dimage->statsNamen);
+      exit(1);
+    }
+    fprintf(statsOpoo,"# 1 integral, 2 width, 3 A, 4 sigma, 5 gaussIntegral\n");
+  }
 
   (*meanBins)=(int)((float)data->nBins*den.res/oRes);
   meanWaves=fFalloc(2,"meanWaves",0);
@@ -220,12 +233,23 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
         }
       }
     }
+
+    /*output TX statistics if needed*/
+    if(dimage->txStats)getTXstats(statsOpoo,temp,data->nBins,gaussPar,inRes);
+
+
     TIDY(temp);
     TIDY(denoise);
     TIDY(gaussPar);
     TIDY(fitWave);
     TIDY(gaussPar);
   }/*waveform loop*/
+
+  if(statsOpoo){
+    fclose(statsOpoo);
+    statsOpoo=NULL;
+    fprintf(stdout,"Stats written to %s\n",dimage->statsNamen);
+  }
 
   /*normalise*/
   for(i=0;i<(*meanBins);i++){
@@ -263,6 +287,31 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   TTIDY((void **)nIn,2);
   return(meanWaves);
 }/*fitPulseGauss*/
+
+
+/*############################################################*/
+/*TX stats*/
+
+void getTXstats(FILE *statsOpoo,float *wave,int nBins,float *gaussPar,float res)
+{
+  int i=0;
+  float start=0,end=0;
+  float total=0.0;
+
+  start=-1.0;
+  total=0.0;
+  for(i=0;i<nBins;i++){
+    if(wave[i]>0.0){
+      end=(float)i*res;
+      if(start<0.0)start=(float)i*res;
+    }
+    total+=wave[i];
+  }
+
+  fprintf(statsOpoo,"%f %f %f %f %f\n",total*res,fabs(start-end),gaussPar[1],gaussPar[2],gaussPar[1]*gaussPar[2]*sqrt(2.0*M_PI));
+
+  return;
+}/*getTXstats*/
 
 
 /*############################################################*/
@@ -432,9 +481,10 @@ control *readCommands(int argc,char **argv)
 
   strcpy(dimage->inNamen,"/Users/stevenhancock/data/teast/pulse/howland.waves");
   strcpy(dimage->outNamen,"teast.dat");
-; dimage->oRes=0.15;
+  dimage->oRes=0.15;
   dimage->inRes=0.3;
   dimage->minN=100;
+  dimage->txStats=0;
 
 
   /*read the command line*/
@@ -455,8 +505,12 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-minN",5)){
         checkArguments(1,i,argc,"-minN");
         dimage->minN=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-txStats",9)){
+        checkArguments(1,i,argc,"-txStats");
+        strcpy(dimage->statsNamen,argv[++i]);
+        dimage->txStats=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n\n");
+        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n-txStats name; write TX stats to a file\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
