@@ -262,6 +262,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
       }
     }
   }
+
   if(!dimage->drawDens)TIDY(image->nIn);
   if(dimage->findDens){
     if(nContF>0)meanFoot/=(float)nContF;
