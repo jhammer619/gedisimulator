@@ -243,7 +243,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
   nContP=nContF=0;
   for(i=image->nX*image->nY-1;i>=0;i--){
     if(image->nIn[i]>0){
-      if(dimage->drawInt){
+      if(dimage->drawInt||dimage->drawHeight){
         image->jimlad[i]/=(float)image->nIn[i];
         if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
         if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
@@ -276,7 +276,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
   }
 
   /*copy to uchar array*/
-  if(dimage->drawInt){
+  if(dimage->drawInt||dimage->drawHeight){
     image->image=uchalloc(image->nX*image->nY,"image",0);
     for(i=image->nX*image->nY-1;i>=0;i--){
       if(image->jimlad[i]<image->max)image->image[i]=(unsigned char)((image->jimlad[i]-image->min)*255.0/(image->max-image->min));
@@ -327,13 +327,13 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
   image->nY=(int)((image->maxY-image->minY)/(double)dimage->res)+1;
   fprintf(stdout,"Image will be %d by %d\n",image->nX,image->nY);
 
-  if(dimage->drawInt)image->jimlad=falloc(image->nX*image->nY,"jimlad",0);
-  else               image->jimlad=NULL;
+  if(dimage->drawInt||dimage->drawHeight)image->jimlad=falloc(image->nX*image->nY,"jimlad",0);
+  else                                   image->jimlad=NULL;
   image->nIn=ialloc(image->nX*image->nY,"nIn",0);
   if(dimage->findDens)image->nFoot=ialloc(image->nX*image->nY,"nFoot",0);
   else                image->nFoot=NULL;
   for(i=image->nX*image->nY-1;i>=0;i--){
-    if(dimage->drawInt)image->jimlad[i]=0.0;
+    if(dimage->drawInt||dimage->drawHeight)image->jimlad[i]=0.0;
     if(dimage->findDens)image->nFoot[i]=0;
     image->nIn[i]=0;
   }
@@ -408,6 +408,7 @@ control *readCommands(int argc,char **argv)
         dimage->drawInt=0;
       }else if(!strncasecmp(argv[i],"-height",7)){
         dimage->drawHeight=1;
+        dimage->drawInt=0;
       }else if(!strncasecmp(argv[i],"-findDens",9)){
         dimage->findDens=1;
       }else if(!strncasecmp(argv[i],"-writeBound",11)){
