@@ -55,6 +55,7 @@ typedef struct{
 
   /*switches*/
   char drawInt;       /*intensity image switch*/
+  char drawHeight;    /*height.elevation image switch*/
   char drawDens;      /*draw ensity images*/
   char findDens;      /*find point and footprint density*/
   char writeBounds;   /*write out file bounds*/
@@ -127,7 +128,7 @@ int main(int argc,char **argv)
     if(dimage->printNpoint)fprintf(stdout,"nPoints %s %u\n",dimage->inList[i],las[i]->nPoints);
   }
 
-  if(dimage->drawInt||dimage->findDens||dimage->drawDens){
+  if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens){
     /*allocate image array*/
     image=allocateImage(dimage,las);
 
@@ -140,7 +141,7 @@ int main(int argc,char **argv)
   }
 
   /*write image*/
-  if(dimage->drawInt)writeImage(dimage,image);
+  if(dimage->drawInt||dimage->drawHeight)writeImage(dimage,image);
   if(dimage->writeBounds)fprintf(stdout,"Written to %s\n",dimage->bNamen);
 
 
@@ -228,6 +229,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
       if((xBin>=0)&&(xBin<image->nX)&&(yBin>=0)&&(yBin<image->nY)){
         place=yBin*image->nX+xBin;
         if(dimage->drawInt)image->jimlad[place]+=(float)las[i]->refl;
+        else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
         if(dimage->findDens&&(las[i]->field.retNumb==las[i]->field.nRet))image->nFoot[place]++;
         image->nIn[place]++;
       }else{
@@ -363,6 +365,7 @@ control *readCommands(int argc,char **argv)
   strcpy(&(dimage->inList[0][0]),"/Users/stevenhancock/data/gedi/USDA_pilot/waveform/Lift02/WF_V13_-Riegl680i-HRZ-140701_130919_1-originalpoints.las");
   strcpy(dimage->outNamen,"teast.tif");
   dimage->drawInt=1;
+  dimage->drawHeight=0;
   dimage->drawDens=0;
   dimage->findDens=0;
   dimage->writeBounds=0;
@@ -403,6 +406,8 @@ control *readCommands(int argc,char **argv)
         dimage->epsg=(uint16_t)atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noInt",6)){
         dimage->drawInt=0;
+      }else if(!strncasecmp(argv[i],"-height",7)){
+        dimage->drawHeight=1;
       }else if(!strncasecmp(argv[i],"-findDens",9)){
         dimage->findDens=1;
       }else if(!strncasecmp(argv[i],"-writeBound",11)){
@@ -419,7 +424,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-printNpoint",12)){
         dimage->printNpoint=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-noInt;          no intensity image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-height;     draw height image\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -430,7 +435,6 @@ control *readCommands(int argc,char **argv)
 
   return(dimage);
 }/*readCommands*/
-
 
 /*the end*/
 /*##################################################*/
