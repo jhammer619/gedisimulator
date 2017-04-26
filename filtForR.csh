@@ -20,7 +20,7 @@ while ($#argv>0)
 
   case -noGround
     @ ground=0
-  shift argv;shift argv
+  shift argv
   breaksw
 
   case -help
