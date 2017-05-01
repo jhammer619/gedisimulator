@@ -5,7 +5,7 @@
 #############################
 
 
-set bin="$HOME/src/gediRat"
+set bin="$GEDIRAT_ROOT"
 set progRoot="/tmp/gediMetricProgress.$$.dat"
 
 # defaults
