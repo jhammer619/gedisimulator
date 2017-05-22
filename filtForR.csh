@@ -1,6 +1,6 @@
 #!/bin/csh -f
 
-set bin=$GEDIRAT_ROOT
+set bin="$GEDIRAT_ROOT"
 @ noName=1
 @ ground=1
 

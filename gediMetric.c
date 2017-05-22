@@ -668,6 +668,7 @@ void addNoise(dataStruct *data,control *dimage)
     /*scale to match sigma*/
     scaleNoiseDN(tempNoise,data->nBins,dimage->linkSig*reflScale,dimage->trueSig,dimage->offset);
     /*digitise*/
+    TIDY(data->noised);
     data->noised=digitiseWave(tempNoise,data->nBins,dimage->bitRate,dimage->maxDN,tot);
     TIDY(tempNoise);
   }else if((dimage->nSig>0.0)||(dimage->meanN>0.0)){   /*mean and stdev based noise*/
