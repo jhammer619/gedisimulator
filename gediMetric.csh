@@ -34,6 +34,7 @@ set thresh=" "
 set sWidth=" "
 set psWidth=" "
 set gWidth=" "
+set minGsig=" "
 set minWidth=" "
 set varNoise=" "
 set varScale=" "
@@ -183,6 +184,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -minGsig
+    set minGsig="-minGsig $argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -minWidth
     set minWidth="-minWidth $argv[2]"
   shift argv;shift argv
@@ -266,6 +272,7 @@ while ($#argv>0)
     echo "-sWidth sig;     smoothing width"
     echo "-psWidth sigma;  pre-smoothing width"
     echo "-gWidth sig;     Gaussian paremter selection width"
+    echo "-minGsig sig;    minimum Gaussian width to fit"
     echo "-minWidth n;     minimum feature width in bins"
     echo "-varNoise;       variable noise threshold"
     echo "-varScale x;     variable noise threshold scale"
@@ -309,7 +316,7 @@ while( $i < $nCores )
   set thisList="$tempList.$i"
   set thisOut="$tempOut.$i"
 
-  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset -progRoot $progRoot.$i &
+  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
   @ i++
 end
 
