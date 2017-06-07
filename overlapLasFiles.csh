@@ -65,12 +65,10 @@ while ($#argv>0)
   endsw
 end
 
-if( $useCircle )then
-  set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
-  set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
-endif
+set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
+set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
+set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
+set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
 
 gawk -f $bin/overlapLasFiles.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY < $input > $output
 echo "Written to $output"
