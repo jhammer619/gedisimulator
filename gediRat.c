@@ -77,6 +77,7 @@ typedef struct{
   char readWave;       /*read waveform switch*/
   char listFiles;      /*list waves only*/
   char checkCover;     /*check that the whole footprit is covered by data*/
+  char useFootprint;   /*use footprint or not flag*/
   char cleanOut;       /*clean subterranean outliers*/
   char normCover;      /*normalise for variable ALS coverage*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
@@ -233,11 +234,14 @@ int main(int argc,char **argv)
         /*make waveforms*/
         waves=makeGediWaves(dimage,data);
 
-        /*find the ground if needed*/
-        if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
+        /*if it is usable*/
+        if(dimage->useFootprint){
+          /*find the ground if needed*/
+          if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
-        /*output results*/
-        writeGEDIwave(dimage,waves);
+          /*output results*/
+          writeGEDIwave(dimage,waves);
+        }
 
         /*tidy up*/
         TIDY(dimage->nGrid);
@@ -296,9 +300,9 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   float res=0,rRes=0;
   float *gWave=NULL;
   float *waveFromDEM(double *,int,int,float,double,double,double,double,float,float,double *,int *);
-  double minX=0,minY=0;
+  double minX=0,minY=0,maxX=0,maxY=0;
   double *gDEM=NULL,minZ=0;
-  double *findGroundPoly(pCloudStruct **,int,double *,double *,float,int *,int *,double);
+  double *findGroundPoly(pCloudStruct **,int,double *,double *,double *,double *,float,int *,int *,double);
   double *findGroundNN(pCloudStruct **,int,double *,double *,float,int *,int *,double);
   void groundProperties(float *,int,double,float,waveStruct *,float);
 
@@ -306,7 +310,17 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   rRes=0.15;
 
   /*make DEM*/
-  if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
+  if(dimage->doGrid){
+    minX=dimage->minX;
+    maxX=dimage->maxX;
+    minY=dimage->minY;
+    maxY=dimage->maxY;
+  }else{
+    minX=maxX=100000000000.0;
+    maxX=maxY=-100000000000.0;
+  }
+
+  if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,&maxX,&maxY,res,&nX,&nY,waves->groundBreakElev);
   else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
 
   /*make gap filled ground waveform*/
@@ -345,7 +359,6 @@ void groundProperties(float *gWave,int nBins,double minZ,float rRes,waveStruct *
     fprintf(stderr,"No ground?\n");
     exit(1);
   }
-
 
   /*stdev*/
   gStdev=total=0.0;
@@ -708,45 +721,49 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
   /*check that whole footprint is covered*/
   if(dimage->checkCover)checkFootCovered(dimage);
+  else                  dimage->useFootprint=1;
 
-  /*allocate*/
-  waves=allocateGEDIwaves(dimage,data);
+  /*only if it contains data*/
+  if(dimage->useFootprint){
+    /*allocate*/
+    waves=allocateGEDIwaves(dimage,data);
 
-  /*set up denoising if using*/
-  if(dimage->doDecon)dimage->decon=setDeconForGEDI(dimage);
+    /*set up denoising if using*/
+    if(dimage->doDecon)dimage->decon=setDeconForGEDI(dimage);
 
-  /*make waves*/
-  if(dimage->useShadow==0)waveFromPointCloud(dimage,data,waves);
-  else                    waveFromShadows(dimage,data,waves);
+    /*make waves*/
+    if(dimage->useShadow==0)waveFromPointCloud(dimage,data,waves);
+    else                    waveFromShadows(dimage,data,waves);
 
-  /*clean outliers if needed*/
-  if(dimage->cleanOut)cleanOutliers(waves,dimage);
-  else                waves->groundBreakElev=-100000000.0;
+    /*clean outliers if needed*/
+    if(dimage->cleanOut)cleanOutliers(waves,dimage);
+    else                waves->groundBreakElev=-100000000.0;
 
-  /*deconvolve aggragated waveform*/
-  if(dimage->doDecon)processAggragate(dimage,waves);
+    /*deconvolve aggragated waveform*/
+    if(dimage->doDecon)processAggragate(dimage,waves);
 
-  /*normalise integral*/
-  for(k=0;k<waves->nWaves;k++){
-    tot=0.0;
-    for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->res;
-    if(tot>0.0){
-      for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
-      if(dimage->ground&&(k<3)){
-        for(j=0;j<waves->nBins;j++){
-          waves->canopy[k][j]/=tot;
-          waves->ground[k][j]/=tot;
+    /*normalise integral*/
+    for(k=0;k<waves->nWaves;k++){
+      tot=0.0;
+      for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->res;
+      if(tot>0.0){
+        for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
+        if(dimage->ground&&(k<3)){
+          for(j=0;j<waves->nBins;j++){
+            waves->canopy[k][j]/=tot;
+            waves->ground[k][j]/=tot;
+          }
         }
       }
     }
-  }
 
-  /*tidy arrays*/
-  if(dimage->decon){
-    TTIDY((void **)dimage->decon->pulse,2);
-    dimage->decon->pulse=NULL;
-    TIDY(dimage->decon);
-  }
+    /*tidy arrays*/
+    if(dimage->decon){
+      TTIDY((void **)dimage->decon->pulse,2);
+      dimage->decon->pulse=NULL;
+      TIDY(dimage->decon);
+    }
+  }/*contains data*/
   return(waves);
 }/*makeGediWaves*/
 
