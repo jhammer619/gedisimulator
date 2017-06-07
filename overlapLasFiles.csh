@@ -65,7 +65,7 @@ while ($#argv>0)
   endsw
 end
 
-if( $useCircle )
+if( $useCircle )then
   set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
   set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
   set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
