@@ -438,7 +438,6 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
   uint32_t i=0;
   uint32_t pUsed=0;    /*number of points used*/
   double x=0,y=0,z=0;
-  double dX=0,dY=0;
   pCloudStruct *data=NULL;
   char hasWave=0;   /*has waveform data, to save RAM*/
 
@@ -481,9 +480,6 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       /*read one point*/
       readLasPoint(las,i);
       setCoords(&x,&y,&z,las);
-      dX=dimage->coord[0]-x;
-      dY=dimage->coord[1]-y;
-
  
       /*is the point is of use?*/
       if((x>=dimage->globMinX)&&(x<=dimage->globMaxX)&&(y>=dimage->globMinY)&&(y<=dimage->globMaxY)&&(z>-10000.0)&&(z<10000.0)\
