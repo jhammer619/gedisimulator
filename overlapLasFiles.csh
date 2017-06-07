@@ -1,6 +1,6 @@
 #!/bin/csh -f
 
-set bin=$GEDIRAT_ROOT
+set bin="$GEDIRAT_ROOT"
 
 @ useCircle=0
 set rad=80
@@ -65,10 +65,17 @@ while ($#argv>0)
   endsw
 end
 
-set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
-set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
-set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
-set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
+if( $useCircle )
+  set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
+  set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
+  set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
+  set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
+else
+  set minX=`echo $minX $rad|gawk '{printf("%.4f",$1-$2)}'`
+  set minY=`echo $minY $rad|gawk '{printf("%.4f",$1-$2)}'`
+  set maxX=`echo $maxX $rad|gawk '{printf("%.4f",$1+$2)}'`
+  set maxY=`echo $maxY $rad|gawk '{printf("%.4f",$1+$2)}'`
+endif
 
 gawk -f $bin/overlapLasFiles.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY < $input > $output
 echo "Written to $output"
