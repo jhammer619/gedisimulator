@@ -1120,8 +1120,8 @@ void checkFootCovered(control *dimage)
   thresh=(int)((float)nWithin*2.0/3.0);
   if(nMissed>thresh){
     fprintf(stderr,"Too many missed %d of %d\n",nMissed,nWithin);
-    exit(1);
-  }
+    dimage->useFootprint=0;
+  }else dimage->useFootprint=1;
 
   return;
 }/*checkFootCovered*/
