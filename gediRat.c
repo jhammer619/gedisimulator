@@ -323,12 +323,16 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->nFiles,&minX,&minY,&maxX,&maxY,res,&nX,&nY,waves->groundBreakElev);
   else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
 
-  /*make gap filled ground waveform*/
-  gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->coord[0],dimage->coord[1],dimage->fSigma,rRes,&minZ,&nBins);
-  TIDY(gDEM);
+  if(gDEM){
+    /*make gap filled ground waveform*/
+    gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->coord[0],dimage->coord[1],dimage->fSigma,rRes,&minZ,&nBins);
+    TIDY(gDEM);
 
-  /*ground properties*/
-  groundProperties(gWave,nBins,minZ,rRes,waves,dimage->fSigma);
+    /*ground properties*/
+    groundProperties(gWave,nBins,minZ,rRes,waves,dimage->fSigma);
+  }else{
+    waves->gElev=waves->gSlope=-10000.0;
+  }
 
   TIDY(gWave);
   return;
@@ -390,6 +394,8 @@ float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,
   /*mind min and max*/
   maxZ=-10000000.0;
   *minZ=1000000000.0;
+
+
   for(i=nX*nY-1;i>=0;i--){
     if(gDEM[i]<*minZ)*minZ=gDEM[i];
     if(gDEM[i]>maxZ)maxZ=gDEM[i];

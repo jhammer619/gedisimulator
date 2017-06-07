@@ -78,5 +78,4 @@ else
 endif
 
 gawk -f $bin/overlapLasFiles.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY < $input > $output
-echo "Written to $output"
 
