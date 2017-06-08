@@ -42,6 +42,12 @@
 /*########################################################################*/
 
 
+
+/*####################################*/
+
+#define TOL 0.000001   /*a tolerance*/
+
+
 /*####################################*/
 /*pulse structure*/
 
@@ -765,6 +771,12 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
       TIDY(dimage->decon);
     }
   }/*contains data*/
+
+  /*check whether empty*/
+  tot=0.0;
+  for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*dimage->res;
+  if(tot<TOL)dimage->useFootprint=0;
+
   return(waves);
 }/*makeGediWaves*/
 
