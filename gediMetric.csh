@@ -25,6 +25,8 @@ set hNoise=" "
 set linkNoise=" "
 set trueSig=" "
 set renoise=" "
+set newPsig=" "
+set oldPsig=" "
 set missGround=" "
 set minGap=" "
 set maxDN=" "
@@ -137,6 +139,16 @@ while ($#argv>0)
   case -renoise
     set renoise="-renoise"
   shift argv
+  breaksw
+
+  case -oldPsig
+    set oldPsig="-oldPsig $argv[2]"
+  shift argv;shift argv
+  breaksw
+
+  case -newPsig
+    set newPsig="-newPsig $argv[2]"
+  shift argv;shift argv
   breaksw
 
   case -missGround
@@ -261,6 +273,8 @@ while ($#argv>0)
     echo "-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover"
     echo "-trueSig sig;    true sigma of background noise"
     echo "-renoise;        remove noise feom truth"
+    echo "-oldPsig sig;    sigma of existing pulse when renoising"
+    echo "-newPsig sig;    sigma of new pulse when renoising"
     echo "-missGround;     assume ground is missed to assess RH metrics"
     echo "-minGap gap;     delete signal beneath min detectable gap fraction"
     echo "-maxDN max;      maximum DN"
@@ -316,7 +330,7 @@ while( $i < $nCores )
   set thisList="$tempList.$i"
   set thisOut="$tempOut.$i"
 
-  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
+  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
   @ i++
 end
 
