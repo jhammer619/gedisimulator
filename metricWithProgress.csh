@@ -22,6 +22,8 @@ set hNoise=" "
 set linkNoise=" "
 set trueSig=" "
 set renoise=" "
+set newPsig=" "
+set oldPsig=" "
 set missGround=" "
 set minGap=" "
 set maxDN=" "
@@ -129,6 +131,16 @@ while ($#argv>0)
   case -renoise
     set renoise="-renoise"
   shift argv
+  breaksw
+
+  case -oldPsig
+    set oldPsig="-oldPsig $argv[2]"
+  shift argv;shift argv
+  breaksw
+
+  case -newPsig
+    set newPsig="-newPsig $argv[2]"
+  shift argv;shift argv
   breaksw
 
   case -missGround
@@ -239,7 +251,7 @@ end
 touch $progRoot
 
 # extract metrics
-gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
+gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
 
 # mark finishing
 rm $progRoot
