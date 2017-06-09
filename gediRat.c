@@ -76,6 +76,7 @@ typedef struct{
   char **inList;
   int nFiles;
   char outNamen[200];
+  char waveNamen[200];
   char pulseFile[200];
 
   /*options*/
@@ -84,6 +85,7 @@ typedef struct{
   char listFiles;      /*list waves only*/
   char checkCover;     /*check that the whole footprit is covered by data*/
   char useFootprint;   /*use footprint or not flag*/
+  char overWrite;      /*overwrite old waveform switch*/
   char cleanOut;       /*clean subterranean outliers*/
   char normCover;      /*normalise for variable ALS coverage*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
@@ -199,6 +201,7 @@ int main(int argc,char **argv)
   void checkThisFile(lasFile *,control *,int);
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
   void updateCoord(control *,int,int);
+  void checkWaveOverwrite(control *);
 
  
   /*read command line*/
@@ -234,11 +237,17 @@ int main(int argc,char **argv)
         /*update centre coord*/
         updateCoord(dimage,i,j);
 
-        /*set up footprint*/
-        setGediFootprint(dimage);
+        /*see if that file already exists*/
+        checkWaveOverwrite(dimage);
 
-        /*make waveforms*/
-        waves=makeGediWaves(dimage,data);
+        /*if it is not to be overwritten*/
+        if(dimage->useFootprint){
+          /*set up footprint*/
+          setGediFootprint(dimage);
+
+          /*make waveforms*/
+          waves=makeGediWaves(dimage,data);
+        }
 
         /*if it is usable*/
         if(dimage->useFootprint){
@@ -280,6 +289,38 @@ int main(int argc,char **argv)
   tidySMoothPulse();
   return(0);
 }/*main*/
+
+
+/*##############################################*/
+/*check whether we are to overwrite or not*/
+
+void checkWaveOverwrite(control *dimage)
+{
+  FILE *opoo=NULL;
+
+  /*set output filename*/
+  if(dimage->doGrid){
+    sprintf(dimage->waveNamen,"%s.%d.%d.wave",dimage->outNamen,(int)dimage->coord[0],(int)dimage->coord[1]);
+  }else{
+    strcpy(dimage->waveNamen,dimage->outNamen);
+  }
+
+  /*see if the file exists if we are checking for overwriting*/
+  if(dimage->overWrite)dimage->useFootprint=1;
+  else{
+    if((opoo=fopen(dimage->waveNamen,"r"))==NULL){
+      dimage->useFootprint=1;
+    }else{
+      dimage->useFootprint=0;
+    }
+    if(opoo){
+      fclose(opoo);
+      opoo=NULL;
+    }
+  }
+
+  return;
+}/*checkWaveOverwrite*/
 
 
 /*##############################################*/
@@ -653,22 +694,20 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
 {
   int i=0,j=0;
   float r=0;
-  char outNamen[200],waveID[200];
+  char waveID[200];
   FILE *opoo=NULL;
 
 
-  /*make name if needed*/
+  /*make waveID if needed*/
   if(dimage->doGrid){
-    sprintf(outNamen,"%s.%d.%d.wave",dimage->outNamen,(int)dimage->coord[0],(int)dimage->coord[1]);
     if(dimage->useID)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->coord[0],(int)dimage->coord[1]);
   }else{
-    strcpy(outNamen,dimage->outNamen);
     if(dimage->useID)strcpy(waveID,dimage->waveID);
   }
 
 
-  if((opoo=fopen(outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",outNamen);
+  if((opoo=fopen(dimage->waveNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",dimage->waveNamen);
     exit(1);
   }
 
@@ -699,7 +738,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",outNamen);
+  fprintf(stdout,"Written to %s\n",dimage->waveNamen);
   return;
 }/*writeGEDIwave*/
 
@@ -1757,6 +1796,7 @@ control *readCommands(int argc,char **argv)
   dimage->maxScanAng=1000000.0;   /*maximum scan angle*/
   dimage->polyGr=0;     /*don't fit a polynomial through the ground*/
   dimage->nnGr=0;       /*don't make a DEM from nearest neighbour*/
+  dimage->overWrite=1;  /*over write any files with the same name if they exist*/
 
   /*gridding options*/
   dimage->doGrid=0;           /*gridded switch*/
@@ -1860,8 +1900,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-gridStep",9)){
         checkArguments(1,i,argc,"-gridStep");
         dimage->gRes=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-keepOld",8)){
+        dimage->overWrite=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
