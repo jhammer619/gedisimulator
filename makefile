@@ -1,7 +1,7 @@
 # Makefile for GEDI simulator tools
 
-LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff
-INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${GSL_ROOT} -I${GSL_ROOT}/fft -I${LIBCLIDAR_ROOT}
+LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff -L${GSL_ROOT}
+INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${LIBCLIDAR_ROOT}
 CFLAGS += -Wall
 CFLAGS += -O3
 #CFLAGS += -g
@@ -15,8 +15,8 @@ CC = gcc
 
 THIS=gediRat
 
-$(THIS):	$(THIS).o $(GSL_ROOT)/fit/$(GSLFIT) ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
-		$(CC) $(CFLAGS) $(GSLFIT) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
+$(THIS):	$(THIS).o ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
+		$(CC) $(CFLAGS) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
 
 .c.o:		$<
 		$(CC) $(CFLAGS) -I. $(INCLS) -D$(ARCH)  -c $<
