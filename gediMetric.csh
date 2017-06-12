@@ -14,7 +14,7 @@ set writeFit=" "
 set ground=" "
 set useInt=" "
 set useFrac=" "
-set rhres=5
+set rhRes=5
 set bayesGround=" "
 set gTol=" "
 set noRHgauss=" "
@@ -330,7 +330,7 @@ while( $i < $nCores )
   set thisList="$tempList.$i"
   set thisOut="$tempOut.$i"
 
-  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
+  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
   @ i++
 end
 
