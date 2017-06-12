@@ -11,7 +11,7 @@ set writeFit=" "
 set ground=" "
 set useInt=" "
 set useFrac=" "
-set rhres=5
+set rhRes=5
 set bayesGround=" "
 set gTol=" "
 set noRHgauss=" "
@@ -251,7 +251,7 @@ end
 touch $progRoot
 
 # extract metrics
-gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhres $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
+gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
 
 # mark finishing
 rm $progRoot

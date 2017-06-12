@@ -309,11 +309,12 @@ while ($#argv>0)
 end
 
 
+
 # split input into multiple files
 set tempList="/tmp/tempList.$$.dat"
 set tempOut="/tmp/tempOut.$$.dat"
 @ nFiles=`wc -l` < $inList
-@ nPer=`echo $nCores $nFiles|gawk '{print int($2/($1-1))}'` < $inList
+@ nPer=`echo $nCores $nFiles|gawk '{print int($2/$1+1)}'` < $inList
 @ i=1
 @ j=0
 while( $i <= $nFiles )
