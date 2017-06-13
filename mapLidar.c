@@ -278,7 +278,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
 
   /*copy to uchar array*/
   if(dimage->drawInt||dimage->drawHeight){
-    image->image=uchalloc(image->nX*image->nY,"image",0);
+    image->image=uchalloc((uint64_t)image->nX*(uint64_t)image->nY,"image",0);
     for(i=image->nX*image->nY-1;i>=0;i--){
       if(image->jimlad[i]<image->max)image->image[i]=(unsigned char)((image->jimlad[i]-image->min)*255.0/(image->max-image->min));
       else                           image->image[i]=255;
@@ -387,7 +387,7 @@ control *readCommands(int argc,char **argv)
         TTIDY((void **)dimage->inList,dimage->nFiles);
         dimage->nFiles=1;
         dimage->inList=chChalloc(dimage->nFiles,"input name list",0);
-        dimage->inList[0]=challoc(strlen(argv[++i])+1,"input name list",0);
+        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-output",7)){
         checkArguments(1,i,argc,"-output");

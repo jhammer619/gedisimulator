@@ -630,7 +630,7 @@ void readGediGrid(control *dimage,lasFile **las,int i,gridStruct *grid)
   grid->nGrid=iIalloc(grid->wX*grid->wY,"grid",0);
   grid->g0=dDalloc(grid->wX*grid->wY,"grid origin",0);
   grid->coord=dDalloc(grid->wX*grid->wY,"footprint centre",0);
-  grid->doIt=challoc(grid->wX*grid->wY,"do it map",0);
+  grid->doIt=challoc((uint64_t)grid->wX*(uint64_t)grid->wY,"do it map",0);
   for(j=0;j<grid->wX;j++){
     xOff=(double)j*grid->res+xOrigin;
     for(k=0;k<grid->wY;k++){
@@ -1111,7 +1111,7 @@ control *readCommands(int argc,char **argv)
         TTIDY((void **)dimage->inList,dimage->nFiles);
         dimage->nFiles=1;
         dimage->inList=chChalloc(dimage->nFiles,"input name list",0);
-        dimage->inList[0]=challoc(strlen(argv[++i])+1,"input name list",0);
+        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-outRoot",8)){
         checkArguments(1,i,argc,"-ouRoot");

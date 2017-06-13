@@ -247,7 +247,7 @@ control *readCommands(int argc,char **argv)
         TTIDY((void **)dimage->inList,dimage->nFiles);
         dimage->nFiles=1;
         dimage->inList=chChalloc(dimage->nFiles,"input name list",0);
-        dimage->inList[0]=challoc(strlen(argv[++i])+1,"input name list",0);
+        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-outRoot",8)){
         checkArguments(1,i,argc,"-outRoot");

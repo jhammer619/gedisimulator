@@ -509,11 +509,11 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
     data->y=dalloc(las->nPoints,"y",0);
     data->z=dalloc(las->nPoints,"z",0);
     data->refl=ialloc(las->nPoints,"refl",0);
-    data->class=uchalloc(las->nPoints,"class",0);
-    data->nRet=challoc(las->nPoints,"nRet",0);
-    data->retNumb=challoc(las->nPoints,"nRet",0);
-    data->scanAng=challoc(las->nPoints,"scanAng",0);
-    data->packetDes=uchalloc(las->nPoints,"packetDes",0);
+    data->class=uchalloc((uint64_t)las->nPoints,"class",0);
+    data->nRet=challoc((uint64_t)las->nPoints,"nRet",0);
+    data->retNumb=challoc((uint64_t)las->nPoints,"nRet",0);
+    data->scanAng=challoc((uint64_t)las->nPoints,"scanAng",0);
+    data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
     data->grad=fFalloc(las->nPoints,"grad",0);
     for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
     data->time=falloc(las->nPoints,"time",0);              /*time in picoseconds of this wave*/
@@ -1225,7 +1225,7 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   /*buffer to give space for smoothing*/
   buffBins=80;
   waveLen=data->waveLen[i]+(uint32_t)(2*buffBins);
-  temp=uchalloc((int)waveLen,"temp waveform",0);
+  temp=uchalloc((uint64_t)waveLen,"temp waveform",0);
   for(j=0;j<buffBins;j++)temp[j]=(unsigned char)dimage->meanN;
   for(j=0;j<(int)data->waveLen[i];j++)temp[j+buffBins]=wave[j];
   for(j=(int)data->waveLen[i]+buffBins;j<(int)waveLen;j++)temp[j]=(unsigned char)dimage->meanN;
@@ -1819,7 +1819,7 @@ control *readCommands(int argc,char **argv)
         TTIDY((void **)dimage->inList,dimage->nFiles);
         dimage->nFiles=1;
         dimage->inList=chChalloc(dimage->nFiles,"input name list",0);
-        dimage->inList[0]=challoc(strlen(argv[++i])+1,"input name list",0);
+        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-output",7)){
         checkArguments(1,i,argc,"-output");
