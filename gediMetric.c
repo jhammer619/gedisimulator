@@ -968,7 +968,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
   if(dimage->linkNoise)fprintf(dimage->opooMet," %f %f",dimage->linkM,dimage->linkCov);
   else                 fprintf(dimage->opooMet," ? ?");
-  fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
+  if(dimage->coord2dp)fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
+  else                fprintf(dimage->opooMet," %.10f %.10f",data->lon,data->lat);
   fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
   fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
   fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
