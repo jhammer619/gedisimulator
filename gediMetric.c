@@ -1622,7 +1622,6 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
-  data->useID=0;
   data->demGround=0;
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
@@ -1704,7 +1703,6 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
-  data->useID=0;
   data->demGround=0;
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
