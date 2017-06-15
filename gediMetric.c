@@ -1617,7 +1617,7 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-  data->useID=0;
+  data->useID=1;
   data->nBins=dimage->hdf->nBins;
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
@@ -1647,6 +1647,7 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   }
   data->lon=(dimage->hdf->lon0[numb]+dimage->hdf->lon1023[numb])/2.0;
   data->lat=(dimage->hdf->lat0[numb]+dimage->hdf->lat1023[numb])/2.0;
+  sprintf(data->waveID,"%d.%d",dimage->hdf->lfid[numb],dimage->hdf->shotN[numb]);
 
   /*analyse pulse*/
   if(dimage->readPsigma){
@@ -1698,7 +1699,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-  data->useID=0;
+  data->useID=1;
   data->nBins=lvis->nBins;
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
@@ -1728,6 +1729,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
   }
   data->lon=(lvis->data[numb].lon0+lvis->data[numb].lon431)/2.0;
   data->lat=(lvis->data[numb].lat0+lvis->data[numb].lat431)/2.0;
+  sprintf(data->waveID,"%d.%d",lvis->data[numb].lfid,lvis->data[numb].shotN);
 
   /*analyse pulse*/
   if(dimage->readPsigma){
