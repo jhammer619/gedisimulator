@@ -1,7 +1,7 @@
 # Makefile for GEDI simulator tools
 
-LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff -L${GSL_ROOT}
-INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${LIBCLIDAR_ROOT}
+LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff -lhdf5 -L${GSL_ROOT} -L${HDF5_LIB}/lib
+INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${LIBCLIDAR_ROOT} -I${HDF5_LIB}/include
 CFLAGS += -Wall
 CFLAGS += -O3
 #CFLAGS += -g
