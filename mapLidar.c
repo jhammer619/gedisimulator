@@ -61,6 +61,7 @@ typedef struct{
   char writeBounds;   /*write out file bounds*/
   uint64_t pBuffSize; /*point buffer rading size in bytes*/
   char printNpoint;   /*write number of points to the screen*/
+  char charImage;     /*char or float image*/
 
   /*geotiff parts*/
   float res;
@@ -190,7 +191,11 @@ void writeFileBounds(lasFile *las,char *namen,control *dimage)
 
 void writeImage(control *dimage,imageStruct *image)
 {
-  drawTiff(dimage->outNamen,&(image->geoL[0]),&(image->geoI[0]),(double)dimage->res,image->image,image->nX,image->nY,1.0,image->epsg);
+  if(dimage->charImage){
+    drawTiff(dimage->outNamen,&(image->geoL[0]),&(image->geoI[0]),(double)dimage->res,image->image,image->nX,image->nY,255.0/(image->max-image->min),image->epsg);
+  }else{
+    drawTiffFlo(dimage->outNamen,&(image->geoL[0]),&(image->geoI[0]),(double)dimage->res,image->jimlad,image->nX,image->nY,1.0,image->epsg);
+  }
 
   return;
 }/*writeImage*/
@@ -277,15 +282,16 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
   }
 
   /*copy to uchar array*/
-  if(dimage->drawInt||dimage->drawHeight){
-    image->image=uchalloc((uint64_t)image->nX*(uint64_t)image->nY,"image",0);
-    for(i=image->nX*image->nY-1;i>=0;i--){
-      if(image->jimlad[i]<image->max)image->image[i]=(unsigned char)((image->jimlad[i]-image->min)*255.0/(image->max-image->min));
-      else                           image->image[i]=255;
+  if(dimage->charImage){
+    if(dimage->drawInt||dimage->drawHeight){
+      image->image=uchalloc((uint64_t)image->nX*(uint64_t)image->nY,"image",0);
+      for(i=image->nX*image->nY-1;i>=0;i--){
+        if(image->jimlad[i]<image->max)image->image[i]=(unsigned char)((image->jimlad[i]-image->min)*255.0/(image->max-image->min));
+        else                           image->image[i]=255;
+      }
     }
+    TIDY(image->jimlad);
   }
-
-  TIDY(image->jimlad);
   return;
 }/*collateImage*/
 
@@ -374,6 +380,7 @@ control *readCommands(int argc,char **argv)
   dimage->bFile=NULL;
   dimage->epsg=0;    /*leave bank*/
   dimage->pBuffSize=(uint64_t)200000000;
+  dimage->charImage=1;
 
   dimage->res=100.0;
   dimage->maxDN=-1.0;
@@ -425,8 +432,10 @@ control *readCommands(int argc,char **argv)
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
       }else if(!strncasecmp(argv[i],"-printNpoint",12)){
         dimage->printNpoint=1;
+      }else if(!strncasecmp(argv[i],"-float",6)){
+        dimage->charImage=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-height;     draw height image\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-float;       output as float\n-height;     draw height image\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
