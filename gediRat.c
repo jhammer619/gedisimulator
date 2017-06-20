@@ -97,6 +97,12 @@ typedef struct{
   char polyGr;         /*fit a polynomial to the ground*/
   char nnGr;           /*ground DEM from nearest neighbour*/
 
+  /*read a batch of coords*/
+  char readALSonce;    /*read all ALS data once*/
+  char coordList[200]; /*list of coordinates*/
+  double **coords;     /*list of coordinates*/
+  char **waveIDlist;   /*list of waveform IDs*/
+
   /*grid to output multiple waveforms per run*/
   char doGrid;         /*gridded switch*/
   double gRes;         /*grid resolution*/
@@ -193,7 +199,7 @@ int main(int argc,char **argv)
   pCloudStruct *readALSdata(lasFile *,control *);
   waveStruct *waves=NULL;
   waveStruct *makeGediWaves(control *,pCloudStruct **);
-  void writeGEDIwave(control *,waveStruct *);
+  void writeGEDIwave(control *,waveStruct *,int);
   void setGediFootprint(control *);
   void setGediPulse(control *);
   void setGediGrid(control *);
@@ -201,7 +207,7 @@ int main(int argc,char **argv)
   void checkThisFile(lasFile *,control *,int);
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
   void updateCoord(control *,int,int);
-  void checkWaveOverwrite(control *);
+  void checkWaveOverwrite(control *,int);
 
  
   /*read command line*/
@@ -210,7 +216,7 @@ int main(int argc,char **argv)
   /*set up the pulse*/
   setGediPulse(dimage);
 
-  /*set up grid if needed*/
+  /*set up grid or batch if needed*/
   setGediGrid(dimage);
 
   /*loop over las files*/
@@ -238,7 +244,7 @@ int main(int argc,char **argv)
         updateCoord(dimage,i,j);
 
         /*see if that file already exists*/
-        checkWaveOverwrite(dimage);
+        checkWaveOverwrite(dimage,i);
 
         /*if it is not to be overwritten*/
         if(dimage->useFootprint){
@@ -255,7 +261,7 @@ int main(int argc,char **argv)
           if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
           /*output results*/
-          writeGEDIwave(dimage,waves);
+          writeGEDIwave(dimage,waves,i);
         }
 
         /*tidy up*/
@@ -283,6 +289,8 @@ int main(int argc,char **argv)
       TIDY(dimage->pulse->x);
       TIDY(dimage->pulse);
     }
+    TTIDY((void **)dimage->coords,dimage->gNx);
+    TTIDY((void **)dimage->waveIDlist,dimage->gNx);
     TTIDY((void **)dimage->inList,dimage->nFiles);
     TIDY(dimage);
   }
@@ -294,13 +302,15 @@ int main(int argc,char **argv)
 /*##############################################*/
 /*check whether we are to overwrite or not*/
 
-void checkWaveOverwrite(control *dimage)
+void checkWaveOverwrite(control *dimage,int numb)
 {
   FILE *opoo=NULL;
 
   /*set output filename*/
   if(dimage->doGrid){
     sprintf(dimage->waveNamen,"%s.%d.%d.wave",dimage->outNamen,(int)dimage->coord[0],(int)dimage->coord[1]);
+  }else if(dimage->readALSonce){
+    sprintf(dimage->waveNamen,"%s.%s.wave",dimage->outNamen,dimage->waveIDlist[numb]);
   }else{
     strcpy(dimage->waveNamen,dimage->outNamen);
   }
@@ -332,6 +342,9 @@ void updateCoord(control *dimage,int i,int j)
   if(dimage->doGrid){
     dimage->coord[0]=dimage->gMinX+(double)i*dimage->gRes;
     dimage->coord[1]=dimage->gMinY+(double)j*dimage->gRes;
+  }else if(dimage->readALSonce){
+    dimage->coord[0]=dimage->coords[i][0];
+    dimage->coord[1]=dimage->coords[i][1];
   }
 
   return;
@@ -493,6 +506,9 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
   double x=0,y=0,z=0;
   pCloudStruct *data=NULL;
   char hasWave=0;   /*has waveform data, to save RAM*/
+  char useFile=0,usePoint=0;
+  char checkMultiFiles(lasFile *,int,double **,double);
+  char checkMultiPoints(double,double,double,int,double **,double);
 
   /*allocate maximum number of points*/
   if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
@@ -504,7 +520,12 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
   data->bounds[0]=data->bounds[1]=data->bounds[2]=10000000000.0;
   data->bounds[3]=data->bounds[4]=data->bounds[5]=-10000000000.0;
 
-  if(checkFileBounds(las,dimage->globMinX,dimage->globMaxX,dimage->globMinY,dimage->globMaxY)){
+  /*is file needed?*/
+  if(!dimage->readALSonce)useFile=checkFileBounds(las,dimage->globMinX,dimage->globMaxX,dimage->globMinY,dimage->globMaxY);
+  else                    useFile=checkMultiFiles(las,dimage->gNx,dimage->coords,dimage->maxSep);
+
+  /*check file is needed*/
+  if(useFile){
     data->x=dalloc(las->nPoints,"x",0);
     data->y=dalloc(las->nPoints,"y",0);
     data->z=dalloc(las->nPoints,"z",0);
@@ -535,8 +556,14 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
       setCoords(&x,&y,&z,las);
  
       /*is the point is of use?*/
-      if((x>=dimage->globMinX)&&(x<=dimage->globMaxX)&&(y>=dimage->globMinY)&&(y<=dimage->globMaxY)&&(z>-10000.0)&&(z<10000.0)\
-           &&(fabs((float)las->scanAng)<=dimage->maxScanAng)){ 
+      if(!dimage->readALSonce){
+        if((x>=dimage->globMinX)&&(x<=dimage->globMaxX)&&(y>=dimage->globMinY)&&(y<=dimage->globMaxY)&&\
+           (z>-10000.0)&&(z<10000.0)&&(fabs((float)las->scanAng)<=dimage->maxScanAng))usePoint=1;
+        else usePoint=0;
+      }else usePoint=checkMultiPoints(x,y,z,dimage->gNx,dimage->coords,dimage->maxSep);
+
+      /*if we need to use point*/
+      if(usePoint){
         data->x[pUsed]=x;
         data->y[pUsed]=y;
         data->z[pUsed]=z;
@@ -687,10 +714,63 @@ pCloudStruct *readALSdata(lasFile *las,control *dimage)
 }/*readALSdata*/
 
 
+/*##########################################################################*/
+/*see if we need to use this file when batch processing ALS data*/
+
+char checkMultiFiles(lasFile *las,int nCoords,double **coords,double maxSep)
+{
+  int i=0;
+  double maxX=0,minX=0;
+  double maxY=0,minY=0;
+  char useFile=0;
+
+  useFile=0;
+  for(i=0;i<nCoords;i++){
+    minX=coords[i][0]-maxSep;
+    maxX=coords[i][0]+maxSep;
+    minY=coords[i][1]-maxSep;
+    maxY=coords[i][1]+maxSep;
+    if((las->minB[0]<=maxX)&&(las->minB[1]<=maxY)&&(las->maxB[0]>=minX)&&(las->maxB[1]>=minY)){
+      useFile=1;
+      break;
+    }
+  }/*footprint loop*/
+
+  return(useFile);
+}/*checkMultiFiles*/
+
+
+/*##########################################################################*/
+/*see if we need to use this point when batch processing ALS data*/
+
+char checkMultiPoints(double x,double y,double z,int nCoords,double **coords,double maxSep)
+{
+  int i=0;
+  double maxX=0,minX=0;
+  double maxY=0,minY=0;
+  char usePoint=0;
+
+  usePoint=0;
+  for(i=0;i<nCoords;i++){
+    minX=coords[i][0]-maxSep;
+    maxX=coords[i][0]+maxSep;
+    minY=coords[i][1]-maxSep;
+    maxY=coords[i][1]+maxSep;
+
+    if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
+      usePoint=1;
+      break;
+    }
+  }/*footprint loop*/
+
+  return(usePoint);
+}/*checkMultiPoints*/
+
+
 /*####################################*/
 /*write GEDI waveforms*/
 
-void writeGEDIwave(control *dimage,waveStruct *waves)
+void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 {
   int i=0,j=0;
   float r=0;
@@ -701,6 +781,8 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   /*make waveID if needed*/
   if(dimage->doGrid){
     if(dimage->useID)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->coord[0],(int)dimage->coord[1]);
+  }else if(dimage->readALSonce){
+    strcpy(waveID,dimage->waveIDlist[numb]);
   }else{
     if(dimage->useID)strcpy(waveID,dimage->waveID);
   }
@@ -1479,17 +1561,18 @@ void setGediFootprint(control *dimage)
 
 
 /*####################################*/
-/*set GEDI grid*/
+/*set GEDI grid or batch*/
 
 void setGediGrid(control *dimage)
 {
+  void readFeetList(control *);
 
   /*footprint width*/
   if(dimage->fSigma<0.0)dimage->fSigma=dimage->fWidth;
   if(dimage->topHat==0)dimage->maxSep=determineGaussSep(dimage->fSigma,dimage->iThresh*1.0);
   else                 dimage->maxSep=dimage->fSigma;
 
-  if(dimage->doGrid){
+  if(dimage->doGrid){  /*it is a grid*/
     /*number of footprints*/
     dimage->gNx=(int)((dimage->gMaxX-dimage->gMinX)/dimage->gRes+1);
     dimage->gNy=(int)((dimage->gMaxY-dimage->gMinY)/dimage->gRes+1);
@@ -1499,7 +1582,10 @@ void setGediGrid(control *dimage)
     dimage->globMaxX=dimage->gMaxX+dimage->maxSep;
     dimage->globMinY=dimage->gMinY-dimage->maxSep;
     dimage->globMaxY=dimage->gMaxY+dimage->maxSep;
-  }else{
+  }else if(dimage->readALSonce){ /*it is a batch*/
+    /*read list of coords*/
+    readFeetList(dimage);
+  }else{   /*single footprint*/
     dimage->gNx=dimage->gNy=1;
     dimage->globMinX=dimage->coord[0]-dimage->maxSep;
     dimage->globMaxX=dimage->coord[0]+dimage->maxSep;
@@ -1509,6 +1595,72 @@ void setGediGrid(control *dimage)
 
   return;
 }/*setGediGrid*/
+
+
+/*####################################*/
+/*read list of coordinates*/
+
+void readFeetList(control *dimage)
+{
+  int i=0;
+  char line[200],temp1[50];
+  char temp2[50],temp3[100];;
+  FILE *ipoo=NULL;
+
+  /*open file*/
+  if((ipoo=fopen(dimage->coordList,"r"))==NULL){
+    fprintf(stderr,"Error opening input file list \"%s\"\n",dimage->coordList);
+    exit(1);
+  }
+
+
+  /*count number of lines*/
+  i=0;
+  while(fgets(line,200,ipoo)!=NULL)if(strncasecmp(line,"#",1))i++;
+
+  /*allocate space*/
+  dimage->gNx=i;
+  dimage->gNy=1;
+  dimage->coords=dDalloc(dimage->gNx,"coord list",0);
+  dimage->waveIDlist=chChalloc(dimage->gNx,"wave ID list",0);
+
+  /*rewind to start of file*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){ 
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read coordinate list*/
+  i=0;
+  while(fgets(line,200,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      dimage->coords[i]=dalloc(2,"coord list",i+1);
+      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){ /*read coord and waveID*/
+        dimage->coords[i][0]=atof(temp1);
+        dimage->coords[i][1]=atof(temp2);
+        dimage->waveIDlist[i]=challoc(strlen(temp3)+1,"wave ID list",i+1);
+        strcpy(dimage->waveIDlist[i],temp3);
+      }else if(sscanf(line,"%s %s",temp1,temp2)==2){
+        dimage->coords[i][0]=atof(temp1);
+        dimage->coords[i][1]=atof(temp2);
+        sprintf(temp3,"%f.%f",dimage->coords[i][0],dimage->coords[i][1]);
+        dimage->waveIDlist[i]=challoc(strlen(temp3)+1,"wave ID list",i+1);
+        strcpy(dimage->waveIDlist[i],temp3);
+      }else{
+        fprintf(stderr,"coord list reading error \"%s\"\n",line);
+        exit(1);
+      }
+      i++;
+    }
+  }
+
+  /*close file*/
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return;
+}/*readFeetList*/
 
 
 /*####################################*/
@@ -1797,11 +1949,15 @@ control *readCommands(int argc,char **argv)
   dimage->polyGr=0;     /*don't fit a polynomial through the ground*/
   dimage->nnGr=0;       /*don't make a DEM from nearest neighbour*/
   dimage->overWrite=1;  /*over write any files with the same name if they exist*/
+  dimage->readALSonce=0;/*read each footprint separately*/
 
   /*gridding options*/
   dimage->doGrid=0;           /*gridded switch*/
   dimage->gRes=30.0;          /*grid resolution*/
   dimage->gNx=dimage->gNy=0;
+  /*batch*/
+  dimage->coords=NULL;       /*list of coordinates*/
+  dimage->waveIDlist=NULL;   /*list of waveform IDs*/
 
 
   dimage->iThresh=0.0006;
@@ -1902,8 +2058,13 @@ control *readCommands(int argc,char **argv)
         dimage->gRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-keepOld",8)){
         dimage->overWrite=0;
+      }else if(!strncasecmp(argv[i],"-listCoord",10)){
+        checkArguments(1,i,argc,"-listCoord");
+        dimage->readALSonce=1;
+        dimage->useID=1;
+        strcpy(dimage->coordList,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

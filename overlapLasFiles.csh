@@ -3,6 +3,7 @@
 set bin="$GEDIRAT_ROOT"
 
 @ useCircle=0
+@ multiFeet=0
 set rad=80
 set x=0
 set y=0
@@ -46,12 +47,21 @@ while ($#argv>0)
   shift argv;shift argv;shift argv
   breaksw
 
+  case -coordList
+    @ useCircle=0
+    @ multiFeet=1
+    set listFile="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
+
   case -help
     echo " "
     echo "-input name;                   input filename"
     echo "-output name;                  output filename"
     echo "-bounds minX minY maxX maxY;   bounds of interest for square"
     echo "-coord x y;                    point of interest if footprint"
+    echo "-coordList file;               list of coordinate to check"
     echo "-rad r;                        radius of footprint"
     echo " "
     exit
@@ -70,6 +80,12 @@ if( $useCircle )then
   set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
   set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
   set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
+else if( $multiFeet )then
+  set bounds=`gawk -v rad=$rad -f $bin/multiBound.awk` < $listFile
+  set minX=$bounds[1]
+  set minY=$bounds[2]
+  set maxX=$bounds[3]
+  set maxY=$bounds[4]
 else
   set minX=`echo $minX $rad|gawk '{printf("%.4f",$1-$2)}'`
   set minY=`echo $minY $rad|gawk '{printf("%.4f",$1-$2)}'`
