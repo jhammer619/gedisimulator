@@ -225,6 +225,8 @@ int main(int argc,char **argv)
     exit(1);
   }
   for(i=0;i<dimage->nFiles;i++){
+    /*report progress if rading all data here*/
+    if(dimage->doGrid||dimage->readALSonce)fprintf(stdout,"Reading file %d of %d\n",i+1,dimage->nFiles);
     /*read lasFile*/
     las=readLasHead(dimage->inList[i],dimage->pBuffSize);
 
