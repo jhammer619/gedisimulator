@@ -226,13 +226,14 @@ int main(int argc,char **argv)
   }
   for(i=0;i<dimage->nFiles;i++){
     /*report progress if rading all data here*/
-    if(dimage->doGrid||dimage->readALSonce)fprintf(stdout,"Reading file %d of %d\n",i+1,dimage->nFiles);
+    if(dimage->doGrid||dimage->readALSonce)fprintf(stdout,"File %d of %d",i+1,dimage->nFiles);
     /*read lasFile*/
     las=readLasHead(dimage->inList[i],dimage->pBuffSize);
 
     /*read data or write filename if needed*/
     if(dimage->listFiles==0)data[i]=readALSdata(las,dimage);
     else                    checkThisFile(las,dimage,i);
+    if(dimage->doGrid||dimage->readALSonce)fprintf(stdout," nPoints %u\n",data[i]->nPoints);
 
     /*tidy lasFIle*/
     las=tidyLasFile(las);
