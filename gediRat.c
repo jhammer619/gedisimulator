@@ -410,8 +410,10 @@ void groundProperties(float *gWave,int nBins,double minZ,float rRes,waveStruct *
   int i=0;
   float total=0;
   double z=0,gStdev=0;
+  char hasGround=0;
 
   /*CofG*/
+  hasGround=1;
   waves->gElev=0.0;
   total=0.0;
   for(i=0;i<nBins;i++){
@@ -423,20 +425,20 @@ void groundProperties(float *gWave,int nBins,double minZ,float rRes,waveStruct *
     waves->gElev/=total;
     for(i=0;i<nBins;i++)gWave[i]/=total;
   }else{
-    fprintf(stderr,"No ground?\n");
-    exit(1);
+    hasGround=0;
   }
 
-  /*stdev*/
-  gStdev=total=0.0;
-  for(i=0;i<nBins;i++){
-    z=(double)i*(double)rRes+minZ;
-    gStdev+=pow(z-waves->gElev,2.0)*(double)gWave[i];
-    total+=gWave[i];
-  }
-  gStdev=sqrt(gStdev/total);
-
-  waves->gSlope=atan2(sqrt(gStdev*gStdev),fSigma)*180.0/M_PI;
+  if(hasGround){
+    /*stdev*/
+    gStdev=total=0.0;
+    for(i=0;i<nBins;i++){
+      z=(double)i*(double)rRes+minZ;
+      gStdev+=pow(z-waves->gElev,2.0)*(double)gWave[i];
+      total+=gWave[i];
+    }
+    gStdev=sqrt(gStdev/total);
+    waves->gSlope=atan2(sqrt(gStdev*gStdev),fSigma)*180.0/M_PI;
+  }else waves->gSlope=waves->gElev=-10000.0;
 
   return;
 }/*groundProperties*/
