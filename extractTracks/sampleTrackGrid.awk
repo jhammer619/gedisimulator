@@ -1,6 +1,11 @@
 BEGIN{
   readHist=1;
   numb=nHist=0;
+  srand(int(seed));
+  cumul[-1]=0.0;
+
+
+
 }
 
 ($0){
@@ -10,8 +15,18 @@ BEGIN{
     dx=maxX-minX;
     dy=maxY-minY;
     area=dx*dy;
-    
-
+    # number of tracks over area
+    nX=int(dx/1000+1);
+    totA=totD=0;
+    for(i=0;i<nX;i++){
+      n=rand();
+      for(j=0;j<nHist;j++){{
+        if((n>=cumul[j-1])&&(n<=cumul[j]))break;
+      }
+      totA+=nAsc[j];
+      totD+=nDes[j];
+    }
+    # determine starting points
   }else if(readHist==0){  # read metrics
 
     if($1!="#"){  # read data
@@ -26,12 +41,12 @@ BEGIN{
         else if($i=="lat,")latInd=$(i-1);
       }
     }
-  }else{      # read istogram
-    aInd=$1;
-    dInd=$2;
-    hist[aInd,dInd]=$3;
-    if(aInd>nHist)nHist]aInd;
-    if(dInd>nHist)nHist]dInd;
+  }else{      # read histogram
+    if(nHist>0)cumul[nHist]=$3+cumul[nHist-1];
+    else       cumul[nHist]=0.0;
+    nAsc[nHist]=$1;
+    nDes[nHist]=$2;
+    nHist++;
   }
 }
 
