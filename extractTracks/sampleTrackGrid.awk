@@ -1,6 +1,6 @@
 BEGIN{
-  readHist=1;
-  numb=nHist=0;
+  readTrack=1;
+  numb=nTrack=0;
   srand(int(seed));
   cumul[-1]=0.0;
 
@@ -10,7 +10,7 @@ BEGIN{
 
 ($0){
   if($1=="###"){  # change reading mode
-    readHist=0;  
+    readTrack=0;  
     # lay out tracks
     dx=maxX-minX;
     dy=maxY-minY;
@@ -18,16 +18,20 @@ BEGIN{
     # number of tracks over area
     nX=int(dx/1000+1);
     totA=totD=0;
-    for(i=0;i<nX;i++){
-      n=rand();
-      for(j=0;j<nHist;j++){{
-        if((n>=cumul[j-1])&&(n<=cumul[j]))break;
-      }
-      totA+=nAsc[j];
-      totD+=nDes[j];
+
+
+    # pick a track at random for the first cell
+    tInd=int(rand()*nTrack-0.0000000001);
+print nCross[tInd,0],nCross[tInd,1],nX;
+
+
+    if(nX<=1){   # there is only a single cell
+
+    }else{
+
     }
-    # determine starting points
-  }else if(readHist==0){  # read metrics
+
+  }else if(readTrack==0){  # read metrics
 
     if($1!="#"){  # read data
       x=$lonInd;
@@ -41,12 +45,15 @@ BEGIN{
         else if($i=="lat,")latInd=$(i-1);
       }
     }
-  }else{      # read histogram
-    if(nHist>0)cumul[nHist]=$3+cumul[nHist-1];
-    else       cumul[nHist]=0.0;
-    nAsc[nHist]=$1;
-    nDes[nHist]=$2;
-    nHist++;
+  }else{      # read orbital tracks
+    if($1!="id"){
+      nCross[nTrack,0]=nCross[nTrack,1]=0;
+      for(j=4;j<=NF;j++){
+        k=(j-4)%2;
+        nCross[nTrack,k]+=$j;
+      }
+      nTrack++;
+    }
   }
 }
 

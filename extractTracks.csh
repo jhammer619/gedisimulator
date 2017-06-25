@@ -10,9 +10,11 @@ set epsg=32732
 set orbitDir="/gpfs/data1/vclgp/data/gedi/ancillary/orbits/test"
 set orbitAng=51
 set cloudFrac=0.5
+set latRes=5
 
 # temporary workspace files
-set workSpace="/tmp/gediTrackSpace.$$.dat"
+set tempTrack="/tmp/gediTrackSpace.$$.dat"
+set tempMetric="/tmp/gediMetricCoord.$$.dat"
 
 
 # read command line
@@ -89,23 +91,25 @@ endif
 set trackAngle=`echo $meanLat $orbitAng|gawk 'BEGIN{pi=4*atan2(1,1);scale=pi/180}{lat=$1*scale;a=$2*scale;print a*cos(lat*pi/(2*a))}'`
 
 # read track density
-set trackRoot=`echo $meanLat|gawk '{if($1>=-0.5)printf("_lat%dN_",int($1+0.5));else printf("_lat%dS_",int($1+0.5))}'`
+set trackRoot=`echo $meanLat|gawk -v res=$latRes '{lat=(int($1/res+0.5+100)-100)*res;if(lat>=0)printf("_lat%dN_",lat);else printf("_lat%dS_",-1*lat)}'`
 set trackFile=`ls $orbitDir/*$trackRoot*.csv`
-gawk -F, -v cFrac=$cloudFrac -v seed=$seed -f $bin/readGEDItrack.awk < $trackFile > $workSpace
+#gawk -F, -v cFrac=$cloudFrac -v seed=$seed -f $bin/readGEDItrack.awk < $trackFile > $workSpace
 
 # set out GEDI tracks
 if( $readMetric )then # sample footprints at appropriate density from metric grid
-  # determine bounds
-  set bounds=`gawk -f $bin/metricBounds.awk` < $metricFile
-  echo "###"      >> $workSpace
-  cat $metricFile >> $workSpace
-  gawk -v seed=$seed -v minX=$bounds[1] -v maxX=$bounds[2] -v minY=$bounds[3] -v maxY=$bounds[4] -f $bin/sampleTrackGrid.awk < $workSpace > $output
+  # prefilter data
+  gawk -F, '($1!="id"){x[0]=x[1]=0;for(j=4;j<=NF;j++){k=(j-4)%2;x[k]+=$j};print $3,x[0],y[0]}' < $trackFile > $tempTrack
+  #gawk '($0){if($1!="#"){}else{for(i=1;i<=NF;i++){if($i=="lon,")lonInd=($i-1);else if($i=="lat,")latInd=$(i-1)}}}' < $metricFile > $tempMetric
+
+  # choose metric lines
+  $bin/sampleTrackGrid -trackFile $tempTrack -metricFile $metricFile -cloudFrac $cloudFrac -seed $seed
 else                  # choose coordinates for GEDI tracks
 
 endif
 
 # tidy up workspace
-if( -e $workSpace )rm $workSpace
+if( -e $tempTrack )rm $tempTrack
+if( -e $tempMetric )rm $tempMetric
 
 echo "Written to $output"
 
