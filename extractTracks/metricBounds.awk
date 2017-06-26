@@ -5,12 +5,14 @@ BEGIN{
 
 ($0){
   if($1!="#"){
-    x=$lonInd;
-    y=$latInd;
-    if(x<minX)minX=x;
-    if(x>maxX)maxX=x;
-    if(y<minY)minY=y;
-    if(y>maxY)maxY=y;
+    if(NF>=latInd){  # to avoid truncated files
+      x=$lonInd;
+      y=$latInd;
+      if(x<minX)minX=x;
+      if(x>maxX)maxX=x;
+      if(y<minY)minY=y;
+      if(y>maxY)maxY=y;
+    }
   }else{  # read header
     for(i=1;i<=NF;i++){
       if($i=="lon,")lonInd=$(i-1);
