@@ -107,7 +107,7 @@ END{
         x=xS[i]+d*sin(zen[i])+minX-(minLon+buffX);
         y=yS[i]+d*cos(zen[i])+minY-minLat;
 
-        if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY))print x,y,xS[i]+d*sin(zen[i]),yS[i]+d*cos(zen[i]);
+        if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY))print x,y;
         d+=alongTrack;
       }
     }# cloud test
