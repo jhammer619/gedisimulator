@@ -160,7 +160,7 @@ if( $readMetric )then
   cat $metricFile >> $workSpace
   gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace > $output
 else if( $readALS )then
-  gawk '{printf("%.10f\n%.10f\n%d.%d\n",$1,$2,$1,$2}' < $tempTrack > $output
+  gawk '{printf("%.10f %.10f %d.%d\n",$1,$2,$1,$2)}' < $tempTrack > $output
 else
   echo "Then why did you run this?"
   exit(1)
