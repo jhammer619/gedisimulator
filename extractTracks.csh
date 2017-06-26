@@ -11,10 +11,18 @@ set orbitDir="/gpfs/data1/vclgp/data/gedi/ancillary/orbits/test"
 set orbitAng=51
 set cloudFrac=0.5
 set latRes=5
+set alongTrack=60
+set res=1000
+@ readBounds=1
+@ readALS=0
+@ readMetric=0
+set minSep=30
+set output="teast.dat"
+
 
 # temporary workspace files
 set tempTrack="/tmp/gediTrackSpace.$$.dat"
-set tempMetric="/tmp/gediMetricCoord.$$.dat"
+set workSpace="/tmp/trackWorkSpace.$$.dat"
 
 
 # read command line
@@ -30,6 +38,8 @@ while ($#argv>0)
   case -alsFile
     set alsFile="$argv[2]"
     @ readMetric=0
+    @ readALS=1
+    @ readBounds=0
   shift argv;shift argv
   breaksw
 
@@ -59,12 +69,33 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -output
+    set output="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
+  case -minSep
+    set minSep="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
+  case -bound
+    set minX=$argv[1]
+    set minY=$argv[2]
+    set maxX=$argv[3]
+    set maxY=$argv[4]
+    @ readBounds=0
+  shift argv;shift argv;shift argv;shift argv;shift argv
+  breaksw
+
   case -help
     echo " "
+    echo "-output name;      output filename"
     echo "-metricFile name;  input metric file, if sampling from metrics"
     echo "-alsFile name;     input ALS bound file, if setting coordinates"
     echo "-lat y;            latitude in degrees EPSG:4326"
-    echo "-epsg n;           EPSG code of ALS data"
+    echo "-epsg n;           EPSG code of input data"
+    echo "-minSep isep;      minimum horizontal separation to accept"
     echo "-orbitDir dir;     directory with GEDI track density files"
     echo "-cloud frac;       cloud fraction"
     echo "-seed n;           random number seed"
@@ -80,6 +111,8 @@ while ($#argv>0)
 end
 
 
+
+
 # do we need to find the mean latitude
 if( $findLat && $readMetric)then   # from metric fle
   set meanLat=`gawk -f $bin/meanCoord.awk < $metricFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
@@ -87,29 +120,56 @@ else if( $findLat )then            # from ALS bounds file
   set meanLat=`gawk 'BEGIN{x=y=0;n=0}($0&&($1!-"#")){x+=$2+$5;y+=$3+$6;n+=2}END{print x/n,y/n}' < $alsFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 endif
 
+# convert along and across track to angles
+set resAng=`echo $res $meanLat|gawk '{pi=4*atan2(1,1);lat=$2*pi/180;print ($1/(cos(lat)*6371000))*180/pi}'`
+set stepAng=`echo $alongTrack|gawk '{pi=4*atan2(1,1);print ($1/6371000)*180/pi}'`
+
 # GEDI track angle at this point
 set trackAngle=`echo $meanLat $orbitAng|gawk 'BEGIN{pi=4*atan2(1,1);scale=pi/180}{lat=$1*scale;a=$2*scale;print a*cos(lat*pi/(2*a))}'`
 
-# read track density
-set trackRoot=`echo $meanLat|gawk -v res=$latRes '{lat=(int($1/res+0.5+100)-100)*res;if(lat>=0)printf("_lat%dN_",lat);else printf("_lat%dS_",-1*lat)}'`
-set trackFile=`ls $orbitDir/*$trackRoot*.csv`
-#gawk -F, -v cFrac=$cloudFrac -v seed=$seed -f $bin/readGEDItrack.awk < $trackFile > $workSpace
+# idensitfy relevant track file
+set minLat=`echo $meanLat|gawk -v res=$latRes '{lat=(int($1/res+0.5+100)-100)*res;printf("%f",lat)}'`
+set trackRoot=`echo $minLat|gawk '{if($1>=0)printf("_lat%dN",$1);else printf("_lat%dS",-1*$1)}'`
+set trackFile=`ls $orbitDir/*$trackRoot.txt`
+#gawk -F, -v cFrac=$cloudFrac -v seed=$seed -f $bin/gediTrackStats.awk < $trackFile > $workSpace
 
-# set out GEDI tracks
-if( $readMetric )then # sample footprints at appropriate density from metric grid
-  # prefilter data
-  gawk -F, '($1!="id"){x[0]=x[1]=0;for(j=4;j<=NF;j++){k=(j-4)%2;x[k]+=$j};print $3,x[0],y[0]}' < $trackFile > $tempTrack
-  #gawk '($0){if($1!="#"){}else{for(i=1;i<=NF;i++){if($i=="lon,")lonInd=($i-1);else if($i=="lat,")latInd=$(i-1)}}}' < $metricFile > $tempMetric
 
-  # choose metric lines
-  $bin/sampleTrackGrid -trackFile $tempTrack -metricFile $metricFile -cloudFrac $cloudFrac -seed $seed
-else                  # choose coordinates for GEDI tracks
+# find bounds if needed
+if( $readBounds && $readMetric )then # read from metric file
+  set bounds=`gawk -f $bin/metricBounds.awk` < $metricFile
+else if( $readBounds && $readALS )then # read from ALS file
+  set bounds=`gawk -f $bin/alsBounds.awk` < $alsFile
+endif  # otherwise they have already been defined
 
+# translate bounds to same system as tracks
+set min=`echo "$bounds[1] $bounds[3]"|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:$epsg|gawk '{for(i=1;i<=NF;i++)print $i}'`
+set max=`echo "$bounds[2] $bounds[4]"|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:$epsg|gawk '{for(i=1;i<=NF;i++)print $i}'`
+set minX=$min[1]
+set maxX=$max[1]
+set minY=$min[2]
+set maxY=$max[2]
+
+# choose footprints
+gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle < $trackFile|gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg > $tempTrack
+
+
+# output results
+if( $readMetric )then
+  cat $tempTrack   > $workSpace
+  echo "###"      >> $workSpace
+  cat $metricFile >> $workSpace
+  gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace > $output
+else if( $readALS )then
+  gawk '{printf("%.10f\n%.10f\n%d.%d\n",$1,$2,$1,$2}' < $tempTrack > $output
+else
+  echo "Then why did you run this?"
+  exit(1)
 endif
+
 
 # tidy up workspace
 if( -e $tempTrack )rm $tempTrack
-if( -e $tempMetric )rm $tempMetric
+if( -e $workSpace )rm $workSpace
 
 echo "Written to $output"
 
