@@ -39,7 +39,7 @@ while ($#argv>0)
     set alsFile="$argv[2]"
     @ readMetric=0
     @ readALS=1
-    @ readBounds=0
+    @ readBounds=1
   shift argv;shift argv
   breaksw
 
