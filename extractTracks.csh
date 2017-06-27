@@ -18,6 +18,7 @@ set res=1000
 @ readMetric=0
 set minSep=30
 set output="teast.dat"
+@ maxLines=100000    # reduces swap space needed
 
 
 # temporary workspace files
@@ -155,10 +156,22 @@ gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$
 
 # output results
 if( $readMetric )then
-  cat $tempTrack   > $workSpace
-  echo "###"      >> $workSpace
-  cat $metricFile >> $workSpace
-  gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace > $output
+
+  # split up metric file into manageable chunks
+  @ nLines=`wc -l` < $metricFile
+  @ nSplit=`echo "$nLines $maxLines"|gawk '{print int(($1/$2)+1)}'`
+  # write header to output
+  gawk '($1=="#"){print $0;exit}' < $metricFile > $output
+
+  # loop over lines
+  @ j=0
+  while( $j < $nSplit )
+    cat $tempTrack   > $workSpace
+    echo "###"      >> $workSpace
+    gawk -v j=$j -v max=$maxLines 'BEGIN{s=j*max;e=(j+1)*max}($0&&($1!="#")){if((NR>=s)&&(NR<e))print $0}' < $metricFile >> $workSpace
+    gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace >> $output
+    @ j++
+  end  # line loop
 else if( $readALS )then
   gawk '{printf("%.10f %.10f %d.%d\n",$1,$2,$1,$2)}' < $tempTrack > $output
 else
