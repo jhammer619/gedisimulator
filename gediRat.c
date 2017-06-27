@@ -901,7 +901,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
   /*check whether empty*/
   tot=0.0;
   for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*dimage->res;
-  if(tot<TOL)dimage->useFootprint=0;
+  if((tot<TOL)||(waves->nBins==0))dimage->useFootprint=0;
 
   return(waves);
 }/*makeGediWaves*/
