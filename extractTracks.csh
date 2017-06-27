@@ -117,7 +117,7 @@ end
 if( $findLat && $readMetric)then   # from metric fle
   set meanLat=`gawk -f $bin/meanCoord.awk < $metricFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 else if( $findLat )then            # from ALS bounds file
-  set meanLat=`gawk 'BEGIN{x=y=0;n=0}($0&&($1!-"#")){x+=$2+$5;y+=$3+$6;n+=2}END{print x/n,y/n}' < $alsFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
+  set meanLat=`gawk 'BEGIN{x=y=0;n=0}($0&&($1!="#")){x+=$2+$5;y+=$3+$6;n+=2}END{print x/n,y/n}' < $alsFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 endif
 
 # convert along and across track to angles
