@@ -164,13 +164,19 @@ while( $i <= $nCoords )
   set waveID=$coord[3]
 
   set output="$outRoot.$waveID.wave"
+  @ size=1
 
   if( ! -e $output )then
     touch $output
     overlapLasFiles.csh -input $inList -coord $x $y -rad 100 -output $temp
     gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround
+
+    # check size
+    @ size=`ls -l $output|gawk '{print int($5)}'`
   endif
 
+  # delete zero sized files
+  if( ! $size )rm $output
   if( -e $temp )rm $temp
 
   @ i++
