@@ -1,7 +1,7 @@
 BEGIN{
   numb=-1;
   srand(seed);
-  tol=0.000000001;
+  tol=0.000001;
 }
 
 {
@@ -20,6 +20,8 @@ BEGIN{
     else if($1=="lonexit")x1[numb,nIn[numb]]=$3;
     else if($1=="LEAFON")leafon[numb,nIn[numb]]=$3;
     else if($1=="beamid")beamid[numb,nIn[numb]]=$3;
+    else if($1=="lon")pixX[numb]=$3;     
+    else if($1=="lat")pixY[numb]=$3;
   }
 }
 
@@ -27,6 +29,15 @@ END{
   # add the last one on
   numb++;
   for(i=0;i<numb;i++)nIn[i]++;
+
+  # remove gaps in data by compressing x.
+  for(i=0;i<numb;i++){
+    xStart=-180+i*res;
+    for(j=0;j<nIn[i];j++){
+      x0[i,j]+=xStart-pixX[i];
+      x1[i,j]+=xStart-pixX[i];
+    }
+  }
 
   # width of target area
   buffX=(maxY-minY)*cos(ang)/sin(ang);
@@ -60,6 +71,11 @@ END{
   for(i=start;i<=ending;i++){
 
     for(j=0;j<nIn[i];j++){
+      #x=x0[i,j]+minX-(minLon+buffX);
+      #if((x>=minX)&&(x<=maxX))print x0[i,j]+minX-(minLon+buffX),y0[i,j]+minY-minLat,buffBins,minX,maxX,minLon,maxLon;
+      #x=x1[i,j]+minX-(minLon+buffX);
+      #if((x>=minX)&&(x<=maxX))print x1[i,j]+minX-(minLon+buffX),y1[i,j]+minY-minLat;
+
       # sort orders
       if(y0[i,j]<y1[i,j]){
         xBot=x0[i,j];

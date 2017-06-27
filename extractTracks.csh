@@ -156,7 +156,6 @@ gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$
 
 # output results
 if( $readMetric )then
-
   # split up metric file into manageable chunks
   @ nLines=`wc -l` < $metricFile
   @ nSplit=`echo "$nLines $maxLines"|gawk '{print int(($1/$2)+1)}'`
