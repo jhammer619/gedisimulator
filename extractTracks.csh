@@ -5,7 +5,7 @@ set bin="$GEDIRAT_ROOT/extractTracks"
 
 # defaults
 @ findLat=1
-set epsg=32732
+@ epsg=32732
 @ seed=0
 set orbitDir="/gpfs/data1/vclgp/data/gedi/ancillary/orbits/test"
 set orbitAng=51
@@ -18,7 +18,7 @@ set res=1000
 @ readMetric=0
 set minSep=30
 set output="teast.dat"
-@ maxLines=100000    # reduces swap space needed
+@ maxLines=2000    # reduces swap space needed
 
 
 # temporary workspace files
@@ -51,7 +51,7 @@ while ($#argv>0)
   breaksw
 
   case -epsg
-    set epsg=$argv[2]
+    @ epsg=$argv[2]
   shift argv;shift argv
   breaksw
 
@@ -153,6 +153,12 @@ set maxY=$max[2]
 # choose footprints
 gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle < $trackFile|gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg > $tempTrack
 
+# alter minsep if in degrees
+if( $epsg == 4326 )then
+  set deg1=`echo 0 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
+  set deg2=`echo $minSep 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
+  set minSep=`echo $deg2 $deg1|gawk '{print $1-$2}'`
+endif
 
 # output results
 if( $readMetric )then
