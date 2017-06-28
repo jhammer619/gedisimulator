@@ -71,7 +71,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
   double x=0,y=0,dx=0,dy=0;
   double thresh=0;
   char line[20000],*token=NULL;;
-  char useIt=0;
+  char useIt=0,lastTok[100];
   FILE *ipoo=NULL,*opoo=NULL;
 
   /*open metrics*/
@@ -86,16 +86,21 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   } 
+
+  /*allocate distance array and set to blank*/
   minSepSq=dalloc(tracks->nTracks,"useList",0);
   for(i=0;i<tracks->nTracks;i++){
     minSepSq[i]=10000000.0;
     useList[i]=-1;
   }
+
+  /*search for closest footprints to tracks*/
   i=0;
   while(fgets(line,10000,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){  /*read data*/
+      x=y=1000000000000.0;  /*silly values*/
       /*read coords*/
-      j=0;
+      j=1;
       token=strtok(line," ");
       while(token){
         if(j==yCol)y=atof(token);
@@ -120,14 +125,16 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
       }
       i++;
     }else{  /*read header*/
-      j=0;
+      j=1;
       token=strtok(line," ");
       while(token){
-        if(!strncasecmp(token,"lon,",4))xCol=j-1;
-        else if(!strncasecmp(token,"lat,",4))yCol=j-1;
+        if(!strncasecmp(token,"lon,",4))xCol=atoi(lastTok);
+        else if(!strncasecmp(token,"lat,",4))yCol=atoi(lastTok);
+        strcpy(lastTok,token);
         token=strtok(NULL," ");
         j++;
       }
+      fprintf(stdout,"Metric coord cols %d %d\n",xCol,yCol);
     }
   }
   TIDY(minSepSq);
