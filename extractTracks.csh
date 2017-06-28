@@ -162,21 +162,24 @@ endif
 
 # output results
 if( $readMetric )then
-  # split up metric file into manageable chunks
-  @ nLines=`wc -l` < $metricFile
-  @ nSplit=`echo "$nLines $maxLines"|gawk '{print int(($1/$2)+1)}'`
-  # write header to output
-  gawk '($1=="#"){print $0;exit}' < $metricFile > $output
+  $bin/chooseMetricPrints -minSep $minSep -metric $metricFile -tracks $tempTrack -output $output
 
-  # loop over lines
-  @ j=0
-  while( $j < $nSplit )
-    cat $tempTrack   > $workSpace
-    echo "###"      >> $workSpace
-    gawk -v j=$j -v max=$maxLines 'BEGIN{s=j*max;e=(j+1)*max}($0&&($1!="#")){if((NR>=s)&&(NR<e))print $0}' < $metricFile >> $workSpace
-    gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace >> $output
-    @ j++
-  end  # line loop
+  # OLD gawk bases
+  # split up metric file into manageable chunks
+  #@ nLines=`wc -l` < $metricFile
+  #@ nSplit=`echo "$nLines $maxLines"|gawk '{print int(($1/$2)+1)}'`
+  # write header to output
+  #gawk '($1=="#"){print $0;exit}' < $metricFile > $output
+
+  ## loop over lines
+  #@ j=0
+  #while( $j < $nSplit )
+  #  cat $tempTrack   > $workSpace
+  #  echo "###"      >> $workSpace
+  #  gawk -v j=$j -v max=$maxLines 'BEGIN{s=j*max;e=(j+1)*max}($0&&($1!="#")){if((NR>=s)&&(NR<e))print $0}' < $metricFile >> $workSpace
+  #  gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace >> $output
+  #  @ j++
+  #end  # line loop
 else if( $readALS )then
   gawk '{printf("%.10f %.10f %d.%d\n",$1,$2,$1,$2)}' < $tempTrack > $output
 else
