@@ -179,6 +179,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
     fclose(opoo);
     opoo=NULL;
   }
+  fprintf(stdout,"Written to %s\n",outNamen);
   TIDY(useList);
   return;
 }/*selectMetrics*/
