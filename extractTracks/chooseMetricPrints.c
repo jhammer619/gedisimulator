@@ -72,6 +72,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
   double thresh=0;
   char line[20000],*token=NULL;;
   char useIt=0,lastTok[100];
+  char writtenHead=0;
   FILE *ipoo=NULL,*opoo=NULL;
 
   /*open metrics*/
@@ -166,7 +167,10 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
       if(useIt)fprintf(opoo,"%s",line);
       i++;
     }else{  /*write out header*/
-      fprintf(opoo,"%s",line);
+      if(!writtenHead){
+        fprintf(opoo,"%s",line);
+        writtenHead=1;
+      }
     }
   }
 
