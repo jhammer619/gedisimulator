@@ -1122,8 +1122,10 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   metric->rhInfl=findRH(processed,z,nBins,metric->inflGround,dimage->rhRes,&metric->nRH);
 
   /*rh metrics with real ground, if we have the ground*/
-  if(dimage->ground)metric->rhReal=findRH(data->wave,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);
-  else{
+  if(dimage->ground||data->demGround){
+    if(dimage->linkNoise)metric->rhReal=findRH(data->wave,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
+    else                 metric->rhReal=findRH(processed,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
+  }else{
     metric->rhReal=falloc(metric->nRH,"rhReal",0);
     for(i=0;i<metric->nRH;i++)metric->rhReal[i]=-1.0;
   }
