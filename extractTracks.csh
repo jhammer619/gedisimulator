@@ -19,6 +19,7 @@ set res=1000
 set minSep=30
 set output="teast.dat"
 @ maxLines=2000    # reduces swap space needed
+set gridRes=2000
 
 
 # temporary workspace files
@@ -80,6 +81,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -gridRes
+    set gridRes="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -bound
     set minX=$argv[1]
     set minY=$argv[2]
@@ -96,10 +102,11 @@ while ($#argv>0)
     echo "-alsFile name;     input ALS bound file, if setting coordinates"
     echo "-lat y;            latitude in degrees EPSG:4326"
     echo "-epsg n;           EPSG code of input data"
-    echo "-minSep isep;      minimum horizontal separation to accept"
+    echo "-minSep sep;       minimum horizontal separation to accept"
     echo "-orbitDir dir;     directory with GEDI track density files"
     echo "-cloud frac;       cloud fraction"
     echo "-seed n;           random number seed"
+    echo "-gridRes r;        search grid resolution, metres"
     echo " "
     exit
 
@@ -155,14 +162,19 @@ gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$
 
 # alter minsep if in degrees
 if( $epsg == 4326 )then
+  # reproject minSep
   set deg1=`echo 0 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
   set deg2=`echo $minSep 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
   set minSep=`echo $deg2 $deg1|gawk '{print $1-$2}'`
+  # reproject grid resolution
+  set deg1=`echo 0 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
+  set deg2=`echo $gridRes 0|gdaltransform -t_srs EPSG:4326 -s_srs EPSG:32632|gawk '{print $1}'`
+  set gridRes=`echo $deg2 $deg1|gawk '{print $1-$2}'`
 endif
 
 # output results
 if( $readMetric )then
-  $bin/chooseMetricPrints -minSep $minSep -metric $metricFile -tracks $tempTrack -output $output
+  $bin/chooseMetricPrints -minSep $minSep -metric $metricFile -tracks $tempTrack -output $output -gridRes $gridRes
 
   # OLD gawk bases
   # split up metric file into manageable chunks
