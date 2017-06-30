@@ -68,6 +68,9 @@ int main(int argc,char **argv)
   /*read track locations*/
   tracks=readTracks(dimage->trackNamen);
 
+  /*set up mapping grid*/
+  grid=setMapGrid(dimage,tracks);
+
   /*read metris and output needed*/
   selectMetrics(tracks,dimage->metricNamen,dimage->outNamen,dimage->minSep,grid);
 
@@ -146,9 +149,11 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
   double sepSq=0,*minSepSq=NULL;
   double x=0,y=0,dx=0,dy=0;
   double thresh=0;
-  char line[20000],*token=NULL;;
-  char useIt=0,lastTok[100];
+  char line[20000],*token=NULL;
+  char temp[20000];
+  char lastTok[100];
   char writtenHead=0;
+  char **useLines=NULL;
   FILE *ipoo=NULL,*opoo=NULL;
 
   /*open metrics*/
@@ -157,23 +162,33 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
     exit(1);
   }
   thresh=minSep*minSep;
+  writtenHead=0;
+
+  /*open output*/
+  if((opoo=fopen(outNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening input file %s\n",outNamen);
+    exit(1);
+  }
 
   /*choose metrics*/
   if(!(useList=(int64_t *)calloc(tracks->nTracks,sizeof(int64_t)))){
-    fprintf(stderr,"error control allocation.\n");
+    fprintf(stderr,"error useList allocation.\n");
     exit(1);
   } 
 
   /*allocate distance array and set to blank*/
   minSepSq=dalloc(tracks->nTracks,"useList",0);
+  useLines=chChalloc(tracks->nTracks,"useLines",0);
   for(i=0;i<tracks->nTracks;i++){
     minSepSq[i]=10000000.0;
     useList[i]=-1;
+    useLines[i]=NULL;
   }
 
   /*search for closest footprints to tracks*/
   i=0;
   while(fgets(line,10000,ipoo)!=NULL){
+    strcpy(temp,line);
     if(strncasecmp(line,"#",1)){  /*read data*/
       x=y=1000000000000.0;  /*silly values*/
       /*read coords*/
@@ -219,6 +234,10 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
               if(useList[j]<=0)nUse++;
               useList[j]=i;
               minSepSq[j]=sepSq;
+              /*copy line*/
+              TIDY(useLines[j]);
+              useLines[j]=challoc(strlen(temp)+1,"useLines",j+1);
+              strcpy(useLines[j],temp);
             }
           }/*point within grid loop*/
         }/*intersected track grid loop*/
@@ -236,55 +255,34 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
         j++;
       }
       fprintf(stdout,"Metric coord cols %d %d\n",xCol,yCol);
-    }
-  }
-  TIDY(minSepSq);
-  fprintf(stdout,"Read %lld metrics and selected %d\n",i,nUse);
 
-  /*rewind to start of file*/
-  if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
-    exit(1);
-  }
-
-  /*open output*/
-  if((opoo=fopen(outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",outNamen);
-    exit(1);
-  }
-
-  /*write out selected*/
-  i=0;
-  while(fgets(line,10000,ipoo)!=NULL){
-    if(strncasecmp(line,"#",1)){  /*read data*/
-      useIt=0;
-      for(j=0;j<tracks->nTracks;j++){
-        if(i==useList[j]){
-          useIt=1;
-          break;
-        }
-      }
-      if(useIt)fprintf(opoo,"%s",line);
-      i++;
-    }else{  /*write out header*/
-      if(!writtenHead){
-        fprintf(opoo,"%s",line);
+      /*write header to output*/
+      if(writtenHead==0){
+        fprintf(opoo,"%s",temp);
         writtenHead=1;
       }
     }
   }
-
-  /*tidy up*/
+  TIDY(minSepSq);
+  fprintf(stdout,"Read %lld metrics and selected %d\n",(long long int)i,nUse);
   if(ipoo){
     fclose(ipoo);
     ipoo=NULL;
   }
+
+  /*write out output*/
+  for(j=0;j<tracks->nTracks;j++){
+    if(useList[j]>=0)fprintf(opoo,"%s",useLines[j]);
+  }
+
+  /*tidy up*/
+  TTIDY((void **)useLines,tracks->nTracks);
+  TIDY(useList);
   if(opoo){
     fclose(opoo);
     opoo=NULL;
   }
   fprintf(stdout,"Written to %s\n",outNamen);
-  TIDY(useList);
   return;
 }/*selectMetrics*/
 
@@ -336,7 +334,7 @@ trackStruct *readTracks(char *namen)
         tracks->y[i]=atof(temp2);
         /*determine area bounds*/
         if(tracks->x[i]<tracks->minX)tracks->minX=tracks->x[i];
-        if(tracks->x[i]>tracks->minX)tracks->minX=tracks->x[i];
+        if(tracks->x[i]>tracks->maxX)tracks->maxX=tracks->x[i];
         if(tracks->y[i]<tracks->minY)tracks->minY=tracks->y[i];
         if(tracks->y[i]>tracks->maxY)tracks->maxY=tracks->y[i];
         i++;
