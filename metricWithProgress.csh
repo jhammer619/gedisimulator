@@ -42,7 +42,7 @@ set noiseTrack=" "
 set rhoG=" "
 set rhoC=" "
 set offset=" "
-
+set dontTrustGround=" "
 
 # read command line
 while ($#argv>0)
@@ -238,6 +238,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -dontTrustGround
+    set dontTrustGround="-dontTrustGround"
+  shift argv
+  breaksw
+
   default:
     echo "Unknown argument $argv[1]"
     echo "Who knows"
@@ -251,7 +256,7 @@ end
 touch $progRoot
 
 # extract metrics
-gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset
+gediMetric -inList $inList -outRoot $outRoot $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $dontTrustGround
 
 # mark finishing
 rm $progRoot

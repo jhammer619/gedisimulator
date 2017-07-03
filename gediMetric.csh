@@ -46,6 +46,7 @@ set noiseTrack=" "
 set rhoG=" "
 set rhoC=" "
 set offset=" "
+set dontTrustGround=" "
 
 @ nCores=1
 
@@ -251,6 +252,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -dontTrustGround
+    set dontTrustGround="-dontTrustGround"
+  shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList list;      input filename list"
@@ -264,6 +270,7 @@ while ($#argv>0)
     echo "-gTol tol;         can't remember"
     echo "-noRHgauss;        don't so Gaussian ground finding"
     echo "-nCores n;         number of cores to split job over"
+    echo "-dontTrustGround;  do not trust polynomial ground"
     echo " "
     echo "# Adding noise:"
     echo "-dcBias n;       mean noise level"
@@ -331,7 +338,7 @@ while( $i < $nCores )
   set thisList="$tempList.$i"
   set thisOut="$tempOut.$i"
 
-  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i & 
+  $bin/metricWithProgress.csh -inList $thisList -outRoot $thisOut $writeFit $ground $useInt $useFrac -rhRes $rhRes $bayesGround $gTol $noRHgauss $dcBias $nSig $seed $hNoise $linkNoise $trueSig $renoise $newPsig $oldPsig $missGround $minGap $maxDN $bitRate $meanN $thresh $sWidth $psWidth $gWidth $minWidth $varNoise $varScale $statsLen $medNoise $noiseTrack $rhoG $rhoC $offset $minGsig -progRoot $progRoot.$i $dontTrustGround & 
   @ i++
 end
 
