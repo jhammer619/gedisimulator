@@ -1098,7 +1098,10 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
         sep=sqrt(dX*dX+dY*dY);
 
         if(dimage->topHat==0)rScale=(float)gaussian(sep,(double)dimage->lobe[n].fSigma,0.0);
-        else                 rScale=1.0;
+        else{
+          if(sep<=dimage->lobe[n].maxSepSq)rScale=1.0;
+          else                             rScale=0.0;
+        }
 
         if(rScale>dimage->iThresh){  /*if bright enough to matter*/
           /*scale by sampling density*/
