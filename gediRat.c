@@ -1558,7 +1558,8 @@ void setGediFootprint(control *dimage)
   }
 
   /*radius to calculate density within*/
-  dimage->denseRadSq=dimage->fSigma*dimage->fSigma*4.0;
+  if(dimage->topHat==0)dimage->denseRadSq=dimage->fSigma*dimage->fSigma*4.0;
+  else                 dimage->denseRadSq=dimage->fSigma;
   dimage->pointDense=dimage->beamDense=0.0;
 
   return;
