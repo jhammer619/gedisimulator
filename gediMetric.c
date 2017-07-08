@@ -1045,7 +1045,7 @@ void alignElevation(double z0,double zEnd,float *gPar,int nGauss)
 /*####################################################*/
 /*calculate metrics*/
 
-void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float *wave,int nBins,double *z,control *dimage,dataStruct *data)
+void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *wave,int nBins,double *z,control *dimage,dataStruct *data)
 {
   int i=0,gInd=0;
   float tot=0;
@@ -1086,7 +1086,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
 
   /*waveform energy*/
   metric->totE=0.0;
-  for(i=0;i<nBins;i++)metric->totE+=processed[i]*dimage->res;
+  for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->res;
 
   /*BLair sensitivity*/
   metric->blairSense=findBlairSense(metric,data,dimage);
@@ -1098,14 +1098,14 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   den.thresh=0;
   den.sWidth=0.76*3.0/4.0;  /*according to Bryan Blair*/
   den.noiseTrack=0;
-  smoothed=processFloWave(processed,nBins,&den,1.0);
+  smoothed=processFloWave(denoised,nBins,&den,1.0);
 
   /*ground by Gaussian fit*/
   if(dimage->noRHgauss==0)metric->gHeight=gaussianGround(energy,mu,&gInd,nGauss,tot);
   else                    metric->gHeight=-1.0;
 
   /*canopy cover*/
-  metric->cov=gaussCover(processed,nBins,mu,energy,nGauss,gInd);
+  metric->cov=gaussCover(denoised,nBins,mu,energy,nGauss,gInd);
 
   /*ground by maximum*/
   metric->maxGround=maxGround(smoothed,z,nBins);
@@ -1114,32 +1114,32 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   metric->inflGround=inflGround(smoothed,z,nBins);
 
   /*rh metrics with Gaussian ground*/
-  if(dimage->noRHgauss==0)metric->rh=findRH(processed,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
+  if(dimage->noRHgauss==0)metric->rh=findRH(denoised,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
   else                    metric->rh=blankRH(dimage->rhRes,&metric->nRH);
 
   /*rh metrics with maximum ground*/
-  metric->rhMax=findRH(processed,z,nBins,metric->maxGround,dimage->rhRes,&metric->nRH);
+  metric->rhMax=findRH(denoised,z,nBins,metric->maxGround,dimage->rhRes,&metric->nRH);
 
   /*rh metrics with inflection ground*/
-  metric->rhInfl=findRH(processed,z,nBins,metric->inflGround,dimage->rhRes,&metric->nRH);
+  metric->rhInfl=findRH(denoised,z,nBins,metric->inflGround,dimage->rhRes,&metric->nRH);
 
   /*rh metrics with real ground, if we have the ground*/
   if(dimage->ground||data->demGround){
     if(dimage->linkNoise)metric->rhReal=findRH(data->wave,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
-    else                 metric->rhReal=findRH(processed,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
+    else                 metric->rhReal=findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
   }else{
     metric->rhReal=falloc(metric->nRH,"rhReal",0);
     for(i=0;i<metric->nRH;i++)metric->rhReal[i]=-1.0;
   }
 
   /*foliage height diversity*/
-  metric->FHD=foliageHeightDiversity(processed,nBins);
+  metric->FHD=foliageHeightDiversity(denoised,nBins);
 
   /*signal start and end*/
-  findSignalBounds(processed,z,nBins,&metric->tElev,&metric->bElev,dimage);
+  findSignalBounds(denoised,z,nBins,&metric->tElev,&metric->bElev,dimage);
 
   /*Lefsky's leading and trailing edge extents*/
-  findWaveExtents(processed,z,nBins,metric->tElev,metric->bElev,&metric->leExt,&metric->teExt);
+  findWaveExtents(denoised,z,nBins,metric->tElev,metric->bElev,&metric->leExt,&metric->teExt);
 
   /*L moments*/
   /*metric->nLm=4;
@@ -1149,18 +1149,18 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *processed,float
   metric->LmomMax=waveLmoments(metric->rhMax,metric->nRH,dimage->rhRes,metric->nLm);*/
 
   /*cover estimates using Bryan's half feature method*/
-  metric->covHalfG=halfCover(processed,z,nBins,metric->gHeight,dimage->rhoRatio);
-  metric->covHalfM=halfCover(processed,z,nBins,metric->maxGround,dimage->rhoRatio);
-  metric->covHalfI=halfCover(processed,z,nBins,metric->inflGround,dimage->rhoRatio);
+  metric->covHalfG=halfCover(denoised,z,nBins,metric->gHeight,dimage->rhoRatio);
+  metric->covHalfM=halfCover(denoised,z,nBins,metric->maxGround,dimage->rhoRatio);
+  metric->covHalfI=halfCover(denoised,z,nBins,metric->inflGround,dimage->rhoRatio);
 
   /*Wenge Ni's metrics*/
-  metric->niM2=niMetric(processed,z,nBins,dimage->res,metric->gHeight,2.0);
-  metric->niM21=niMetric(processed,z,nBins,dimage->res,metric->gHeight,2.1);
+  metric->niM2=niMetric(denoised,z,nBins,dimage->res,metric->gHeight,2.0);
+  metric->niM21=niMetric(denoised,z,nBins,dimage->res,metric->gHeight,2.1);
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
     metric->bayGround=bayesGround(wave,nBins,dimage,metric,z,data);
-    metric->covHalfB=halfCover(processed,z,nBins,metric->bayGround,dimage->rhoRatio);
+    metric->covHalfB=halfCover(denoised,z,nBins,metric->bayGround,dimage->rhoRatio);
   }
 
 
