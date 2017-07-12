@@ -1998,7 +1998,6 @@ void setL2ground(dataStruct *data,int numb,control *dimage)
   uint64_t i=0;
   lvisL2struct *readLvisL2(char *);
   lvisL2struct *t=NULL;
-  char found=0;
 
   if(numb==0)dimage->lvisL2=readLvisL2(dimage->l2namen);
 
@@ -2006,7 +2005,6 @@ void setL2ground(dataStruct *data,int numb,control *dimage)
   t=dimage->lvisL2;
 
   /*find matching L2 value*/
-  found=0;
   for(i=0;i<t->numb;i++){
     if((t->lfid[i]==data->lfid)&&(t->shotN[i]==data->shotN)){
       data->gElev=t->zG[i];
@@ -2083,7 +2081,6 @@ lvisL2struct *readLvisL2(char *namen)
         token=strtok(NULL," ");
         j++;
       }
-      TIDY(token);
       i++;
     }else if(!strncasecmp(line,"# LFID",6)){
       j=0;
