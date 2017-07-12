@@ -54,6 +54,18 @@
 float rhoG;
 float rhoC;
 
+
+/*###########################################################*/
+/*LVIS level2 data*/
+
+typedef struct{
+  uint64_t numb;      /*number of records*/
+  uint32_t *lfid;     /*LVIS file identifier*/
+  uint32_t *shotN;    /*LVIS shotnumber*/
+  float *zG;          /*ground elevation*/
+}lvisL2struct;
+
+
 /*####################################*/
 /*control structure*/
 
@@ -68,8 +80,8 @@ typedef struct{
   int maxGauss;     /*maximum number of Gaussians for output*/
 
   /*level2 LVIS for ZG*/
-  int nL2;          /*number of level2 files*/
-  char **l2list;    /*list of level2 filenames*/
+  char l2namen[200]; /*list of level2 filenames*/
+  char readL2;      /*switch to read L2 or not*/
 
   /*switches*/
   char ground;      /*read separateground wave or not*/
@@ -115,10 +127,11 @@ typedef struct{
   float newPsig;   /*new pulse sigma*/
 
   /*LVIS data*/
-  int verMaj;      /*major version*/
-  int verMin;      /*minor version*/
-  lvisLGWstruct lvis;  /*LVIS lgw structure*/
-  lvisHDF *hdf;    /*LVIS HDF5 structure*/
+  int verMaj;           /*major version*/
+  int verMin;           /*minor version*/
+  lvisLGWstruct lvis;   /*LVIS lgw structure*/
+  lvisHDF *hdf;         /*LVIS HDF5 structure*/
+  lvisL2struct *lvisL2; /*LVIS level2 data*/
 
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
@@ -207,6 +220,9 @@ typedef struct{
   float res;        /*range resolution*/
   float zen;        /*beam zenith angle (degrees)*/
   char demGround;   /*use the defined DEM ground values*/
+  /*for LVIS HDF5 and level2*/
+   uint32_t lfid;   /*LVIS file identifier*/
+   uint32_t shotN;  /*LVIS shotnumber*/
 }dataStruct;
 
 
@@ -223,6 +239,7 @@ int main(int argc,char **argv)
   dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,control *);
   dataStruct *readHDF(char *,control *,int);
   metStruct *metric=NULL;
+  void setL2ground(dataStruct *,int,control *);
   void findMetrics(metStruct *,float *,int,float *,float *,int,double *,control *,dataStruct *);
   void tidySMoothPulse();
   void alignElevation(double,double,float *,int);
@@ -255,6 +272,7 @@ int main(int argc,char **argv)
     if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->inList[0],&dimage->lvis,i,dimage);
     else if(dimage->readHDFlvis)data=readHDF(dimage->inList[0],dimage,i);
     else                        data=readASCIIdata(dimage->inList[i],dimage);
+    if(dimage->readL2)setL2ground(data,i,dimage);
 
     /*is the data usable*/
     if(data->usable){
@@ -329,9 +347,14 @@ int main(int argc,char **argv)
   tidySMoothPulse();
   TIDY(metric);
   if(dimage){
+    if(dimage->lvisL2){
+      TIDY(dimage->lvisL2->lfid);
+      TIDY(dimage->lvisL2->shotN);
+      TIDY(dimage->lvisL2->zG);
+      TIDY(dimage->lvisL2);
+    }
     if(dimage->readBinLVIS)TTIDY((void **)dimage->inList,1);
     else                   TTIDY((void **)dimage->inList,dimage->nFiles);
-    TTIDY((void **)dimage->l2list,dimage->nL2);
     dimage->inList=NULL;
     if(dimage->opooMet){
       fclose(dimage->opooMet);
@@ -1655,6 +1678,8 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   }
   data->lon=(dimage->hdf->lon0[numb]+dimage->hdf->lon1023[numb])/2.0;
   data->lat=(dimage->hdf->lat0[numb]+dimage->hdf->lat1023[numb])/2.0;
+  data->lfid=dimage->hdf->lfid[numb];
+  data->shotN=dimage->hdf->shotN[numb];
   sprintf(data->waveID,"%d.%d",dimage->hdf->lfid[numb],dimage->hdf->shotN[numb]);
 
   /*analyse pulse*/
@@ -1966,6 +1991,121 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
 
 
 /*####################################################*/
+/*read or copy LVIS L2 data*/
+
+void setL2ground(dataStruct *data,int numb,control *dimage)
+{
+  uint64_t i=0;
+  lvisL2struct *readLvisL2(char *);
+  lvisL2struct *t=NULL;
+  char found=0;
+
+  if(numb==0)dimage->lvisL2=readLvisL2(dimage->l2namen);
+
+  /*for shorthand, set to a short pointer*/
+  t=dimage->lvisL2;
+
+  /*find matching L2 value*/
+  found=0;
+  for(i=0;i<t->numb;i++){
+    if((t->lfid[i]==data->lfid)&&(t->shotN[i]==data->shotN)){
+      data->gElev=t->zG[i];
+      data->demGround=1;
+      break;
+    }
+  }
+
+  t=NULL;
+  return;
+}/*setL2ground*/
+
+/*####################################################*/
+/*read LVIS L2 data*/
+
+lvisL2struct *readLvisL2(char *namen)
+{
+  int j=0,zGcol=0;
+  uint64_t i=0;
+  lvisL2struct *lvisL2=NULL;
+  char line[5000];
+  char *token=NULL;
+  FILE *ipoo=NULL;
+
+  /*allocate structures*/
+  if(!(lvisL2=(lvisL2struct *)calloc(1,sizeof(lvisL2struct)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+  lvisL2->numb=0;
+  lvisL2->lfid=NULL;
+  lvisL2->shotN=NULL;
+  lvisL2->zG=NULL;
+
+  /*open file*/
+  if((ipoo=fopen(namen,"r"))==NULL){
+    fprintf(stderr,"Error opening input file %s\n",namen);
+    exit(1);
+  }
+
+  /*count number of lines*/
+  while(fgets(line,5000,ipoo)!=NULL)if(strncasecmp(line,"#",1))lvisL2->numb++;
+
+  /*allocate arrays*/
+  if(!(lvisL2->lfid=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
+    fprintf(stderr,"error in L2 lfid allocation.\n");
+    exit(1);
+  }
+  if(!(lvisL2->shotN=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
+    fprintf(stderr,"error in L2 shotN allocation.\n");
+    exit(1);
+  }
+  lvisL2->zG=falloc((int)lvisL2->numb,"L2 zG",0);
+
+  /*rewind to start of file*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read data*/
+  i=0;
+  while(fgets(line,5000,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      j=0;
+      token=strtok(line," ");
+      while(token){
+        if(j==0)lvisL2->lfid[i]=atoi(token);
+        else if(j==1)lvisL2->shotN[i]=atoi(token);
+        else if(j==zGcol){
+          lvisL2->zG[i]=atof(token);
+          break;
+        }
+        token=strtok(NULL," ");
+        j++;
+      }
+      TIDY(token);
+      i++;
+    }else if(!strncasecmp(line,"# LFID",6)){
+      j=0;
+      token=strtok(line," ");
+      while(token){
+        if(!strncasecmp(token,"ZG",2))zGcol=j-1;  /*minus one to account for # at line start*/
+        token=strtok(NULL," ");
+        j++;
+      }
+    }
+  }
+
+  /*close*/
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return(lvisL2);
+}/*readLvisL2*/
+
+
+/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -2063,6 +2203,8 @@ control *readCommands(int argc,char **argv)
   dimage->verMin=3;  /*minor version*/
   dimage->lvis.data=NULL;
   dimage->hdf=NULL;
+  /*LVIS level2 data*/
+  dimage->readL2=0;   /*do not read L2*/
   /*others*/
   dimage->rhoRatio=0.57/0.4;
   rhoG=0.4;
@@ -2088,6 +2230,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-outRoot",8)){
         checkArguments(1,i,argc,"-outRoot");
         strcpy(dimage->outRoot,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-level2",7)){
+        checkArguments(1,i,argc,"-level2");
+        dimage->readL2=1;
+        strcpy(dimage->l2namen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-writeFit",9)){
         dimage->writeFit=1;
       }else if(!strncasecmp(argv[i],"-dcBias",7)){
@@ -2211,7 +2357,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-noRoundCoord",13)){
         dimage->coord2dp=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDF;        read HDF5 input\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss; do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDF;        read HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss; do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
