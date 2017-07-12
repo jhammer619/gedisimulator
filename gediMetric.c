@@ -67,6 +67,10 @@ typedef struct{
   FILE *opooMet;    /*waveform metric output*/
   int maxGauss;     /*maximum number of Gaussians for output*/
 
+  /*level2 LVIS for ZG*/
+  int nL2;          /*number of level2 files*/
+  char **l2list;    /*list of level2 filenames*/
+
   /*switches*/
   char ground;      /*read separateground wave or not*/
   char writeFit;    /*write fitted wave switch*/
@@ -327,6 +331,7 @@ int main(int argc,char **argv)
   if(dimage){
     if(dimage->readBinLVIS)TTIDY((void **)dimage->inList,1);
     else                   TTIDY((void **)dimage->inList,dimage->nFiles);
+    TTIDY((void **)dimage->l2list,dimage->nL2);
     dimage->inList=NULL;
     if(dimage->opooMet){
       fclose(dimage->opooMet);
