@@ -353,8 +353,8 @@ int main(int argc,char **argv)
       TIDY(dimage->lvisL2->zG);
       TIDY(dimage->lvisL2);
     }
-    if(dimage->readBinLVIS)TTIDY((void **)dimage->inList,1);
-    else                   TTIDY((void **)dimage->inList,dimage->nFiles);
+    if(dimage->readBinLVIS||dimage->readHDFlvis)TTIDY((void **)dimage->inList,1);
+    else                                        TTIDY((void **)dimage->inList,dimage->nFiles);
     dimage->inList=NULL;
     if(dimage->opooMet){
       fclose(dimage->opooMet);
