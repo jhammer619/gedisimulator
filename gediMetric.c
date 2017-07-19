@@ -46,8 +46,8 @@
 
 /*tolerances*/
 #define TOL 0.00001
+#define YTOL 0.0000001   /*for determining Gaussian thresholds*/
 #define XRES 0.00005
-#define YTOL 0.0000001
 #define MINERR 0.0000001
 
 /*element reflectance*/
@@ -423,7 +423,6 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   float nNsig=0,nSsig=0;
   float threshS=0,threshN=0;
   void gaussThresholds(float,float,float,float,float *,float *);
-
   char direction=0;
 
   /*initial guess*/
@@ -460,51 +459,6 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
 
   return(sig);
 }/*findSigma*/
-
-
-/*####################################################*/
-/*calculate Gaussian hresholds*/
-
-void gaussThresholds(float sig,float res,float probNoise,float probMiss,float *threshN,float *threshS)
-{
-  float x=0,y=0;
-  float cumul=0;
-  char foundS=0,foundN=0;
-  float probN=0,probS=0;
-
-  probN=1.0-probNoise/(30.0/0.15);
-  probS=1.0-probMiss;
-
-  /*determine start*/
-  x=0.0;
-  do{
-    y=(float)gaussian((double)x,(double)sig,0.0);
-    x-=res;
-  }while(y>=YTOL);
-
-  do{
-    y=(float)gaussian((double)x,(double)sig,0.0);
-    cumul+=y*res;
-
-    if(foundS==0){
-      if(cumul>=probS){
-        foundS=1;
-        *threshS=x;
-      }
-    }
-
-    if(foundN==0){
-      if(cumul>=probN){
-        foundN=1;
-        *threshN=x;
-      }
-    }
-
-    x+=res;
-  }while((foundS==0)||(foundN==0));
-
-  return;
-}/*gaussThresholds*/
 
 
 /*####################################################*/
@@ -1239,6 +1193,51 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
 
   return(blairSense);
 }/*findBlairSense*/
+
+
+/*####################################################################################################*/
+/*calculate Gaussian thresholds for normaly distributed noise*/
+
+void gaussThresholds(float sig,float res,float probNoise,float probMiss,float *threshN,float *threshS)
+{
+  float x=0,y=0;
+  float cumul=0;
+  char foundS=0,foundN=0;
+  float probN=0,probS=0;
+
+  probN=1.0-probNoise/(30.0/0.15);
+  probS=1.0-probMiss;
+
+  /*determine start*/
+  x=0.0;
+  do{
+    y=(float)gaussian((double)x,(double)sig,0.0);
+    x-=res;
+  }while(y>=YTOL);
+
+  do{
+    y=(float)gaussian((double)x,(double)sig,0.0);
+    cumul+=y*res;
+
+    if(foundS==0){
+      if(cumul>=probS){
+        foundS=1;
+        *threshS=x;
+      }
+    }
+
+    if(foundN==0){
+      if(cumul>=probN){
+        foundN=1;
+        *threshN=x;
+      }
+    }
+
+    x+=res;
+  }while((foundS==0)||(foundN==0));
+
+  return;
+}/*gaussThresholds*/
 
 
 /*####################################################*/
