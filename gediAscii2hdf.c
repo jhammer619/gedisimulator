@@ -24,7 +24,7 @@ typedef struct{
   int nFiles;   /*number of waveforms*/
   char **inList;
   char listNamen[200];
-  char outRoot[200];
+  char outNamen[200];
   FILE *opooGauss;  /*Gaussian parameter output*/
   FILE *opooMet;    /*waveform metric output*/
   int maxGauss;     /*maximum number of Gaussians for output*/
@@ -147,8 +147,8 @@ typedef struct{
   float pSigma;    /*pulse length*/
   float fSigma;    /*footprint width*/
   /*beams*/
-  float **wave;    /*waveform*/
-  float **ground;  /*ground waveforms*/
+  float *wave;     /*waveform*/
+  float *ground;   /*ground waveforms*/
   float *z0;       /*wave top elevations*/
   float *zN;       /*wave bottom elevations*/
   double *lon;     /*longitudes*/
@@ -157,7 +157,7 @@ typedef struct{
   float *cov;      /*canopy cover*/
   float *gElev;    /*ground elevation, CofG*/
   float *demElev;  /*ground elevation, DEM*/
-  char **waveID;   /*waveform ID*/
+  char *waveID;    /*waveform ID*/
   float *beamDense;/*beam density*/
   float *pointDense;/*point density*/
   float *zen;      /*scan angles, or mean angles*/
@@ -193,10 +193,16 @@ int main(int argc,char **argv)
   data=tidyAsciiStruct(data,dimage->nFiles);
 
   /*write HDF5*/
-  writeGEDIhdf(hdfData,dimage->outRoot,dimage);
+  writeGEDIhdf(hdfData,dimage->outNamen,dimage);
 
   /*tidy arrays*/
   hdfData=tidyHDFdata(hdfData);
+  if(dimage){
+    TTIDY((void **)dimage->inList,dimage->nFiles);
+    TIDY(dimage->gFit);
+    TIDY(dimage->den);
+    TIDY(dimage);
+  }
   return(0);
 }/*main*/
 
@@ -204,19 +210,17 @@ int main(int argc,char **argv)
 /*####################################################*/
 /*write data to HDF5*/
 
-void writeGEDIhdf(gediHDF *hdfData,char *outRoot,control *dimage)
+void writeGEDIhdf(gediHDF *hdfData,char *namen,control *dimage)
 {
-  char namen[200];
   hid_t file;         /* Handles */
   void write1dDoubleHDF5(hid_t,char *,double *,int);
   void write1dFloatHDF5(hid_t,char *,float *,int);
-  void write2dFloatHDF5(hid_t,char *,float **,int,int);
-  void write2dCharHDF5(hid_t,char *,char **,int,int);
+  void write2dFloatHDF5(hid_t,char *,float *,int,int);
+  void write2dCharHDF5(hid_t,char *,char *,int,int);
   void write1dIntHDF5(hid_t,char *,int *,int);
 
 
   /*open new file*/
-  sprintf(namen,"%s.h5",outRoot);
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 
   /*write header*/
@@ -263,7 +267,7 @@ void write1dDoubleHDF5(hid_t file,char *varName,double *data,int nWaves)
 
 
   /*define dataspace*/
-  dims[0]=nWaves;
+  dims[0]=(hsize_t)nWaves;
   dataspace=H5Screate_simple(1,dims,NULL);
   datatype=H5Tcopy(H5T_NATIVE_DOUBLE);
   /*access and creation properties*/
@@ -295,7 +299,7 @@ void write1dDoubleHDF5(hid_t file,char *varName,double *data,int nWaves)
 /*####################################################*/
 /*write a 1D char array*/
 
-void write2dCharHDF5(hid_t file,char *varName,char **data,int nWaves,int nBins)
+void write2dCharHDF5(hid_t file,char *varName,char *data,int nWaves,int nBins)
 {
   hid_t dset;
   herr_t status;
@@ -305,10 +309,11 @@ void write2dCharHDF5(hid_t file,char *varName,char **data,int nWaves,int nBins)
 
 
   /*define dataspace*/
-  dims[0]=nWaves;
-  dims[1]=nBins;
+  dims[0]=(hsize_t)nWaves;
+  dims[1]=(hsize_t)nBins;
   dataspace=H5Screate_simple(2,dims,NULL);
-  datatype=H5Tcopy(H5T_NATIVE_CHAR);
+  /*datatype=H5Tcopy(H5T_NATIVE_CHAR);*/
+  datatype=H5Tcopy(H5T_C_S1);
   /*access and creation properties*/
   lcpl_id=H5Pcopy(H5P_DEFAULT);
   dcpl_id=H5Pcopy(H5P_DEFAULT);
@@ -338,7 +343,7 @@ void write2dCharHDF5(hid_t file,char *varName,char **data,int nWaves,int nBins)
 /*####################################################*/
 /*write a 2D float array*/
 
-void write2dFloatHDF5(hid_t file,char *varName,float **data,int nWaves,int nBins)
+void write2dFloatHDF5(hid_t file,char *varName,float *data,int nWaves,int nBins)
 {
   hid_t dset;
   herr_t status;
@@ -348,8 +353,8 @@ void write2dFloatHDF5(hid_t file,char *varName,float **data,int nWaves,int nBins
 
 
   /*define dataspace*/
-  dims[0]=nWaves;
-  dims[1]=nBins;
+  dims[0]=(hsize_t)nWaves;
+  dims[1]=(hsize_t)nBins;
   dataspace=H5Screate_simple(2,dims,NULL);
   datatype=H5Tcopy(H5T_NATIVE_FLOAT);
   /*access and creation properties*/
@@ -374,6 +379,7 @@ void write2dFloatHDF5(hid_t file,char *varName,float **data,int nWaves,int nBins
 
   /*close data*/
   status=H5Dclose(dset);
+  status=H5Sclose(dataspace);
   return;
 }/*write2dFloatHDF5*/
 
@@ -391,7 +397,7 @@ void write1dFloatHDF5(hid_t file,char *varName,float *data,int nWaves)
 
 
   /*define dataspace*/
-  dims[0]=nWaves;
+  dims[0]=(hsize_t)nWaves;
   dataspace=H5Screate_simple(1,dims,NULL);
   datatype=H5Tcopy(H5T_NATIVE_FLOAT);
   /*access and creation properties*/
@@ -433,7 +439,7 @@ void write1dIntHDF5(hid_t file,char *varName,int *data,int nWaves)
 
 
   /*define dataspace*/
-  dims[0]=nWaves;
+  dims[0]=(hsize_t)nWaves;
   dataspace=H5Screate_simple(1,dims,NULL);
   datatype=H5Tcopy(H5T_NATIVE_INT);
   /*access and creation properties*/
@@ -509,7 +515,6 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,control *dimage)
   hdfData->cov=falloc(hdfData->nWaves,"cov",0);      /*canopy cover*/
   hdfData->gElev=falloc(hdfData->nWaves,"ground elevation, CofG",0);    /*ground elevation, CofG*/
   hdfData->demElev=falloc(hdfData->nWaves,"ground elevation, DEM",0);  /*ground elevation, DEM*/
-  hdfData->waveID=chChalloc(hdfData->nWaves,"waveID",0);   /*waveform ID*/
   hdfData->beamDense=falloc(hdfData->nWaves,"beamDense",0);/*beam density*/
   hdfData->pointDense=falloc(hdfData->nWaves,"pointDense",0);/*point density*/
   hdfData->zen=falloc(hdfData->nWaves,"zen",0);      /*scan angles, or mean angles*/
@@ -529,6 +534,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,control *dimage)
 void trimDataLength(dataStruct **data,gediHDF *hdfData)
 {
   int i=0,j=0,maxBins=0,maxID=0;
+  uint64_t place=0;
   int *start=NULL,*end=NULL;
   float tot=0,thresh=0,res=0;
   float buffer=0,cumul=0;
@@ -577,41 +583,36 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
     /*determine max*/
     if((end[i]-start[i])>maxBins)maxBins=end[i]-start[i];
     if(data[i]->useID){
-      if((strlen(data[i]->waveID)+1)>maxID)maxID=strlen(data[i]->waveID)+1;
+      if(((int)strlen(data[i]->waveID)+1)>maxID)maxID=(int)strlen(data[i]->waveID)+1;
     }
   }
   hdfData->nBins=maxBins;
   if(maxID>0)hdfData->idLength=maxID;
-  else       hdfData->idLength=6;
+  else       hdfData->idLength=7;
 
   /*allocate funny arrays needed by HDF5 library*/
-  hdfData->wave=(float **)malloc(hdfData->nWaves*sizeof(float *));
-  hdfData->wave[0]=(float *)malloc(hdfData->nWaves*hdfData->nBins*sizeof(float));
-  hdfData->ground=(float **)malloc(hdfData->nWaves*sizeof(float *));
-  hdfData->ground[0]=(float *)malloc(hdfData->nWaves*hdfData->nBins*sizeof(float));
+  hdfData->wave=falloc(hdfData->nWaves*hdfData->nBins,"waveforms",0);
+  hdfData->ground=falloc(hdfData->nWaves*hdfData->nBins,"ground waves",0);
+  hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"wave IDs",0);
+
 
   /*copy arrays*/
   for(i=0;i<hdfData->nWaves;i++){
-    /*HDF5's weird array indexing*/
-    hdfData->wave[i]=hdfData->wave[0]+i*hdfData->nBins;
-    hdfData->ground[i]=hdfData->ground[0]+i*hdfData->nBins;
-
-    /*allocate arrays*/
-//fprintf(stderr,"start %d %f\n",start[i],data[i]->z[start[i]]);
-    res=fabs(data[i]->z[end[i]]-data[i]->z[start[i]])/(float)hdfData->nBins;
+    /*range and resolution*/
+    res=fabs(data[i]->z[0]-data[i]->z[data[i]->nBins-1])/(float)(data[i]->nBins-1);
     hdfData->z0[i]=data[i]->z[start[i]];
     hdfData->zN[i]=hdfData->z0[i]-(float)hdfData->nBins*res;
     /*copy data*/
     for(j=start[i];j<end[i];j++){
-      hdfData->wave[i][j-start[i]]=data[i]->wave[j];
-      hdfData->ground[i][j-start[i]]=data[i]->ground[j];
-//fprintf(stdout,"Why %d %d\n",j-start[i],j);
+      place=(uint64_t)i*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
+      hdfData->wave[place]=data[i]->wave[j];
+      hdfData->ground[place]=data[i]->ground[j];
     }
     /*pad end if not long enough*/
     for(j=end[i];j<(maxBins+start[i]);j++){
-      hdfData->wave[i][j-start[i]]=0.0;
-      hdfData->ground[i][j-start[i]]=0.0;
-//fprintf(stdout,"Why %d %d\n",j-start[i],j);
+      place=(uint64_t)i*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
+      hdfData->wave[place]=0.0;
+      hdfData->ground[place]=0.0;
     }
 
     hdfData->lon[i]=data[i]->lon;
@@ -620,9 +621,8 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
     hdfData->cov[i]=data[i]->cov;
     hdfData->gElev[i]=data[i]->gElev;
     hdfData->demElev[i]=data[i]->demGround;
-    hdfData->waveID[i]=challoc(hdfData->idLength,"waveID",i+1);
-    if(maxID>0)strcpy(hdfData->waveID[i],data[i]->waveID);
-    else       sprintf(hdfData->waveID[i],"%d",i);
+    if(maxID>0)strcpy(&(hdfData->waveID[i*hdfData->idLength]),data[i]->waveID);
+    else       sprintf(&(hdfData->waveID[i*hdfData->idLength]),"%d",i);
     hdfData->beamDense[i]=data[i]->beamDense;
     hdfData->pointDense[i]=data[i]->pointDense;
     hdfData->zen[i]=data[i]->zen;
@@ -688,7 +688,6 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
   data->nBins=0;
   while(fgets(&(line[0]),1000,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){
-//fprintf(stdout,"line %d\n",data->nBins);
       data->nBins++;
     }
   }
@@ -833,9 +832,9 @@ gediHDF *tidyHDFdata(gediHDF *hdfData)
 {
 
   if(hdfData){
-    TTIDY((void **)hdfData->wave,1);    /*waveform*/
-    TTIDY((void **)hdfData->ground,1);  /*ground waveforms*/
-    TTIDY((void **)hdfData->waveID,hdfData->nWaves);   /*waveform ID*/
+    TIDY(hdfData->wave);
+    TIDY(hdfData->ground);
+    TIDY(hdfData->waveID);
     TIDY(hdfData->z0);       /*wave top elevations*/
     TIDY(hdfData->zN);       /*wave bottom elevations*/
     TIDY(hdfData->lon);     /*longitudes*/
@@ -885,7 +884,7 @@ control *readCommands(int argc,char **argv)
   dimage->inList=chChalloc(dimage->nFiles,"inList",0);
   dimage->inList[0]=challoc(200,"inList",0);
   strcpy(&(dimage->inList[0][0]),"/Users/stevenhancock/data/gedi/simulations/USDA_CO/gedi.USDA_CO.4112.wave");
-  strcpy(&(dimage->outRoot[0]),"teast");
+  strcpy(&(dimage->outNamen[0]),"teast.h5");
   dimage->ground=1;
 
 
@@ -904,9 +903,12 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-inList");
         TTIDY((void **)dimage->inList,dimage->nFiles);
         dimage->inList=readInList(&dimage->nFiles,argv[++i]);
-      }else if(!strncasecmp(argv[i],"-outRoot",8)){
-        checkArguments(1,i,argc,"-outRoot");
-        strcpy(dimage->outRoot,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-output",7)){
+        checkArguments(1,i,argc,"-output");
+        strcpy(dimage->outNamen,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-help",5)){
+        fprintf(stdout,"\n#####\nProgram to convert ASCII GEDI waveforms to HDF5\n#####\n\n-input name;     single input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n\n");
+        exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
