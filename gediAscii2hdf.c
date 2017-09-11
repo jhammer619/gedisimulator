@@ -568,7 +568,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
     }
 
     /*add a buffer for later smoothing*/
-    res=fabs(data[i]->z[0]-data[i]->z[1]);
+    res=fabs(data[i]->z[0]-data[i]->z[data[i]->nBins-1])/(float)(data[i]->nBins-1);
     start[i]-=(int)(buffer/res);
     end[i]+=(int)(buffer/res);
     if(start[i]<0)start[i]=0;
@@ -597,19 +597,21 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
     hdfData->ground[i]=hdfData->ground[0]+i*hdfData->nBins;
 
     /*allocate arrays*/
-fprintf(stderr,"start %d %f\n",start[i],data[i]->z[start[i]]);
-    res=fabs(data[i]->z[0]-data[i]->z[1]);
+//fprintf(stderr,"start %d %f\n",start[i],data[i]->z[start[i]]);
+    res=fabs(data[i]->z[end[i]]-data[i]->z[start[i]])/(float)hdfData->nBins;
     hdfData->z0[i]=data[i]->z[start[i]];
     hdfData->zN[i]=hdfData->z0[i]-(float)hdfData->nBins*res;
     /*copy data*/
     for(j=start[i];j<end[i];j++){
       hdfData->wave[i][j-start[i]]=data[i]->wave[j];
       hdfData->ground[i][j-start[i]]=data[i]->ground[j];
+//fprintf(stdout,"Why %d %d\n",j-start[i],j);
     }
     /*pad end if not long enough*/
-    for(j=end[i];j<maxBins+start[i];j++){
+    for(j=end[i];j<(maxBins+start[i]);j++){
       hdfData->wave[i][j-start[i]]=0.0;
       hdfData->ground[i][j-start[i]]=0.0;
+//fprintf(stdout,"Why %d %d\n",j-start[i],j);
     }
 
     hdfData->lon[i]=data[i]->lon;
@@ -661,7 +663,7 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
 {
   int i=0;
   dataStruct *data=NULL;
-  char line[400],temp1[100],temp2[100];
+  char line[1000],temp1[100],temp2[100];
   char temp3[100],temp4[100],temp5[100];
   char temp6[100],temp7[100],temp8[100];
   char temp9[100],temp10[100];
@@ -684,7 +686,12 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
 
   /*count number of wavebins*/
   data->nBins=0;
-  while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))data->nBins++;
+  while(fgets(&(line[0]),1000,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+//fprintf(stdout,"line %d\n",data->nBins);
+      data->nBins++;
+    }
+  }
 
   data->wave=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
@@ -700,7 +707,7 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
 
   /*read data*/
   i=0;
-  while(fgets(line,400,ipoo)!=NULL){
+  while(fgets(line,1000,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){
       if(dimage->useInt){  /*read intensity*/
         if(dimage->ground==0){   /*don't read ground*/
