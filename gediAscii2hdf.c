@@ -8,7 +8,9 @@
 #include "tools.c"
 #include "libLasRead.h"
 #include "libLasProcess.h"
-#include "libReadLVIS.h"
+#include "libLidarHDF.h"
+#include "gediIO.h"
+
 
 
 /*tolerances*/
@@ -99,71 +101,6 @@ typedef struct{
 }control;
 
 
-/*###########################################################*/
-/*data structure*/
-
-typedef struct{
-  int nBins;        /*number of wavefor bins*/
-  float *wave;      /*original waveform*/
-  float *ground;    /*ground wave if we are to read it*/
-  float *noised;    /*noised waveform, if needed*/
-  double *z;        /*wave bin elevation*/
-  double gElev;     /*mean ground elevation*/
-  double tElev;     /*top elevation*/
-  double lon;       /*footprint centre longitude*/
-  double lat;       /*footprint centre latitude*/
-  float totE;       /*total waveform energy (not integral)*/
-  float gStdev;     /*measure of ground width*/
-  float slope;      /*ground effective slope*/
-  float cov;        /*ALS canopy cover*/
-  float gLap;       /*ground overlap with canopy*/
-  float gMinimum;   /*amplitude of minimum between ground and canopy*/
-  float gInfl;      /*amplitude of inflection point between ground and canopy*/
-  float pSigma;     /*pulse length*/
-  float fSigma;     /*footprint width*/
-  char useID;       /*use waveID or not*/
-  char waveID[200]; /*wave ID for labelling*/
-  char usable;      /*is the data usable*/
-  float beamDense;  /*beam density*/
-  float pointDense; /*point denisty*/
-  float res;        /*range resolution*/
-  float zen;        /*beam zenith angle (degrees)*/
-  char demGround;   /*use the defined DEM ground values*/
-  /*for LVIS HDF5 and level2*/
-   uint32_t lfid;   /*LVIS file identifier*/
-   uint32_t shotN;  /*LVIS shotnumber*/
-}dataStruct;
-
-
-
-/*###########################################################*/
-/*GEDI HDF5 structure*/
-
-typedef struct{
-  /*header*/
-  int nWaves;      /*number of waveforms*/
-  int nBins;       /*number of waveform bins*/
-  int idLength;    /*length of wavefor ID strings*/
-  float pSigma;    /*pulse length*/
-  float fSigma;    /*footprint width*/
-  /*beams*/
-  float *wave;     /*waveform*/
-  float *ground;   /*ground waveforms*/
-  float *z0;       /*wave top elevations*/
-  float *zN;       /*wave bottom elevations*/
-  double *lon;     /*longitudes*/
-  double *lat;     /*latitudes*/
-  float *slope;    /*ground slope*/
-  float *cov;      /*canopy cover*/
-  float *gElev;    /*ground elevation, CofG*/
-  float *demElev;  /*ground elevation, DEM*/
-  char *waveID;    /*waveform ID*/
-  float *beamDense;/*beam density*/
-  float *pointDense;/*point density*/
-  float *zen;      /*scan angles, or mean angles*/
-}gediHDF;
-
-
 /*#####################################*/
 /*main*/
 
@@ -173,11 +110,8 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct **data=NULL;
   dataStruct **readMultiData(control *);
-  dataStruct **tidyAsciiStruct(dataStruct **,int nFiles);
   gediHDF *hdfData=NULL;
   gediHDF *arrangeGEDIhdf(dataStruct **,control *);
-  gediHDF *tidyHDFdata(gediHDF *);
-  void writeGEDIhdf(gediHDF *,char *,control *);
 
 
   /*read command line*/
@@ -193,10 +127,10 @@ int main(int argc,char **argv)
   data=tidyAsciiStruct(data,dimage->nFiles);
 
   /*write HDF5*/
-  writeGEDIhdf(hdfData,dimage->outNamen,dimage);
+  writeGEDIhdf(hdfData,dimage->outNamen);
 
   /*tidy arrays*/
-  hdfData=tidyHDFdata(hdfData);
+  hdfData=tidyGediHDF(hdfData);
   if(dimage){
     TTIDY((void **)dimage->inList,dimage->nFiles);
     TIDY(dimage->gFit);
@@ -205,289 +139,6 @@ int main(int argc,char **argv)
   }
   return(0);
 }/*main*/
-
-
-/*####################################################*/
-/*write data to HDF5*/
-
-void writeGEDIhdf(gediHDF *hdfData,char *namen,control *dimage)
-{
-  hid_t file;         /* Handles */
-  void write1dDoubleHDF5(hid_t,char *,double *,int);
-  void write1dFloatHDF5(hid_t,char *,float *,int);
-  void write2dFloatHDF5(hid_t,char *,float *,int,int);
-  void write2dCharHDF5(hid_t,char *,char *,int,int);
-  void write1dIntHDF5(hid_t,char *,int *,int);
-
-
-  /*open new file*/
-  file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
-
-  /*write header*/
-  write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1);
-  write1dIntHDF5(file,"NBINS",&hdfData->nBins,1);
-  write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
-  write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1);
-  /*write datasets*/
-  write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
-  write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves);
-  write1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
-  write1dFloatHDF5(file,"COVER",hdfData->cov,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZGdem",hdfData->demElev,hdfData->nWaves);
-  write1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
-  write1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
-  write1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
-  write2dFloatHDF5(file,"RXWAVE",hdfData->wave,hdfData->nWaves,hdfData->nBins);
-  if(dimage->ground)write2dFloatHDF5(file,"GRWAVE",hdfData->ground,hdfData->nWaves,hdfData->nBins);
-  write1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
-  write2dCharHDF5(file,"WAVEID",hdfData->waveID,hdfData->nWaves,hdfData->idLength);
-
-  /*close file*/
-  if(H5Fclose(file)){
-    fprintf(stderr,"Issue closing file\n");
-    exit(1);
-  }
-  fprintf(stdout,"Waveforms written to %s\n",namen);
-  return;
-}/*writeGEDIhdf*/
-
-
-/*####################################################*/
-/*write a 1D float array*/
-
-void write1dDoubleHDF5(hid_t file,char *varName,double *data,int nWaves)
-{
-  hid_t dset;
-  herr_t status;
-  hsize_t dims[1];
-  hid_t datatype,dataspace;  /*data definitions*/
-  hid_t lcpl_id,dcpl_id,dapl_id;     /*creation and access properties*/
-
-
-  /*define dataspace*/
-  dims[0]=(hsize_t)nWaves;
-  dataspace=H5Screate_simple(1,dims,NULL);
-  datatype=H5Tcopy(H5T_NATIVE_DOUBLE);
-  /*access and creation properties*/
-  lcpl_id=H5Pcopy(H5P_DEFAULT);
-  dcpl_id=H5Pcopy(H5P_DEFAULT);
-  dapl_id=H5Pcopy(H5P_DEFAULT);
-
-
-  /*create new dataset*/
-  dset=H5Dcreate2(file,varName,datatype,dataspace,lcpl_id,dcpl_id,dapl_id);
-  if(dset<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*write data*/
-  status=H5Dwrite(dset,datatype,H5S_ALL,H5S_ALL,H5P_DEFAULT,(void *)data);
-  if(status<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*close data*/
-  status=H5Dclose(dset);
-  return;
-}/*write1dDoubleHDF5*/
-
-
-/*####################################################*/
-/*write a 1D char array*/
-
-void write2dCharHDF5(hid_t file,char *varName,char *data,int nWaves,int nBins)
-{
-  hid_t dset;
-  herr_t status;
-  hsize_t dims[2];
-  hid_t datatype,dataspace;  /*data definitions*/
-  hid_t lcpl_id,dcpl_id,dapl_id;     /*creation and access properties*/
-
-
-  /*define dataspace*/
-  dims[0]=(hsize_t)nWaves;
-  dims[1]=(hsize_t)nBins;
-  dataspace=H5Screate_simple(2,dims,NULL);
-  /*datatype=H5Tcopy(H5T_NATIVE_CHAR);*/
-  datatype=H5Tcopy(H5T_C_S1);
-  /*access and creation properties*/
-  lcpl_id=H5Pcopy(H5P_DEFAULT);
-  dcpl_id=H5Pcopy(H5P_DEFAULT);
-  dapl_id=H5Pcopy(H5P_DEFAULT);
-
-
-  /*create new dataset*/
-  dset=H5Dcreate2(file,varName,datatype,dataspace,lcpl_id,dcpl_id,dapl_id);
-  if(dset<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*write data*/
-  status=H5Dwrite(dset,datatype,H5S_ALL,H5S_ALL,H5P_DEFAULT,(void *)data);
-  if(status<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*close data*/
-  status=H5Dclose(dset);
-  return;
-}/*write2dCharHDF5*/
-
-
-/*####################################################*/
-/*write a 2D float array*/
-
-void write2dFloatHDF5(hid_t file,char *varName,float *data,int nWaves,int nBins)
-{
-  hid_t dset;
-  herr_t status;
-  hsize_t dims[2];
-  hid_t datatype,dataspace;  /*data definitions*/
-  hid_t lcpl_id,dcpl_id,dapl_id;     /*creation and access properties*/
-
-
-  /*define dataspace*/
-  dims[0]=(hsize_t)nWaves;
-  dims[1]=(hsize_t)nBins;
-  dataspace=H5Screate_simple(2,dims,NULL);
-  datatype=H5Tcopy(H5T_NATIVE_FLOAT);
-  /*access and creation properties*/
-  lcpl_id=H5Pcopy(H5P_DEFAULT);
-  dcpl_id=H5Pcopy(H5P_DEFAULT);
-  dapl_id=H5Pcopy(H5P_DEFAULT);
-
-
-  /*create new dataset*/
-  dset=H5Dcreate2(file,varName,datatype,dataspace,lcpl_id,dcpl_id,dapl_id);
-  if(dset<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*write data*/
-  status=H5Dwrite(dset,datatype,H5S_ALL,H5S_ALL,H5P_DEFAULT,(void *)data);
-  if(status<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*close data*/
-  status=H5Dclose(dset);
-  status=H5Sclose(dataspace);
-  return;
-}/*write2dFloatHDF5*/
-
-
-/*####################################################*/
-/*write a 1D float array*/
-
-void write1dFloatHDF5(hid_t file,char *varName,float *data,int nWaves)
-{
-  hid_t dset;
-  herr_t status;
-  hsize_t dims[1];
-  hid_t datatype,dataspace;  /*data definitions*/
-  hid_t lcpl_id,dcpl_id,dapl_id;     /*creation and access properties*/
-
-
-  /*define dataspace*/
-  dims[0]=(hsize_t)nWaves;
-  dataspace=H5Screate_simple(1,dims,NULL);
-  datatype=H5Tcopy(H5T_NATIVE_FLOAT);
-  /*access and creation properties*/
-  lcpl_id=H5Pcopy(H5P_DEFAULT);
-  dcpl_id=H5Pcopy(H5P_DEFAULT);
-  dapl_id=H5Pcopy(H5P_DEFAULT);
-
-
-  /*create new dataset*/
-  dset=H5Dcreate2(file,varName,datatype,dataspace,lcpl_id,dcpl_id,dapl_id);
-  if(dset<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*write data*/
-  status=H5Dwrite(dset,datatype,H5S_ALL,H5S_ALL,H5P_DEFAULT,(void *)data);
-  if(status<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*close data*/
-  status=H5Dclose(dset);
-  return;
-}/*write1dFloatHDF5*/
-
-
-/*####################################################*/
-/*write a 1D float array*/
-
-void write1dIntHDF5(hid_t file,char *varName,int *data,int nWaves)
-{
-  hid_t dset;
-  herr_t status;
-  hsize_t dims[1];
-  hid_t datatype,dataspace;  /*data definitions*/
-  hid_t lcpl_id,dcpl_id,dapl_id;     /*creation and access properties*/
-
-
-  /*define dataspace*/
-  dims[0]=(hsize_t)nWaves;
-  dataspace=H5Screate_simple(1,dims,NULL);
-  datatype=H5Tcopy(H5T_NATIVE_INT);
-  /*access and creation properties*/
-  lcpl_id=H5Pcopy(H5P_DEFAULT);
-  dcpl_id=H5Pcopy(H5P_DEFAULT);
-  dapl_id=H5Pcopy(H5P_DEFAULT);
-
-
-  /*create new dataset*/
-  dset=H5Dcreate2(file,varName,datatype,dataspace,lcpl_id,dcpl_id,dapl_id);
-  if(dset<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*write data*/
-  status=H5Dwrite(dset,datatype,H5S_ALL,H5S_ALL,H5P_DEFAULT,(void *)data);
-  if(status<0){
-    fprintf(stderr,"Error writing %s\n",varName);
-    exit(1);
-  }
-
-  /*close data*/
-  status=H5Dclose(dset);
-  return;
-}/*write1dIntHDF5*/
-
-
-/*####################################################*/
-/*tidy data structure*/
-
-dataStruct **tidyAsciiStruct(dataStruct **data,int nFiles)
-{
-  int i=0;
-
-  if(data){
-    for(i=0;i<nFiles;i++){
-      TIDY(data[i]->wave);
-      TIDY(data[i]->ground);
-      TIDY(data[i]->noised);
-      TIDY(data[i]->z);
-      TIDY(data[i]);
-    }
-    TIDY(data);
-  }
-
-  return(data);
-}/*tidyAsciiStruct*/
 
 
 /*####################################################*/
@@ -826,34 +477,6 @@ dataStruct *readASCIIdata(char *namen,control *dimage)
 
 
 /*####################################################*/
-/*tidy HDF data structire*/
-
-gediHDF *tidyHDFdata(gediHDF *hdfData)
-{
-
-  if(hdfData){
-    TIDY(hdfData->wave);
-    TIDY(hdfData->ground);
-    TIDY(hdfData->waveID);
-    TIDY(hdfData->z0);       /*wave top elevations*/
-    TIDY(hdfData->zN);       /*wave bottom elevations*/
-    TIDY(hdfData->lon);     /*longitudes*/
-    TIDY(hdfData->lat);     /*latitudes*/
-    TIDY(hdfData->slope);    /*ground slope*/
-    TIDY(hdfData->cov);      /*canopy cover*/
-    TIDY(hdfData->gElev);    /*ground elevation, CofG*/
-    TIDY(hdfData->demElev);  /*ground elevation, DEM*/
-    TIDY(hdfData->beamDense);/*beam density*/
-    TIDY(hdfData->pointDense);/*point density*/
-    TIDY(hdfData->zen);      /*scan angles, or mean angles*/
-    TIDY(hdfData);
-  }
-
-  return(hdfData);
-}/*tidyHDFdata*/
-
-
-/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -915,8 +538,6 @@ control *readCommands(int argc,char **argv)
       }
     }
   }
-
-
 
   return(dimage);
 }/*readCommands*/

@@ -8,7 +8,8 @@
 #include "tools.c"
 #include "libLasRead.h"
 #include "libLasProcess.h"
-#include "libReadLVIS.h"
+#include "libLidarHDF.h"
+#include "gediIO.h"
 
 
 /*##############################*/
@@ -195,42 +196,6 @@ typedef struct{
   bGround *bGr;     /*Bayesian ground structure*/
   double bayGround; /*Bayesian ground elevation*/
 }metStruct;
-
-
-/*###########################################################*/
-/*data structure*/
-
-typedef struct{
-  int nBins;        /*number of wavefor bins*/
-  float *wave;      /*original waveform*/
-  float *ground;    /*ground wave if we are to read it*/
-  float *noised;    /*noised waveform, if needed*/
-  double *z;        /*wave bin elevation*/
-  double gElev;     /*mean ground elevation*/
-  double tElev;     /*top elevation*/
-  double lon;       /*footprint centre longitude*/
-  double lat;       /*footprint centre latitude*/
-  float totE;       /*total waveform energy (not integral)*/
-  float gStdev;     /*measure of ground width*/
-  float slope;      /*ground effective slope*/
-  float cov;        /*ALS canopy cover*/
-  float gLap;       /*ground overlap with canopy*/
-  float gMinimum;   /*amplitude of minimum between ground and canopy*/
-  float gInfl;      /*amplitude of inflection point between ground and canopy*/
-  float pSigma;     /*pulse length*/
-  float fSigma;     /*footprint width*/
-  char useID;       /*use waveID or not*/
-  char waveID[200]; /*wave ID for labelling*/
-  char usable;      /*is the data usable*/
-  float beamDense;  /*beam density*/
-  float pointDense; /*point denisty*/
-  float res;        /*range resolution*/
-  float zen;        /*beam zenith angle (degrees)*/
-  char demGround;   /*use the defined DEM ground values*/
-  /*for LVIS HDF5 and level2*/
-   uint32_t lfid;   /*LVIS file identifier*/
-   uint32_t shotN;  /*LVIS shotnumber*/
-}dataStruct;
 
 
 /*###########################################################*/
