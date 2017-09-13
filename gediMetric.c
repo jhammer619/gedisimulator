@@ -94,6 +94,7 @@ typedef struct{
   char readPsigma;   /*read psigma from files or not*/
   char coord2dp;     /*round up coords to 2dp when writing*/
   char useBounds;    /*when we will process only a subset of bounds*/
+  char writeGauss;   /*write Gaussian parameters*/
 
   /*noise parameters*/
   float meanN;
@@ -301,7 +302,7 @@ int main(int argc,char **argv)
   /*TIDY LVIS data if it was read*/
   if(dimage->readBinLVIS)TIDY(dimage->lvis.data);
 
-  fprintf(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
+  if(dimage->writeGauss)fprintf(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
   fprintf(stdout,"Written to %s.metric.txt\n",dimage->outRoot);
 
 
@@ -861,7 +862,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
 
 
   /*open file if needed*/
-  if(dimage->opooGauss==NULL){
+  if((dimage->opooGauss==NULL)&&(dimage->writeGauss)){
     sprintf(namen,"%s.gauss.txt",dimage->outRoot);
     if((dimage->opooGauss=fopen(namen,"w"))==NULL){
       fprintf(stderr,"Error opening output file %s\n",namen);
@@ -905,15 +906,16 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   if(dimage->gediIO.gFit->nGauss>dimage->maxGauss)fprintf(stderr,"More Gaussians than header entries %d\n",dimage->gediIO.gFit->nGauss);
 
   /*fitted Gaussians*/
-  fprintf(dimage->opooGauss,"%d %d",numb,dimage->gediIO.gFit->nGauss);
-  for(i=0;i<dimage->gediIO.gFit->nGauss;i++){
-    if((dimage->gediIO.gFit->gPar[3*i]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+1]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+2]>=0.0)){
-      fprintf(dimage->opooGauss," %f %f %f",dimage->gediIO.gFit->gPar[3*i],dimage->gediIO.gFit->gPar[3*i+1],dimage->gediIO.gFit->gPar[3*i+2]);
-    }else fprintf(dimage->opooGauss," ? ? ?");
+  if(dimage->writeGauss){
+    fprintf(dimage->opooGauss,"%d %d",numb,dimage->gediIO.gFit->nGauss);
+    for(i=0;i<dimage->gediIO.gFit->nGauss;i++){
+      if((dimage->gediIO.gFit->gPar[3*i]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+1]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+2]>=0.0)){
+        fprintf(dimage->opooGauss," %f %f %f",dimage->gediIO.gFit->gPar[3*i],dimage->gediIO.gFit->gPar[3*i+1],dimage->gediIO.gFit->gPar[3*i+2]);
+      }else fprintf(dimage->opooGauss," ? ? ?");
+    }
+    for(i=dimage->gediIO.gFit->nGauss;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss," ? ? ?");
+    fprintf(dimage->opooGauss," %s\n",inNamen);
   }
-  for(i=dimage->gediIO.gFit->nGauss;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss," ? ? ?");
-  fprintf(dimage->opooGauss," %s\n",inNamen);
-
 
   /*waveform metrics*/
   if(data->useID==0)fprintf(dimage->opooMet,"%d",numb);
@@ -1975,6 +1977,7 @@ control *readCommands(int argc,char **argv)
   dimage->readPsigma=1;       /*read pSigma from file*/
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
+  dimage->writeGauss=0;       /*do not write Gaussian parameters*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->gediIO.den);
@@ -2042,6 +2045,8 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->l2namen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-writeFit",9)){
         dimage->writeFit=1;
+      }else if(!strncasecmp(argv[i],"-writeGauss",11)){
+        dimage->writeGauss=1;
       }else if(!strncasecmp(argv[i],"-dcBias",7)){
         checkArguments(1,i,argc,"-dcBias");
         dimage->meanN=dimage->offset=atof(argv[++i]);
@@ -2170,7 +2175,7 @@ control *readCommands(int argc,char **argv)
         dimage->maxX=atof(argv[++i]);
         dimage->maxY=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDF;        read HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDF;        read HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
