@@ -72,9 +72,7 @@ typedef struct{
 
 typedef struct{
   /*input/output*/
-  int nFiles;   /*number of waveforms*/
-  char **inList;
-  char listNamen[200];
+  gediIOstruct gediIO; /*input/output structure*/
   char outRoot[200];
   FILE *opooGauss;  /*Gaussian parameter output*/
   FILE *opooMet;    /*waveform metric output*/
@@ -85,24 +83,17 @@ typedef struct{
   char readL2;      /*switch to read L2 or not*/
 
   /*switches*/
-  char ground;      /*read separateground wave or not*/
   char writeFit;    /*write fitted wave switch*/
-  char useInt;      /*use discrete intensity instead of count*/
-  char useFrac;     /*use fraction of hits per beam for weighting*/
   float rhRes;      /*rh resolution*/
   char bayesGround; /*Bayseian ground finding*/
   char noRHgauss;   /*do not do Gaussian fitting*/
   char renoiseWave; /*remove noise before adding*/
-  char dontTrustGround; /*don't trust ground included with waveforms*/
   char readBinLVIS;  /*read binary LVIS rather than a list of ASCII files*/
   char readHDFlvis;  /*read HDF5 LVIS rather than ASCII*/
+  char readHDFgedi;  /*read HDF5 GEDI rather than ASCII*/
   char readPsigma;   /*read psigma from files or not*/
   char coord2dp;     /*round up coords to 2dp when writing*/
   char useBounds;    /*when we will process only a subset of bounds*/
-
-  /*denoising parameters*/
-  denPar *den;   /*for denoising*/
-  denPar *gFit;  /*for Gaussian fitting*/
 
   /*noise parameters*/
   float meanN;
@@ -124,8 +115,6 @@ typedef struct{
   float offset;   /*waveform DN offset*/
 
   /*pulse parameters*/
-  float pSigma;    /*pulse length*/
-  float fSigma;    /*footprint width*/
   float newPsig;   /*new pulse sigma*/
 
   /*LVIS data*/
@@ -143,10 +132,8 @@ typedef struct{
 
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
-  float res;      /*range resolution*/
   float gTol;     /*toleranve used to label ALS ground finding*/
   float zen;      /*zenith angle*/
-  int nMessages;  /*number of progress messages*/
 }control;
 
 
@@ -207,7 +194,6 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
-  dataStruct *readASCIIdata(char *,control *);
   dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,control *);
   dataStruct *readHDF(char *,control *,int);
   metStruct *metric=NULL;
@@ -228,7 +214,7 @@ int main(int argc,char **argv)
   dimage=readCommands(argc,argv);
 
   /*set link noise if needed*/
-  dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->pSigma,dimage->fSigma);
+  dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->gediIO.pSigma,dimage->gediIO.fSigma);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -238,13 +224,13 @@ int main(int argc,char **argv)
 
 
   /*loop over files*/
-  for(i=0;i<dimage->nFiles;i++){
-    if((i%dimage->nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->nFiles);
+  for(i=0;i<dimage->gediIO.nFiles;i++){
+    if((i%dimage->gediIO.nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
 
     /*read waveform*/
-    if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->inList[0],&dimage->lvis,i,dimage);
-    else if(dimage->readHDFlvis)data=readHDF(dimage->inList[0],dimage,i);
-    else                        data=readASCIIdata(dimage->inList[i],dimage);
+    if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,dimage);
+    else if(dimage->readHDFlvis)data=readHDF(dimage->gediIO.inList[0],dimage,i);
+    else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);
 
     /*check bounds if needed*/
@@ -253,10 +239,10 @@ int main(int argc,char **argv)
     /*is the data usable*/
     if(data->usable){
       /*adjust link noise if needed*/
-      if(dimage->linkNoise&&((dimage->pSigma!=data->pSigma)||(dimage->fSigma!=data->fSigma))){
+      if(dimage->linkNoise&&((dimage->gediIO.pSigma!=data->pSigma)||(dimage->gediIO.fSigma!=data->fSigma))){
         dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->linkPsig,dimage->linkFsig);
-        dimage->pSigma=data->pSigma;
-        dimage->fSigma=data->fSigma;
+        dimage->gediIO.pSigma=data->pSigma;
+        dimage->gediIO.fSigma=data->fSigma;
       }
 
       /*denoise and change pulse if needed*/
@@ -270,20 +256,20 @@ int main(int argc,char **argv)
 
       /*process waveform*/
       /*denoise*/
-      denoised=processFloWave(data->noised,data->nBins,dimage->den,1.0);
+      denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
 
       /*Gaussian fit*/
-      if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gFit,1.0);
+      if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
 
       /*shift Gaussian centres to align to absolute elevation*/
-      alignElevation(data->z[0],data->z[data->nBins-1],dimage->gFit->gPar,dimage->gFit->nGauss);
+      alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
 
       /*determine metrics*/
-      findMetrics(metric,dimage->gFit->gPar,dimage->gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
+      findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
 
       /*write results*/
-      if(dimage->readBinLVIS||dimage->readHDFlvis)writeResults(data,dimage,metric,i,denoised,processed,dimage->inList[0]);
-      else                                        writeResults(data,dimage,metric,i,denoised,processed,dimage->inList[i]);
+      if(dimage->readBinLVIS||dimage->readHDFlvis)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
+      else                                        writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
     }/*is the data usable*/
 
 
@@ -297,10 +283,10 @@ int main(int argc,char **argv)
       TIDY(data->z);
       TIDY(data);
     }
-    TIDY(dimage->gFit->gPar);
-    TIDY(dimage->den->gPar);
-    dimage->den->nGauss=0;
-    dimage->gFit->nGauss=0;
+    TIDY(dimage->gediIO.gFit->gPar);
+    TIDY(dimage->gediIO.den->gPar);
+    dimage->gediIO.den->nGauss=0;
+    dimage->gediIO.gFit->nGauss=0;
     TIDY(metric->rhMax);
     TIDY(metric->rhInfl);
     TIDY(metric->rhReal);
@@ -329,9 +315,9 @@ int main(int argc,char **argv)
       TIDY(dimage->lvisL2->zG);
       TIDY(dimage->lvisL2);
     }
-    if(dimage->readBinLVIS||dimage->readHDFlvis)TTIDY((void **)dimage->inList,1);
-    else                                        TTIDY((void **)dimage->inList,dimage->nFiles);
-    dimage->inList=NULL;
+    if(dimage->readBinLVIS||dimage->readHDFlvis)TTIDY((void **)dimage->gediIO.inList,1);
+    else                                        TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
+    dimage->gediIO.inList=NULL;
     if(dimage->opooMet){
       fclose(dimage->opooMet);
       dimage->opooMet=NULL;
@@ -340,15 +326,15 @@ int main(int argc,char **argv)
       fclose(dimage->opooGauss);
       dimage->opooGauss=NULL;
     }
-    if(dimage->den){
-      TTIDY((void **)dimage->den->pulse,2);
-      TIDY(dimage->den->matchPulse);
-      TIDY(dimage->den->hardPulse);
-      TIDY(dimage->den);
+    if(dimage->gediIO.den){
+      TTIDY((void **)dimage->gediIO.den->pulse,2);
+      TIDY(dimage->gediIO.den->matchPulse);
+      TIDY(dimage->gediIO.den->hardPulse);
+      TIDY(dimage->gediIO.den);
     }
-    if(dimage->gFit){
-      TTIDY((void **)dimage->gFit->pulse,2);
-      TIDY(dimage->gFit);
+    if(dimage->gediIO.gFit){
+      TTIDY((void **)dimage->gediIO.gFit->pulse,2);
+      TIDY(dimage->gediIO.gFit);
     }
     dimage->hdf=tidyLVISstruct(dimage->hdf);
     TIDY(dimage);
@@ -462,7 +448,7 @@ void determineTruth(dataStruct *data,control *dimage)
 
   /*determine ground*/
   if(!data->demGround){  /*unless it's already been calculalated from the DEM*/
-    if(dimage->ground){
+    if(dimage->gediIO.ground){
       totE=0.0;
       data->gElev=0.0;
       for(i=0;i<data->nBins;i++){
@@ -503,7 +489,7 @@ void determineTruth(dataStruct *data,control *dimage)
   }/*top finding*/
 
   /*canopy cover*/
-  if(dimage->ground){
+  if(dimage->gediIO.ground){
     totG=totC=0.0;
     for(i=0;i<data->nBins;i++){
      totG+=data->ground[i];
@@ -516,7 +502,7 @@ void determineTruth(dataStruct *data,control *dimage)
   }
 
   /*understorey metrics*/
-  if(dimage->ground){
+  if(dimage->gediIO.ground){
     data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
     data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
     data->gInfl=groundInflection(data->wave,data->ground,data->nBins);
@@ -641,20 +627,20 @@ void addNoise(dataStruct *data,control *dimage)
   data->noised=falloc(data->nBins,"noised wave",0);
 
   if(dimage->missGround){        /*Delete all signal beneath ground peak*/
-    if((dimage->ground==0)&&(dimage->minGap==0.0)){
+    if((dimage->gediIO.ground==0)&&(dimage->minGap==0.0)){
       fprintf(stderr,"Cannot delete ground when we do not know it\n");
       exit(1);
     }
-    deleteGround(data->noised,data->wave,data->ground,data->nBins,dimage->minGap,dimage->pSigma,dimage->fSigma,dimage->res,data->cov);
+    deleteGround(data->noised,data->wave,data->ground,data->nBins,dimage->minGap,dimage->gediIO.pSigma,dimage->gediIO.fSigma,dimage->gediIO.res,data->cov);
   }else if(dimage->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
     tempNoise=falloc(data->nBins,"temp noised",0);
     tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[i]*dimage->res;  
+    for(i=0;i<data->nBins;i++)tot+=data->wave[i]*dimage->gediIO.res;  
     reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(dimage->linkCov*rhoC+(1.0-dimage->linkCov)*rhoG);
     for(i=0;i<data->nBins;i++)tempNoise[i]=dimage->linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
-    smooNoise=smooth(dimage->deSig,data->nBins,tempNoise,dimage->res);
+    smooNoise=smooth(dimage->deSig,data->nBins,tempNoise,dimage->gediIO.res);
     for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
@@ -916,16 +902,16 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,",\n");
   }
 
-  if(dimage->gFit->nGauss>dimage->maxGauss)fprintf(stderr,"More Gaussians than header entries %d\n",dimage->gFit->nGauss);
+  if(dimage->gediIO.gFit->nGauss>dimage->maxGauss)fprintf(stderr,"More Gaussians than header entries %d\n",dimage->gediIO.gFit->nGauss);
 
   /*fitted Gaussians*/
-  fprintf(dimage->opooGauss,"%d %d",numb,dimage->gFit->nGauss);
-  for(i=0;i<dimage->gFit->nGauss;i++){
-    if((dimage->gFit->gPar[3*i]>=0.0)&&(dimage->gFit->gPar[3*i+1]>=0.0)&&(dimage->gFit->gPar[3*i+2]>=0.0)){
-      fprintf(dimage->opooGauss," %f %f %f",dimage->gFit->gPar[3*i],dimage->gFit->gPar[3*i+1],dimage->gFit->gPar[3*i+2]);
+  fprintf(dimage->opooGauss,"%d %d",numb,dimage->gediIO.gFit->nGauss);
+  for(i=0;i<dimage->gediIO.gFit->nGauss;i++){
+    if((dimage->gediIO.gFit->gPar[3*i]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+1]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+2]>=0.0)){
+      fprintf(dimage->opooGauss," %f %f %f",dimage->gediIO.gFit->gPar[3*i],dimage->gediIO.gFit->gPar[3*i+1],dimage->gediIO.gFit->gPar[3*i+2]);
     }else fprintf(dimage->opooGauss," ? ? ?");
   }
-  for(i=dimage->gFit->nGauss;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss," ? ? ?");
+  for(i=dimage->gediIO.gFit->nGauss;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss," ? ? ?");
   fprintf(dimage->opooGauss," %s\n",inNamen);
 
 
@@ -951,7 +937,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
   fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
-  fprintf(dimage->opooMet," %f %f %f",dimage->den->meanN,(dimage->den->thresh-dimage->den->meanN)/dimage->den->threshScale,dimage->den->thresh);
+  fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
@@ -968,18 +954,18 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     }
 
     fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original, 6 ground, 7 canopy");
-    for(i=0;i<dimage->gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+8,i+1);
+    for(i=0;i<dimage->gediIO.gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+8,i+1);
     fprintf(opoo,"\n");
-    fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->res);
+    fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->gediIO.res);
     if(dimage->coord2dp)fprintf(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
     else                fprintf(opoo,"# coord %.10f %.10f\n",data->lon,data->lat);
     fprintf(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
     fprintf(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
     for(i=0;i<data->nBins;i++){
       fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[i]);
-      if(dimage->ground)fprintf(opoo," %f %f",data->ground[i],data->wave[i]-data->ground[i]);
+      if(dimage->gediIO.ground)fprintf(opoo," %f %f",data->ground[i],data->wave[i]-data->ground[i]);
       else              fprintf(opoo," 0 0");
-      for(j=0;j<dimage->gFit->nGauss;j++)fprintf(opoo," %f",dimage->gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gFit->gPar[3*j+2],dimage->gFit->gPar[3*j]));
+      for(j=0;j<dimage->gediIO.gFit->nGauss;j++)fprintf(opoo," %f",dimage->gediIO.gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gediIO.gFit->gPar[3*j+2],dimage->gediIO.gFit->gPar[3*j]));
       fprintf(opoo,"\n");
     }
     if(opoo){
@@ -1055,7 +1041,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*waveform energy*/
   metric->totE=0.0;
-  for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->res;
+  for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
   /*BLair sensitivity*/
   metric->blairSense=findBlairSense(metric,data,dimage);
@@ -1093,7 +1079,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->rhInfl=findRH(denoised,z,nBins,metric->inflGround,dimage->rhRes,&metric->nRH);
 
   /*rh metrics with real ground, if we have the ground*/
-  if(dimage->ground||data->demGround){
+  if(dimage->gediIO.ground||data->demGround){
     if(dimage->linkNoise)metric->rhReal=findRH(data->wave,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
     else                 metric->rhReal=findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
   }else{
@@ -1123,8 +1109,8 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->covHalfI=halfCover(denoised,z,nBins,metric->inflGround,dimage->rhoRatio);
 
   /*Wenge Ni's metrics*/
-  metric->niM2=niMetric(denoised,z,nBins,dimage->res,metric->gHeight,2.0);
-  metric->niM21=niMetric(denoised,z,nBins,dimage->res,metric->gHeight,2.1);
+  metric->niM2=niMetric(denoised,z,nBins,dimage->gediIO.res,metric->gHeight,2.0);
+  metric->niM21=niMetric(denoised,z,nBins,dimage->gediIO.res,metric->gHeight,2.1);
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
@@ -1160,7 +1146,7 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
   void gaussThresholds(float,float,float,float,float *,float *);
 
   /*determine noise stats for sensitivity metric*/
-  meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->den->statsLen/dimage->res));
+  meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->gediIO.den->statsLen/dimage->gediIO.res));
   stdev-=meanN;
 
   if(stdev>0.0){
@@ -1304,7 +1290,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   for(i=1;i<metric->nBgr;i++){
     setDenoiseDefault(&(den[i]));
     den[i].varNoise=1;
-    den[i].gWidth=dimage->den->sWidth;
+    den[i].gWidth=dimage->gediIO.den->sWidth;
     if(i<=3)den[i].threshScale=3.0;
     else    den[i].threshScale=5.0;
     den[i].noiseTrack=1;
@@ -1320,7 +1306,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
     alignElevation(z[0],z[nBins-1],den[i].gPar,den[i].nGauss);
 
     /*get parameters*/
-    gaussProps(den[i].gPar,den[i].nGauss,dimage->fSigma,sqrt(data->pSigma*data->pSigma+den[i].sWidth*den[i].sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov),&height);
+    gaussProps(den[i].gPar,den[i].nGauss,dimage->gediIO.fSigma,sqrt(data->pSigma*data->pSigma+den[i].sWidth*den[i].sWidth),&(metric->bGr[i].gHeight),&(metric->bGr[i].slope),&(metric->bGr[i].cov),&height);
 
     TIDY(den[i].gPar);
     TIDY(processed);
@@ -1626,8 +1612,8 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   /*read data if needed*/
   if(dimage->hdf==NULL){
     dimage->hdf=readLVIShdf(namen);
-    dimage->nFiles=dimage->hdf->nWaves;
-    dimage->ground=0;
+    dimage->gediIO.nFiles=dimage->hdf->nWaves;
+    dimage->gediIO.ground=0;
   }
 
   /*allocate space*/
@@ -1647,16 +1633,16 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
 
   /*copy data to structure*/
   data->zen=dimage->hdf->zen[numb];
-  data->res=dimage->den->res=dimage->gFit->res=fabs(dimage->hdf->z0[numb]-dimage->hdf->z1023[numb])/(float)dimage->hdf->nBins;
+  data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=fabs(dimage->hdf->z0[numb]-dimage->hdf->z1023[numb])/(float)dimage->hdf->nBins;
   data->totE=0.0;
   for(i=0;i<dimage->hdf->nBins;i++){
     data->wave[i]=(float)dimage->hdf->wave[numb][i];
     data->z[i]=(double)(dimage->hdf->z0[numb]-(float)i*data->res);
     data->totE+=data->wave[i];
   }
-  if(dimage->den->res<TOL)data->usable=0;
+  if(dimage->gediIO.den->res<TOL)data->usable=0;
   if(data->totE<=0.0)data->usable=0;
-  if(dimage->ground==0){   /*set to blank*/
+  if(dimage->gediIO.ground==0){   /*set to blank*/
     data->cov=-1.0;
     data->gLap=-1.0;
     data->gMinimum=-1.0;
@@ -1674,14 +1660,14 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
     for(i=0;i<dimage->hdf->pBins;i++)tempPulse[i]=(float)dimage->hdf->pulse[numb][i];
     data->pSigma=pulseLenFromTX(tempPulse,dimage->hdf->pBins);
     TIDY(tempPulse);
-  }else data->pSigma=dimage->pSigma;
+  }else data->pSigma=dimage->gediIO.pSigma;
 
-  if(data->fSigma<0.0)data->fSigma=dimage->fSigma;
-  if(data->pSigma<0.0)data->pSigma=dimage->pSigma;
+  if(data->fSigma<0.0)data->fSigma=dimage->gediIO.fSigma;
+  if(data->pSigma<0.0)data->pSigma=dimage->gediIO.pSigma;
 
   /*set up number of messages*/
-  if(dimage->hdf->nWaves>dimage->nMessages)dimage->nMessages=(int)(dimage->hdf->nWaves/dimage->nMessages);
-  else                                     dimage->nMessages=1;
+  if(dimage->hdf->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdf->nWaves/dimage->gediIO.nMessages);
+  else                                     dimage->gediIO.nMessages=1;
 
   return(data);
 }/*readHDF*/
@@ -1709,7 +1695,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
     /*read data*/
     lvis->nBins=432;
     lvis->data=readLVISlgw(namen,&lvis->nWaves);
-    dimage->nFiles=lvis->nWaves;
+    dimage->gediIO.nFiles=lvis->nWaves;
   }
 
 
@@ -1730,16 +1716,16 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
 
   /*copy data to structure*/
   data->zen=lvis->data[numb].zen;
-  data->res=dimage->den->res=dimage->gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
+  data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
   data->totE=0.0;
   for(i=0;i<lvis->nBins;i++){
     data->wave[i]=(float)lvis->data[numb].rxwave[i];
     data->z[i]=(double)(lvis->data[numb].z0-(float)i*data->res);
     data->totE+=data->wave[i];
   }
-  if(dimage->den->res<TOL)data->usable=0;
+  if(dimage->gediIO.den->res<TOL)data->usable=0;
   if(data->totE<=0.0)data->usable=0;
-  if(dimage->ground==0){   /*set to blank*/
+  if(dimage->gediIO.ground==0){   /*set to blank*/
     data->cov=-1.0;
     data->gLap=-1.0;
     data->gMinimum=-1.0;
@@ -1755,15 +1741,15 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
     for(i=0;i<80;i++)tempPulse[i]=(float)lvis->data[numb].rxwave[i];
     data->pSigma=pulseLenFromTX(tempPulse,80);
     TIDY(tempPulse);
-  }else data->pSigma=dimage->pSigma;
+  }else data->pSigma=dimage->gediIO.pSigma;
 
-  if(data->fSigma<0.0)data->fSigma=dimage->fSigma;
-  if(data->pSigma<0.0)data->pSigma=dimage->pSigma;
+  if(data->fSigma<0.0)data->fSigma=dimage->gediIO.fSigma;
+  if(data->pSigma<0.0)data->pSigma=dimage->gediIO.pSigma;
 
 
   /*set up number of messages*/
-  if(lvis->nWaves>dimage->nMessages)dimage->nMessages=(int)(lvis->nWaves/dimage->nMessages);
-  else                              dimage->nMessages=1;
+  if(lvis->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(lvis->nWaves/dimage->gediIO.nMessages);
+  else                              dimage->gediIO.nMessages=1;
 
   return(data);
 }/*readBinaryLVIS*/
@@ -1809,171 +1795,6 @@ float pulseLenFromTX(float *pulse,int nBins)
   TIDY(denoised);
   return(pSigma);
 }/*pulseLenFromTX*/
-
-
-/*####################################################*/
-/*read ASCII data*/
-
-dataStruct *readASCIIdata(char *namen,control *dimage)
-{
-  int i=0;
-  dataStruct *data=NULL;
-  char line[400],temp1[100],temp2[100];
-  char temp3[100],temp4[100],temp5[100];
-  char temp6[100],temp7[100],temp8[100];
-  char temp9[100],temp10[100];
-  FILE *ipoo=NULL;
-
-  /*open input*/
-  if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",namen);
-    exit(1);
-  }
-
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error control allocation.\n");
-    exit(1);
-  }
-  data->pSigma=-1.0;    /*nonesense pulse length*/
-  data->fSigma=-1.0;    /*nonesense footprint width*/
-  data->usable=1;
-  data->zen=0.0;        /*straight down*/
-
-  /*count number of wavebins*/
-  data->nBins=0;
-  while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))data->nBins++;
-
-  data->wave=falloc(data->nBins,"waveform",0);
-  data->z=dalloc(data->nBins,"z",0);
-  if(dimage->ground)data->ground=falloc(data->nBins,"ground",0);
-  data->useID=0;
-  data->demGround=0;
-
-  /*rewind to start of file*/
-  if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
-    exit(1);
-  }
-
-  /*read data*/
-  i=0;
-  while(fgets(line,400,ipoo)!=NULL){
-    if(strncasecmp(line,"#",1)){
-      if(dimage->useInt){  /*read intensity*/
-        if(dimage->ground==0){   /*don't read ground*/
-          if(sscanf(line,"%s %s",temp1,temp2)==2){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp2);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp2);
-            data->ground[i]=atof(temp4);
-            i++;
-          }
-        }/*ground switch*/
-      }else if(dimage->useFrac){ /*read fraction*/
-        if(dimage->ground==0){   /*don't read ground*/
-         if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp3);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10)==10){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp8);
-            data->ground[i]=atof(temp10);
-            i++;
-          }
-        }/*ground switch*/
-      }else{ /*read count*/
-        if(dimage->ground==0){   /*don't read ground*/
-          if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp3);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
-            data->z[i]=atof(temp1);
-            data->wave[i]=atof(temp5);
-            data->ground[i]=atof(temp7);
-            i++;
-          }
-        }/*ground switch*/
-      }/*intensity or count switch*/
-    }else{  /*read the header*/
-      if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
-        if(!strncasecmp(temp2,"fSigma",6)){
-          data->fSigma=atof(temp3);
-          data->pSigma=atof(temp5);
-        }
-      }
-      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-        if(!strncasecmp(temp2,"waveID",6)){
-          data->useID=1;
-          strcpy(&(data->waveID[0]),temp3);
-        }else if(!strncasecmp(temp2,"meanScanAng",11)){
-          data->zen=atof(temp3);
-        }
-      }
-      if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
-        if(!strncasecmp(temp2,"coord",5)){
-          data->lon=atof(temp3);
-          data->lat=atof(temp4);
-        }else if(!strncasecmp(temp2,"ground",6)){
-          if(!dimage->dontTrustGround){
-            data->gElev=atof(temp3);
-            data->slope=atof(temp4);
-            data->demGround=1;
-          }else data->demGround=0;
-        }
-      }
-      if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
-        if(!strncasecmp(temp2,"density",7)){
-          data->pointDense=atof(temp4);
-          data->beamDense=atof(temp6);
-        }else if(!strncasecmp(temp2,"lvis",4)){
-          data->res=atof(temp4);
-          data->zen=atof(temp6);
-        }
-      }
-    }
-  }/*line loop*/
-
-  if(data->res<=0.0)data->res=dimage->res;
-
-  /*add up energy*/
-  data->totE=0.0;
-  for(i=0;i<data->nBins;i++)data->totE+=data->wave[i];
-
-
-  dimage->res=dimage->den->res=dimage->gFit->res=fabs(data->z[1]-data->z[0]);
-  if(dimage->den->res<TOL)data->usable=0;
-  if(data->totE<=0.0)data->usable=0;
-  if(dimage->ground==0){   /*set to blank*/
-    data->cov=-1.0;
-    data->gLap=-1.0;
-    data->gMinimum=-1.0;
-    data->gInfl=-1.0;
-  }
-  if(data->fSigma<0.0)data->fSigma=dimage->fSigma;
-  if(data->pSigma<0.0)data->pSigma=dimage->pSigma;
-
-  if(ipoo){
-    fclose(ipoo);
-    ipoo=NULL;
-  }
-
-  /*set up number of messages*/
-  if(dimage->nFiles>dimage->nMessages)dimage->nMessages=(int)(dimage->nFiles/dimage->nMessages);
-  else                                dimage->nMessages=1;
-
-  return(data);
-}/*readASCIIdata*/
 
 
 /*####################################################*/
@@ -2103,11 +1924,11 @@ control *readCommands(int argc,char **argv)
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-  if(!(dimage->den=(denPar *)calloc(1,sizeof(denPar)))){
+  if(!(dimage->gediIO.den=(denPar *)calloc(1,sizeof(denPar)))){
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-  if(!(dimage->gFit=(denPar *)calloc(1,sizeof(denPar)))){
+  if(!(dimage->gediIO.gFit=(denPar *)calloc(1,sizeof(denPar)))){
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
@@ -2115,24 +1936,24 @@ control *readCommands(int argc,char **argv)
 
   /*defaults*/
   /*input/output*/
-  dimage->nFiles=1;
-  dimage->inList=chChalloc(dimage->nFiles,"inList",0);
-  dimage->inList[0]=challoc(200,"inList",0);
-  strcpy(&(dimage->inList[0][0]),"/Users/stevenhancock/data/gedi/analysis/side_lobe/laselva/contLaselva.0.12.wave");
+  dimage->gediIO.nFiles=1;
+  dimage->gediIO.inList=chChalloc(dimage->gediIO.nFiles,"inList",0);
+  dimage->gediIO.inList[0]=challoc(200,"inList",0);
+  strcpy(&(dimage->gediIO.inList[0][0]),"/Users/stevenhancock/data/gedi/analysis/side_lobe/laselva/contLaselva.0.12.wave");
   strcpy(dimage->outRoot,"teastMetric");
   dimage->maxGauss=20;
   dimage->opooMet=NULL;
   dimage->opooGauss=NULL;
   /*scan settings*/
-  dimage->pSigma=0.764331; /*pulse length*/
-  dimage->fSigma=5.5;      /*footprint width*/
-  dimage->res=0.15;
+  dimage->gediIO.pSigma=0.764331; /*pulse length*/
+  dimage->gediIO.fSigma=5.5;      /*footprint width*/
+  dimage->gediIO.res=0.15;
 
   /*switches*/
   dimage->writeFit=0;
-  dimage->ground=0;
-  dimage->useInt=0;
-  dimage->useFrac=0;
+  dimage->gediIO.ground=0;
+  dimage->gediIO.useInt=0;
+  dimage->gediIO.useFrac=0;
   dimage->rhRes=10.0;
   dimage->bayesGround=0;
   dimage->missGround=0;
@@ -2147,35 +1968,36 @@ control *readCommands(int argc,char **argv)
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
   dimage->newPsig=-1.0;   /*leave blank*/
-  dimage->dontTrustGround=0;  /*do trust ground in waveforms, if there*/
+  dimage->gediIO.dontTrustGround=0;  /*do trust ground in waveforms, if there*/
   dimage->readBinLVIS=0;      /*read ASCII rather than binary LVIS*/
   dimage->readHDFlvis=0;      /*read ASCII rather than HDF5 LVIS*/
+  dimage->readHDFgedi=0;      /*read ASCII rather than HDF5 GEDI*/
   dimage->readPsigma=1;       /*read pSigma from file*/
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
 
   /*set default denoising parameters*/
-  setDenoiseDefault(dimage->den);
-  dimage->den->meanN=0.0;  /*we haven't added noise yet*/
-  dimage->den->thresh=0.00000001;  /*tiny number as no noise yet*/
-  dimage->den->noiseTrack=0;
-  dimage->den->minWidth=0;
-  dimage->den->varNoise=0;
-  dimage->den->threshScale=1.5;
-  dimage->den->fitGauss=0;
-  dimage->den->psWidth=0.0;
+  setDenoiseDefault(dimage->gediIO.den);
+  dimage->gediIO.den->meanN=0.0;  /*we haven't added noise yet*/
+  dimage->gediIO.den->thresh=0.00000001;  /*tiny number as no noise yet*/
+  dimage->gediIO.den->noiseTrack=0;
+  dimage->gediIO.den->minWidth=0;
+  dimage->gediIO.den->varNoise=0;
+  dimage->gediIO.den->threshScale=1.5;
+  dimage->gediIO.den->fitGauss=0;
+  dimage->gediIO.den->psWidth=0.0;
 
   /*set default Gaussian fitting  parameters*/
-  setDenoiseDefault(dimage->gFit);
-  dimage->gFit->meanN=0.0;    /*no denoising here*/
-  dimage->gFit->thresh=0.000000005;    /*no denoising here*/
-  dimage->gFit->noiseTrack=0;    /*no denoising here*/
-  dimage->gFit->minWidth=0;    /*no denoising here*/
-  dimage->gFit->varNoise=0;    /*no denoising here*/
-  dimage->gFit->gWidth=1.2;
-  dimage->gFit->sWidth=0.0;
-  dimage->gFit->fitGauss=1;
-  dimage->gFit->minGsig=0.9;
+  setDenoiseDefault(dimage->gediIO.gFit);
+  dimage->gediIO.gFit->meanN=0.0;    /*no denoising here*/
+  dimage->gediIO.gFit->thresh=0.000000005;    /*no denoising here*/
+  dimage->gediIO.gFit->noiseTrack=0;    /*no denoising here*/
+  dimage->gediIO.gFit->minWidth=0;    /*no denoising here*/
+  dimage->gediIO.gFit->varNoise=0;    /*no denoising here*/
+  dimage->gediIO.gFit->gWidth=1.2;
+  dimage->gediIO.gFit->sWidth=0.0;
+  dimage->gediIO.gFit->fitGauss=1;
+  dimage->gediIO.gFit->minGsig=0.9;
   /*noise parameters*/
   dimage->meanN=0.0;
   dimage->nSig=0.0;
@@ -2194,23 +2016,23 @@ control *readCommands(int argc,char **argv)
   rhoG=0.4;
   rhoC=0.57;
   dimage->gTol=0.0;
-  dimage->nMessages=200;
+  dimage->gediIO.nMessages=200;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
     if (*argv[i]=='-'){
       if(!strncasecmp(argv[i],"-input",6)){
         checkArguments(1,i,argc,"-input");
-        TTIDY((void **)dimage->inList,dimage->nFiles);
-        dimage->inList=NULL;
-        dimage->nFiles=1;
-        dimage->inList=chChalloc(dimage->nFiles,"input name list",0);
-        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
-        strcpy(dimage->inList[0],argv[i]);
+        TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
+        dimage->gediIO.inList=NULL;
+        dimage->gediIO.nFiles=1;
+        dimage->gediIO.inList=chChalloc(dimage->gediIO.nFiles,"input name list",0);
+        dimage->gediIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
+        strcpy(dimage->gediIO.inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-inList",7)){
         checkArguments(1,i,argc,"-inList");
-        TTIDY((void **)dimage->inList,dimage->nFiles);
-        dimage->inList=readInList(&dimage->nFiles,argv[++i]);
+        TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
+        dimage->gediIO.inList=readInList(&dimage->gediIO.nFiles,argv[++i]);
       }else if(!strncasecmp(argv[i],"-outRoot",8)){
         checkArguments(1,i,argc,"-outRoot");
         strcpy(dimage->outRoot,argv[++i]);
@@ -2234,55 +2056,55 @@ control *readCommands(int argc,char **argv)
         srand(atoi(argv[++i]));
       }else if(!strncasecmp(argv[i],"-meanN",5)){
         checkArguments(1,i,argc,"-meanN");
-        dimage->den->meanN=atof(argv[++i]);
+        dimage->gediIO.den->meanN=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-thresh",6)){
         checkArguments(1,i,argc,"-thresh");
-        dimage->den->thresh=atof(argv[++i]);
+        dimage->gediIO.den->thresh=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-sWidth",7)){
         checkArguments(1,i,argc,"-sWidth");
-        dimage->den->sWidth=atof(argv[++i]);
+        dimage->gediIO.den->sWidth=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-psWidth",8)){
         checkArguments(1,i,argc,"-psWidth");
-        dimage->den->psWidth=atof(argv[++i]);
+        dimage->gediIO.den->psWidth=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gWidth",7)){
         checkArguments(1,i,argc,"-gWidth");
-        dimage->gFit->gWidth=atof(argv[++i]);
+        dimage->gediIO.gFit->gWidth=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-minGsig",8)){
         checkArguments(1,i,argc,"-minGsig");
-        dimage->gFit->minGsig=atof(argv[++i]);
+        dimage->gediIO.gFit->minGsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-minWidth",9)){
         checkArguments(1,i,argc,"-minWidth");
-        dimage->den->minWidth=atoi(argv[++i]);
+        dimage->gediIO.den->minWidth=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-ground",7)){
-        dimage->ground=1;
+        dimage->gediIO.ground=1;
       }else if(!strncasecmp(argv[i],"-varNoise",9)){
-        dimage->den->varNoise=1;
+        dimage->gediIO.den->varNoise=1;
       }else if(!strncasecmp(argv[i],"-medNoise",9)){
-        dimage->den->medStats=1;
+        dimage->gediIO.den->medStats=1;
       }else if(!strncasecmp(argv[i],"-statsLen",9)){
         checkArguments(1,i,argc,"-statsLen");
-        dimage->den->statsLen=atof(argv[++i]);
+        dimage->gediIO.den->statsLen=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-varScale",9)){
         checkArguments(1,i,argc,"-varScale");
-        dimage->den->threshScale=atof(argv[++i]);
+        dimage->gediIO.den->threshScale=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noiseTrack",11)){
-        dimage->den->noiseTrack=1;
+        dimage->gediIO.den->noiseTrack=1;
       }else if(!strncasecmp(argv[i],"-pFile",6)){
         checkArguments(1,i,argc,"-pFile");
-        strcpy(dimage->den->pNamen,argv[++i]);
+        strcpy(dimage->gediIO.den->pNamen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-gold",5)){
-        dimage->den->deconMeth=0;
+        dimage->gediIO.den->deconMeth=0;
       }else if(!strncasecmp(argv[i],"-deconTol",9)){
         checkArguments(1,i,argc,"-deconTol");
-        dimage->den->deChang=atof(argv[++i]);
+        dimage->gediIO.den->deChang=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-preMatchF",10)){
-        dimage->den->preMatchF=1;
+        dimage->gediIO.den->preMatchF=1;
       }else if(!strncasecmp(argv[i],"-postMatchF",11)){
-        dimage->den->posMatchF=1;
+        dimage->gediIO.den->posMatchF=1;
       }else if(!strncasecmp(argv[i],"-useInt",7)){
-        dimage->useInt=1;
+        dimage->gediIO.useInt=1;
       }else if(!strncasecmp(argv[i],"-useFrac",8)){
-        dimage->useFrac=1;
+        dimage->gediIO.useFrac=1;
       }else if(!strncasecmp(argv[i],"-rhRes",6)){
         checkArguments(1,i,argc,"-rhRes");
         dimage->rhRes=atof(argv[++i]);
@@ -2329,9 +2151,9 @@ control *readCommands(int argc,char **argv)
         dimage->newPsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-oldPsig",8)){
         checkArguments(1,i,argc,"-oldPsig");
-        dimage->pSigma=atof(argv[++i]);
+        dimage->gediIO.pSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-dontTrustGround",16)){
-        dimage->dontTrustGround=1;
+        dimage->gediIO.dontTrustGround=1;
       }else if(!strncasecmp(argv[i],"-readBinLVIS",12)){
         dimage->readBinLVIS=1;
       }else if(!strncasecmp(argv[i],"-readHDF",8)){
@@ -2358,7 +2180,7 @@ control *readCommands(int argc,char **argv)
   }
 
   /*read deconvolution pulse if needed*/
-  if(dimage->den->preMatchF||dimage->den->preMatchF||dimage->den->deconMeth>=0)readPulse(dimage->den); 
+  if(dimage->gediIO.den->preMatchF||dimage->gediIO.den->preMatchF||dimage->gediIO.den->deconMeth>=0)readPulse(dimage->gediIO.den); 
 
   return(dimage);
 }/*readCommands*/

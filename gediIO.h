@@ -69,9 +69,39 @@ typedef struct{
 
 
 /*###########################################################*/
+/*GEDI IO options*/
+
+typedef struct{
+  /*input files*/
+  int nFiles;   /*number of waveforms*/
+  char **inList;
+
+  /*switches*/
+  char ground;      /*read separateground wave or not*/
+  char useInt;      /*use discrete intensity instead of count*/
+  char useFrac;     /*use fraction of hits per beam for weighting*/
+  char dontTrustGround; /*don't trust ground included with waveforms*/
+
+  /*denoising parameters*/
+  denPar *den;   /*for denoising*/
+  denPar *gFit;  /*for Gaussian fitting*/
+
+  /*pulse parameters*/
+  float pSigma;    /*pulse length*/
+  float fSigma;    /*footprint width*/
+  float res;      /*range resolution*/
+
+  /*others*/
+  int nMessages;  /*number of progress messages*/
+}gediIOstruct;
+
+
+/*###########################################################*/
 /*functions*/
 
 dataStruct **tidyAsciiStruct(dataStruct **,int);
+dataStruct *readASCIIdata(char *,gediIOstruct *);
+gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 
 /*# the end*/
 /*###########################################################*/
