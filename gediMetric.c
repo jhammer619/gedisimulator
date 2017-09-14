@@ -279,8 +279,9 @@ int main(int argc,char **argv)
     TIDY(denoised);
     if(data){
       TIDY(data->noised);
-      TIDY(data->ground);
-      TIDY(data->wave);
+      TTIDY((void **)data->ground,data->nWaveTypes);
+      TTIDY((void **)data->wave,data->nWaveTypes);
+      TIDY(data->totE);
       TIDY(data->z);
       TIDY(data);
     }
@@ -453,8 +454,8 @@ void determineTruth(dataStruct *data,control *dimage)
       totE=0.0;
       data->gElev=0.0;
       for(i=0;i<data->nBins;i++){
-        totE+=data->ground[i];
-        data->gElev+=(double)data->ground[i]*data->z[i];
+        totE+=data->ground[data->useType][i];
+        data->gElev+=(double)data->ground[data->useType][i]*data->z[i];
       }
       if(totE>0.0)data->gElev/=(double)totE;
       else        data->gElev=-1000000.0;
@@ -462,7 +463,7 @@ void determineTruth(dataStruct *data,control *dimage)
       /*standard deviation as a measure of slope*/
       data->gStdev=0.0;
       for(i=0;i<data->nBins;i++){
-        data->gStdev+=(float)((data->z[i]-data->gElev)*(data->z[i]-data->gElev))*data->ground[i];
+        data->gStdev+=(float)((data->z[i]-data->gElev)*(data->z[i]-data->gElev))*data->ground[data->useType][i];
       }
       if(totE>0.0){
         data->gStdev=sqrt(data->gStdev/totE);
@@ -479,10 +480,10 @@ void determineTruth(dataStruct *data,control *dimage)
 
   /*canopy top*/
   totE=0.0;
-  for(i=0;i<data->nBins;i++)totE+=data->wave[i];
+  for(i=0;i<data->nBins;i++)totE+=data->wave[data->useType][i];
   cumul=0.0;
   for(i=0;i<data->nBins;i++){
-    cumul+=data->wave[i]/totE;
+    cumul+=data->wave[data->useType][i]/totE;
     if(cumul>=dimage->bThresh){
       data->tElev=data->z[i];
       break;
@@ -493,8 +494,8 @@ void determineTruth(dataStruct *data,control *dimage)
   if(dimage->gediIO.ground){
     totG=totC=0.0;
     for(i=0;i<data->nBins;i++){
-     totG+=data->ground[i];
-     totC+=data->wave[i]-data->ground[i];
+     totG+=data->ground[data->useType][i];
+     totC+=data->wave[data->useType][i]-data->ground[data->useType][i];
     }
     if((totG+totC)>0.0)data->cov=totC/(totC+totG*dimage->rhoRatio);
     else               data->cov=-1.0;
@@ -504,9 +505,9 @@ void determineTruth(dataStruct *data,control *dimage)
 
   /*understorey metrics*/
   if(dimage->gediIO.ground){
-    data->gLap=groundOverlap(data->wave,data->ground,data->nBins);
-    data->gMinimum=groundMinAmp(data->wave,data->ground,data->nBins);
-    data->gInfl=groundInflection(data->wave,data->ground,data->nBins);
+    data->gLap=groundOverlap(data->wave[data->useType],data->ground[data->useType],data->nBins);
+    data->gMinimum=groundMinAmp(data->wave[data->useType],data->ground[data->useType],data->nBins);
+    data->gInfl=groundInflection(data->wave[data->useType],data->ground[data->useType],data->nBins);
   }
 
   return;
@@ -632,17 +633,17 @@ void addNoise(dataStruct *data,control *dimage)
       fprintf(stderr,"Cannot delete ground when we do not know it\n");
       exit(1);
     }
-    deleteGround(data->noised,data->wave,data->ground,data->nBins,dimage->minGap,dimage->gediIO.pSigma,dimage->gediIO.fSigma,dimage->gediIO.res,data->cov);
+    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,dimage->minGap,dimage->gediIO.pSigma,dimage->gediIO.fSigma,dimage->gediIO.res,data->cov);
   }else if(dimage->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
     tempNoise=falloc(data->nBins,"temp noised",0);
     tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[i]*dimage->gediIO.res;  
+    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*dimage->gediIO.res;  
     reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(dimage->linkCov*rhoC+(1.0-dimage->linkCov)*rhoG);
     for(i=0;i<data->nBins;i++)tempNoise[i]=dimage->linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
     smooNoise=smooth(dimage->deSig,data->nBins,tempNoise,dimage->gediIO.res);
-    for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[i]+smooNoise[i];
+    for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[data->useType][i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
     scaleNoiseDN(tempNoise,data->nBins,dimage->linkSig*reflScale,dimage->trueSig,dimage->offset);
@@ -654,18 +655,18 @@ void addNoise(dataStruct *data,control *dimage)
     for(i=0;i<data->nBins;i++){
       noise=dimage->nSig*GaussNoise();
       if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
-      data->noised[i]=data->wave[i]+dimage->meanN+noise;
+      data->noised[i]=data->wave[data->useType][i]+dimage->meanN+noise;
     }/*bin loop*/
   }else if(dimage->hNoise>0.0){  /*hard threshold noise*/
     tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[i];
+    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i];
     thresh=dimage->hNoise*tot;
     for(i=0;i<data->nBins;i++){
-      data->noised[i]=data->wave[i]-thresh;
+      data->noised[i]=data->wave[data->useType][i]-thresh;
       if(data->noised[i]<0.0)data->noised[i]=0.0;
     }
   }else{  /*no noise*/
-    for(i=0;i<data->nBins;i++)data->noised[i]=data->wave[i];
+    for(i=0;i<data->nBins;i++)data->noised[i]=data->wave[data->useType][i];
   }
 
   return;
@@ -683,7 +684,7 @@ void modifyTruth(dataStruct *data,control *dimage)
   char doNothing=0;
 
   /*remove noise*/
-  tempWave=denoiseTruth(data->wave,data->nBins,dimage);
+  tempWave=denoiseTruth(data->wave[data->useType],data->nBins,dimage);
 
   /*change pulse width*/
   if(dimage->newPsig>0.0){
@@ -692,8 +693,8 @@ void modifyTruth(dataStruct *data,control *dimage)
       exit(1);
     }else if(dimage->newPsig>data->pSigma){  /*increase pulse width*/
       sigDiff=sqrt(dimage->newPsig*dimage->newPsig-data->pSigma*data->pSigma);
-      TIDY(data->wave);
-      data->wave=smooth(sigDiff,data->nBins,tempWave,data->res);
+      TIDY(data->wave[data->useType]);
+      data->wave[data->useType]=smooth(sigDiff,data->nBins,tempWave,data->res);
     }else{  /*do not change*/
       doNothing=1;
     }
@@ -701,8 +702,8 @@ void modifyTruth(dataStruct *data,control *dimage)
 
 
   if(doNothing==1){
-    TIDY(data->wave);
-    data->wave=tempWave;
+    TIDY(data->wave[data->useType]);
+    data->wave[data->useType]=tempWave;
     tempWave=NULL;
   }
 
@@ -964,8 +965,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
     fprintf(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
     for(i=0;i<data->nBins;i++){
-      fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[i]);
-      if(dimage->gediIO.ground)fprintf(opoo," %f %f",data->ground[i],data->wave[i]-data->ground[i]);
+      fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[data->useType][i]);
+      if(dimage->gediIO.ground)fprintf(opoo," %f %f",data->ground[data->useType][i],data->wave[data->useType][i]-data->ground[data->useType][i]);
       else              fprintf(opoo," 0 0");
       for(j=0;j<dimage->gediIO.gFit->nGauss;j++)fprintf(opoo," %f",dimage->gediIO.gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gediIO.gFit->gPar[3*j+2],dimage->gediIO.gFit->gPar[3*j]));
       fprintf(opoo,"\n");
@@ -1082,7 +1083,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*rh metrics with real ground, if we have the ground*/
   if(dimage->gediIO.ground||data->demGround){
-    if(dimage->linkNoise)metric->rhReal=findRH(data->wave,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
+    if(dimage->linkNoise)metric->rhReal=findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
     else                 metric->rhReal=findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
   }else{
     metric->rhReal=falloc(metric->nRH,"rhReal",0);
@@ -1625,7 +1626,11 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   }
   data->useID=1;
   data->nBins=dimage->hdf->nBins;
-  data->wave=falloc(data->nBins,"waveform",0);
+  data->nWaveTypes=1;
+  data->useType=0;
+  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
+  data->wave[0]=falloc(data->nBins,"waveform",0);
+  data->totE=falloc(data->nWaveTypes,"totE",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
   data->demGround=0;
@@ -1636,14 +1641,14 @@ dataStruct *readHDF(char *namen,control *dimage,int numb)
   /*copy data to structure*/
   data->zen=dimage->hdf->zen[numb];
   data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=fabs(dimage->hdf->z0[numb]-dimage->hdf->z1023[numb])/(float)dimage->hdf->nBins;
-  data->totE=0.0;
+  data->totE[data->useType]=0.0;
   for(i=0;i<dimage->hdf->nBins;i++){
-    data->wave[i]=(float)dimage->hdf->wave[numb][i];
+    data->wave[data->useType][i]=(float)dimage->hdf->wave[numb][i];
     data->z[i]=(double)(dimage->hdf->z0[numb]-(float)i*data->res);
-    data->totE+=data->wave[i];
+    data->totE[data->useType]+=data->wave[data->useType][i];
   }
   if(dimage->gediIO.den->res<TOL)data->usable=0;
-  if(data->totE<=0.0)data->usable=0;
+  if(data->totE[data->useType]<=0.0)data->usable=0;
   if(dimage->gediIO.ground==0){   /*set to blank*/
     data->cov=-1.0;
     data->gLap=-1.0;
@@ -1708,7 +1713,10 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
   }
   data->useID=1;
   data->nBins=lvis->nBins;
-  data->wave=falloc(data->nBins,"waveform",0);
+  data->useType=0;
+  data->nWaveTypes=1;
+  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
+  data->wave[data->useType]=falloc(data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
   data->demGround=0;
@@ -1719,14 +1727,14 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
   /*copy data to structure*/
   data->zen=lvis->data[numb].zen;
   data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
-  data->totE=0.0;
+  data->totE[data->useType]=0.0;
   for(i=0;i<lvis->nBins;i++){
-    data->wave[i]=(float)lvis->data[numb].rxwave[i];
+    data->wave[data->useType][i]=(float)lvis->data[numb].rxwave[i];
     data->z[i]=(double)(lvis->data[numb].z0-(float)i*data->res);
-    data->totE+=data->wave[i];
+    data->totE[data->useType]+=data->wave[data->useType][i];
   }
   if(dimage->gediIO.den->res<TOL)data->usable=0;
-  if(data->totE<=0.0)data->usable=0;
+  if(data->totE[data->useType]<=0.0)data->usable=0;
   if(dimage->gediIO.ground==0){   /*set to blank*/
     data->cov=-1.0;
     data->gLap=-1.0;
@@ -1955,6 +1963,7 @@ control *readCommands(int argc,char **argv)
   dimage->writeFit=0;
   dimage->gediIO.ground=0;
   dimage->gediIO.useInt=0;
+  dimage->gediIO.useCount=1;
   dimage->gediIO.useFrac=0;
   dimage->rhRes=10.0;
   dimage->bayesGround=0;
@@ -2108,8 +2117,10 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->posMatchF=1;
       }else if(!strncasecmp(argv[i],"-useInt",7)){
         dimage->gediIO.useInt=1;
+        dimage->gediIO.useCount=0;
       }else if(!strncasecmp(argv[i],"-useFrac",8)){
         dimage->gediIO.useFrac=1;
+        dimage->gediIO.useCount=0;
       }else if(!strncasecmp(argv[i],"-rhRes",6)){
         checkArguments(1,i,argc,"-rhRes");
         dimage->rhRes=atof(argv[++i]);

@@ -37,15 +37,17 @@
 
 typedef struct{
   int nBins;        /*number of wavefor bins*/
-  float *wave;      /*original waveform*/
-  float *ground;    /*ground wave if we are to read it*/
+  int nWaveTypes;   /*number of types of waves, int, count, frac*/
+  int useType;      /*the index to use for all analysis*/
+  float **wave;     /*original waveform*/
+  float **ground;   /*ground wave if we are to read it*/
   float *noised;    /*noised waveform, if needed*/
   double *z;        /*wave bin elevation*/
   double gElev;     /*mean ground elevation*/
   double tElev;     /*top elevation*/
   double lon;       /*footprint centre longitude*/
   double lat;       /*footprint centre latitude*/
-  float totE;       /*total waveform energy (not integral)*/
+  float *totE;      /*total waveform energy (not integral) per type*/
   float gStdev;     /*measure of ground width*/
   float slope;      /*ground effective slope*/
   float cov;        /*ALS canopy cover*/
@@ -78,7 +80,8 @@ typedef struct{
 
   /*switches*/
   char ground;      /*read separateground wave or not*/
-  char useInt;      /*use discrete intensity instead of count*/
+  char useInt;      /*use discrete intensity for weighting*/
+  char useCount;    /*use no weighting*/
   char useFrac;     /*use fraction of hits per beam for weighting*/
   char dontTrustGround; /*don't trust ground included with waveforms*/
 
@@ -97,11 +100,42 @@ typedef struct{
 
 
 /*###########################################################*/
+/*GEDI HDF5 structure*/
+
+typedef struct{
+  /*header*/
+  int nWaves;      /*number of waveforms*/
+  int nBins;       /*number of waveform bins*/
+  int idLength;    /*length of wavefor ID strings*/
+  float pSigma;    /*pulse length*/
+  float fSigma;    /*footprint width*/
+  /*beams*/
+  int nTypeWaves;  /*number of waveform types (frac, count and int)*/
+  float **wave;    /*waveform*/
+  float **ground;  /*ground waveforms*/
+  float *z0;       /*wave top elevations*/
+  float *zN;       /*wave bottom elevations*/
+  double *lon;     /*longitudes*/
+  double *lat;     /*latitudes*/
+  float *slope;    /*ground slope*/
+  float *cov;      /*canopy cover*/
+  float *gElev;    /*ground elevation, CofG*/
+  float *demElev;  /*ground elevation, DEM*/
+  char *waveID;    /*waveform ID*/
+  float *beamDense;/*beam density*/
+  float *pointDense;/*point density*/
+  float *zen;      /*scan angles, or mean angles*/
+}gediHDF;
+
+
+/*###########################################################*/
 /*functions*/
 
 dataStruct **tidyAsciiStruct(dataStruct **,int);
 dataStruct *readASCIIdata(char *,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
+void writeGEDIhdf(gediHDF *,char *);
+gediHDF *tidyGediHDF(gediHDF *);
 
 /*# the end*/
 /*###########################################################*/

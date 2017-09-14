@@ -143,6 +143,9 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.nFiles=1;
   dimage->gediIO.inList=chChalloc(dimage->gediIO.nFiles,"inList",0);
   dimage->gediIO.inList[0]=challoc(200,"inList",0);
+  dimage->gediIO.useInt=1;
+  dimage->gediIO.useCount=1;
+  dimage->gediIO.useFrac=1;
   strcpy(&(dimage->gediIO.inList[0][0]),"/Users/stevenhancock/data/gedi/simulations/USDA_CO/gedi.USDA_CO.4112.wave");
   strcpy(&(dimage->outNamen[0]),"teast.h5");
   dimage->gediIO.ground=1;
