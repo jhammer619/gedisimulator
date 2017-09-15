@@ -245,13 +245,14 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
   /*per scan*/
   hdfData->pSigma=data[0]->pSigma;
   hdfData->fSigma=data[0]->fSigma;
+  hdfData->nPbins=0;
+  hdfData->pulse=NULL;
   /*per beam*/
   hdfData->z0=falloc(hdfData->nWaves,"top elevations",0);       /*wave elevations*/
   hdfData->zN=falloc(hdfData->nWaves,"bottom elevations",0);       /*wave elevations*/
   hdfData->lon=dalloc(hdfData->nWaves,"lon",0);     /*longitudes*/
   hdfData->lat=dalloc(hdfData->nWaves,"lat",0);    /*latitudes*/
   hdfData->slope=falloc(hdfData->nWaves,"slope",0);    /*ground slope*/
-  hdfData->cov=falloc(hdfData->nWaves,"cov",0);      /*canopy cover*/
   hdfData->gElev=falloc(hdfData->nWaves,"ground elevation, CofG",0);    /*ground elevation, CofG*/
   hdfData->demElev=falloc(hdfData->nWaves,"ground elevation, DEM",0);  /*ground elevation, DEM*/
   hdfData->beamDense=falloc(hdfData->nWaves,"beamDense",0);/*beam density*/
@@ -367,7 +368,6 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
     hdfData->lon[numb]=data[i]->lon;
     hdfData->lat[numb]=data[i]->lat;
     hdfData->slope[numb]=data[i]->slope;
-    hdfData->cov[numb]=data[i]->cov;
     hdfData->gElev[numb]=data[i]->gElev;
     hdfData->demElev[numb]=data[i]->demGround;
     if(maxID>0)strcpy(&(hdfData->waveID[numb*hdfData->idLength]),data[i]->waveID);
@@ -401,12 +401,12 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
   write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1);
   write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
   write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1);
+  write1dIntHDF5(file,"NPBINS",&hdfData->nPbins,1);
   /*write datasets*/
   write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
   write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves);
   if(hdfData->ground){
     write1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
-    write1dFloatHDF5(file,"COVER",hdfData->cov,hdfData->nWaves);
     write1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
     if(hdfData->demElev)write1dFloatHDF5(file,"ZGDEM",hdfData->demElev,hdfData->nWaves);
   }
@@ -432,6 +432,11 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
   write1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
   write1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
   write2dCharHDF5(file,"WAVEID",hdfData->waveID,hdfData->nWaves,hdfData->idLength);
+
+  if(hdfData->nPbins>0){
+    write1dFloatHDF5(file,"PRES",&hdfData->pRes,1);
+    write1dFloatHDF5(file,"PULSE",hdfData->pulse,hdfData->nPbins);
+  }
 
   /*close file*/
   if(H5Fclose(file)){
@@ -478,6 +483,9 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   tempI=read1dIntHDF5(file,"NBINS",&nWaves);
   hdfData->nBins=*tempI;
   TIDY(tempI);
+  tempI=read1dIntHDF5(file,"NPBINS",&nWaves);
+  hdfData->nPbins=*tempI;
+  TIDY(tempI);
   tempI=read1dIntHDF5(file,"NTYPEWAVES",&nWaves);
   hdfData->nTypeWaves=*tempI;
   TIDY(tempI);
@@ -492,8 +500,6 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   checkNwavesDF(nWaves,hdfData->nWaves);
   if(gediIO->ground){
     hdfData->slope=read1dFloatHDF5(file,"SLOPE",&nWaves);
-    checkNwavesDF(nWaves,hdfData->nWaves);
-    hdfData->cov=read1dFloatHDF5(file,"COVER",&nWaves);
     checkNwavesDF(nWaves,hdfData->nWaves);
     hdfData->gElev=read1dFloatHDF5(file,"ZG",&nWaves);
     checkNwavesDF(nWaves,hdfData->nWaves);
@@ -510,6 +516,13 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   checkNwavesDF(nWaves,hdfData->nWaves);
   hdfData->waveID=read15dCharHDF5(file,"WAVEID",&nWaves,&nBins);
   checkNwavesDF(nWaves,hdfData->nWaves);
+  if(hdfData->nPbins>0){
+    hdfData->pulse=read1dFloatHDF5(file,"PULSE",&nBins);
+    checkNwavesDF(nBins,hdfData->nPbins);
+    tempF=read1dFloatHDF5(file,"PRES",&nWaves);
+    hdfData->pRes=*tempF;
+    TIDY(tempF);
+  }else hdfData->pulse=NULL;
 
   //float *demElev;  /*ground elevation, DEM*/
 
@@ -592,12 +605,12 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
     TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
     TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
     TIDY(hdfData->waveID);
+    TIDY(hdfData->pulse);
     TIDY(hdfData->z0);       /*wave top elevations*/
     TIDY(hdfData->zN);       /*wave bottom elevations*/
     TIDY(hdfData->lon);     /*longitudes*/
     TIDY(hdfData->lat);     /*latitudes*/
     TIDY(hdfData->slope);    /*ground slope*/
-    TIDY(hdfData->cov);      /*canopy cover*/
     TIDY(hdfData->gElev);    /*ground elevation, CofG*/
     TIDY(hdfData->demElev);  /*ground elevation, DEM*/
     TIDY(hdfData->beamDense);/*beam density*/

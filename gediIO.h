@@ -109,6 +109,9 @@ typedef struct{
   int idLength;    /*length of wavefor ID strings*/
   float pSigma;    /*pulse length*/
   float fSigma;    /*footprint width*/
+  float *pulse;    /*pulse*/
+  float pRes;      /*pulse resolution*/
+  int nPbins;      /*number ofpulse bins*/
   /*beams*/
   int nTypeWaves;  /*number of waveform types (frac, count and int)*/
   float **wave;    /*waveform*/
@@ -118,7 +121,6 @@ typedef struct{
   double *lon;     /*longitudes*/
   double *lat;     /*latitudes*/
   float *slope;    /*ground slope*/
-  float *cov;      /*canopy cover*/
   float *gElev;    /*ground elevation, CofG*/
   float *demElev;  /*ground elevation, DEM*/
   char *waveID;    /*waveform ID*/

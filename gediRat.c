@@ -5,9 +5,12 @@
 #include "stdint.h"
 #include "tools.h"
 #include "tools.c"
+#include "hdf5.h"
 #include "libLasRead.h"
 #include "libLidVoxel.h"
 #include "libLasProcess.h"
+#include "libLidarHDF.h"
+#include "gediIO.h"
 
 
 /*#########################*/
@@ -96,6 +99,11 @@ typedef struct{
   float maxScanAng;    /*maximum scan angle*/
   char polyGr;         /*fit a polynomial to the ground*/
   char nnGr;           /*ground DEM from nearest neighbour*/
+
+  /*HDF5 output*/
+  char writeHDF;       /*write output as hdf5*/
+  int maxBins;         /*bins per wave for HDF5 output*/
+  int hdfCount;        /*count used footprints*/
 
   /*read a batch of coords*/
   char readALSonce;    /*read all ALS data once*/
@@ -199,6 +207,8 @@ int main(int argc,char **argv)
   pCloudStruct *readALSdata(lasFile *,control *);
   waveStruct *waves=NULL;
   waveStruct *makeGediWaves(control *,pCloudStruct **);
+  gediHDF *hdfData=NULL;
+  gediHDF *setUpHDF(control *);
   void writeGEDIwave(control *,waveStruct *,int);
   void setGediFootprint(control *);
   void setGediPulse(control *);
@@ -208,6 +218,7 @@ int main(int argc,char **argv)
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
   void updateCoord(control *,int,int);
   void checkWaveOverwrite(control *,int);
+  void packGEDIhdf(control *,waveStruct *,gediHDF *);
 
  
   /*read command line*/
@@ -219,7 +230,7 @@ int main(int argc,char **argv)
   /*set up grid or batch if needed*/
   setGediGrid(dimage);
 
-  /*loop over las files*/
+  /*loop over las files and read*/
   if(!(data=(pCloudStruct **)calloc(dimage->nFiles,sizeof(pCloudStruct *)))){
     fprintf(stderr,"error waveStruct allocation.\n");
     exit(1);
@@ -239,6 +250,10 @@ int main(int argc,char **argv)
     las=tidyLasFile(las);
   }/*file loop*/
 
+  /*set up HDF5 if needed*/
+  if(dimage->writeHDF)hdfData=setUpHDF(dimage);
+
+  /*make waveforms*/
   if(dimage->listFiles==0){
     /*loop over waveforms*/
     for(i=0;i<dimage->gNx;i++){
@@ -264,14 +279,27 @@ int main(int argc,char **argv)
           if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
           /*output results*/
-          writeGEDIwave(dimage,waves,i);
+          if(dimage->writeHDF)packGEDIhdf(dimage,waves,hdfData);
+          else                writeGEDIwave(dimage,waves,i);
         }
 
         /*tidy up*/
         TIDY(dimage->nGrid);
         TIDY(dimage->lobe);
+        if(waves){
+          TTIDY((void **)waves->wave,waves->nWaves);
+          TTIDY((void **)waves->canopy,3);
+          TTIDY((void **)waves->ground,3);
+          TIDY(waves);
+        }
       }/*grid y loop*/
     }/*grid x loop*/
+
+    /*write HDF if needed*/
+    if(dimage->writeHDF){
+      hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
+      writeGEDIhdf(hdfData,dimage->outNamen);
+    }
   }/*make and write a waveform if needed*/
 
 
@@ -280,12 +308,7 @@ int main(int argc,char **argv)
     for(i=0;i<dimage->nFiles;i++)data[i]=tidyPointCloud(data[i]);
     TIDY(data);
   }
-  if(waves){
-    TTIDY((void **)waves->wave,waves->nWaves);
-    TTIDY((void **)waves->canopy,3);
-    TTIDY((void **)waves->ground,3);
-    TIDY(waves);
-  }
+  hdfData=tidyGediHDF(hdfData);
   if(dimage){
     if(dimage->pulse){
       TIDY(dimage->pulse->y);
@@ -300,6 +323,89 @@ int main(int argc,char **argv)
   tidySMoothPulse();
   return(0);
 }/*main*/
+
+
+/*##############################################*/
+/*copy waveform into HDF structure*/
+
+void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData)
+{
+  int i=0,j=0,start=0,numb=0;
+  int nBins=0,idLength=0;
+  float *tot=NULL,*cumul=NULL;
+  float *thresh=NULL,buff=0;
+  char waveID[100];
+
+  numb=dimage->hdfCount;
+
+  /*trim waveform*/
+  buff=30.0;
+  /*find energies*/
+  tot=falloc(hdfData->nTypeWaves,"tot",0);
+  cumul=falloc(hdfData->nTypeWaves,"cumul",0);
+  for(j=0;j<hdfData->nTypeWaves;j++){
+    tot[j]=cumul[j]=0.0;
+    for(i=0;i<waves->nBins;i++)tot[j]+=waves->wave[j][i];
+  }
+  /*set threshols*/
+  thresh=falloc(hdfData->nTypeWaves,"thresh",0);
+  for(j=0;j<hdfData->nTypeWaves;j++)thresh[j]=0.01*tot[j];
+  TIDY(tot);
+  /*find waveform start*/
+  start=-1;
+  for(i=0;i<waves->nBins;i++){
+    for(j=0;j<hdfData->nTypeWaves;j++){
+      cumul[j]+=waves->wave[j][i];
+      if(cumul[j]>thresh[j]){
+        start=i;
+        break;
+      }
+    }
+    if(start>=0)break;
+  }/*waveform trimming*/
+  TIDY(cumul);
+  TIDY(thresh);
+
+  start-=buff/dimage->res;
+  if(start<0)start=0;
+
+  /*copy data*/
+  hdfData->z0[numb]=waves->maxZ-(float)start*dimage->res;
+  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*dimage->res;
+  hdfData->lon[numb]=dimage->coord[0];
+  hdfData->lat[numb]=dimage->coord[1];
+  hdfData->beamDense[numb]=dimage->beamDense;
+  hdfData->pointDense[numb]=dimage->pointDense;
+  hdfData->zen[numb]=waves->meanScanAng;;
+
+
+  /*ID*/
+  if(dimage->doGrid)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->coord[0],(int)dimage->coord[1]);
+  else if(dimage->useID)strcpy(waveID,dimage->waveID);
+  else                  sprintf(waveID,"%d",numb);
+  idLength=(hdfData->idLength<(strlen(waveID)+1))?hdfData->idLength:strlen(waveID)+1;
+  memcpy(&hdfData->waveID[numb*hdfData->idLength],waveID,idLength);
+
+  /*waveform*/
+  nBins=(hdfData->nBins<(waves->nBins-start))?hdfData->nBins:waves->nBins-start;
+  for(j=0;j<hdfData->nTypeWaves;j++){
+    memcpy(&hdfData->wave[j][numb*hdfData->nBins],&waves->wave[j][start],nBins*sizeof(float));
+  }
+
+  /*ground variables if using*/
+  if(dimage->ground){
+    hdfData->gElev[numb]=waves->gElevSimp;
+    hdfData->slope[numb]=waves->gSlopeSimp;
+    for(j=0;j<hdfData->nTypeWaves;j++){
+      memcpy(&hdfData->ground[j][numb*hdfData->nBins],&waves->ground[j][start],nBins*sizeof(float));
+    }
+  }
+
+  /*increment counter*/
+  dimage->hdfCount++;
+
+  return;
+}/*packGEDIhdf*/
 
 
 /*##############################################*/
@@ -1790,7 +1896,7 @@ void readSimPulse(control *dimage)
       }
     }
   }
-  dimage->pRes=fabs(dimage->pulse->x[1]-dimage->pulse->x[0]);
+  dimage->pRes=fabs(dimage->pulse->x[dimage->pulse->nBins-1]-dimage->pulse->x[0])/(float)(dimage->pulse->nBins-1);
 
   /*determine maximum to centre and total to normalise*/
   tot=0.0;
@@ -1913,7 +2019,76 @@ pCloudStruct *readAsciiData(char *inNamen)
 }/*readAsciiData*/
 
 
-/*####################################*/
+/*##############################################*/
+/*set up HDF structure and write header*/
+
+gediHDF *setUpHDF(control *dimage)
+{
+  int i=0;
+  gediHDF *hdfData=NULL;
+
+  /*set counter to zero*/
+  dimage->hdfCount=0;
+
+  /*allocate space*/
+  if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+
+  /*header*/
+  hdfData->nWaves=dimage->gNx*dimage->gNy;
+  hdfData->nBins=dimage->maxBins;
+  hdfData->nTypeWaves=3;
+  hdfData->pSigma=dimage->pSigma;
+  hdfData->fSigma=dimage->fSigma;
+
+  /*max id label length*/
+  if(dimage->useID){
+    if(dimage->doGrid){
+      hdfData->idLength=strlen(dimage->waveID)+1+20;
+    }else if(dimage->waveIDlist){
+      hdfData->idLength=-1;
+      for(i=0;i<hdfData->nWaves;i++){
+        if((strlen(dimage->waveIDlist[i])+1)>hdfData->idLength)hdfData->idLength=strlen(dimage->waveIDlist[i])+1;
+      }
+    }else hdfData->idLength=strlen(dimage->waveID)+1;
+  }else hdfData->idLength=7;
+
+  if(dimage->readPulse){
+    hdfData->pRes=dimage->pRes;
+    hdfData->nBins=dimage->pulse->nBins;
+    hdfData->pulse=falloc(hdfData->nBins,"hdf pulse",0);
+    memcpy(hdfData->pulse,dimage->pulse->y,sizeof(float)*hdfData->nBins);
+  }else{
+    hdfData->pulse=NULL;
+    hdfData->nPbins=0;
+  }
+
+  /*allocate arrays*/
+  hdfData->wave=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
+  for(i=0;i<hdfData->nTypeWaves;i++)hdfData->wave[i]=falloc(hdfData->nWaves*hdfData->nBins,"hdf waveforms",i+1);
+  if(dimage->ground){
+    hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf ground waveforms",0);
+    for(i=0;i<hdfData->nTypeWaves;i++)hdfData->ground[i]=falloc(hdfData->nWaves*hdfData->nBins,"hdf ground waveforms",i+1);
+  }
+  hdfData->z0=falloc(hdfData->nWaves,"hdf z0",0);
+  hdfData->zN=falloc(hdfData->nWaves,"hdf zN",0);
+  hdfData->lon=dalloc(hdfData->nWaves,"hdf lon",0);
+  hdfData->lat=dalloc(hdfData->nWaves,"hdf lat",0);
+  hdfData->slope=falloc(hdfData->nWaves,"hdf slope",0);
+  hdfData->gElev=falloc(hdfData->nWaves,"hdf gElev",0);
+  hdfData->demElev=falloc(hdfData->nWaves,"hdf demElev",0);
+  hdfData->beamDense=falloc(hdfData->nWaves,"hdf beamDense",0);
+  hdfData->pointDense=falloc(hdfData->nWaves,"hdf pointDense",0);
+  hdfData->zen=falloc(hdfData->nWaves,"hdf zen",0);
+  hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"hdf zen",0);
+
+  return(hdfData);
+}/*setUpHDF*/
+
+
+/*##############################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -1959,6 +2134,7 @@ control *readCommands(int argc,char **argv)
   dimage->nnGr=0;       /*don't make a DEM from nearest neighbour*/
   dimage->overWrite=1;  /*over write any files with the same name if they exist*/
   dimage->readALSonce=0;/*read each footprint separately*/
+  dimage->writeHDF=0;   /*write output as ascii*/
 
   /*gridding options*/
   dimage->doGrid=0;           /*gridded switch*/
@@ -1967,6 +2143,7 @@ control *readCommands(int argc,char **argv)
   /*batch*/
   dimage->coords=NULL;       /*list of coordinates*/
   dimage->waveIDlist=NULL;   /*list of waveform IDs*/
+  dimage->maxBins=1024;      /*to match LVIS*/
 
 
   dimage->iThresh=0.0006;
@@ -2058,6 +2235,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-gridBound",10)){
         checkArguments(4,i,argc,"-gridBound");
         dimage->doGrid=1;
+        dimage->useID=1;
         dimage->gMinX=atof(argv[++i]);
         dimage->gMaxX=atof(argv[++i]);
         dimage->gMinY=atof(argv[++i]);
@@ -2072,8 +2250,13 @@ control *readCommands(int argc,char **argv)
         dimage->readALSonce=1;
         dimage->useID=1;
         strcpy(dimage->coordList,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-hdf",4)){
+        dimage->writeHDF=1;
+      }else if(!strncasecmp(argv[i],"-maxBins",8)){
+        checkArguments(1,i,argc,"-maxBins");
+        dimage->maxBins=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-hdf;            write output as HDF5. Best with gridded or list of coords\n-maxBins;        for HDF5, limit number of bins to save trimming\n-readPulse file; read pulse shape from a file\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

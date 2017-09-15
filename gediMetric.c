@@ -1647,7 +1647,6 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   strcpy(data->waveID,&dimage->hdfGedi->waveID[numb*dimage->hdfGedi->idLength]);
 
   if(dimage->gediIO.ground){
-    data->cov=dimage->hdfGedi->cov[numb];
     data->slope=dimage->hdfGedi->slope[numb];
     data->gElev=dimage->hdfGedi->slope[numb];
   }
