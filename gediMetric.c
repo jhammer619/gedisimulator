@@ -1620,10 +1620,9 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   dataStruct *data=NULL;
 
   /*read data if needed*/
-  if(dimage->hdfLvis==NULL){
+  if(dimage->hdfGedi==NULL){
     dimage->hdfGedi=readGediHDF(namen,&dimage->gediIO);
     dimage->gediIO.nFiles=dimage->hdfGedi->nWaves;
-    data->useType=0;
   }/*read data if needed*/
 
   /*allocate space*/
@@ -1637,7 +1636,6 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   data->nBins=dimage->hdfGedi->nBins;
   data->nWaveTypes=dimage->hdfGedi->nTypeWaves;
   data->useType=0;
-  data->totE=falloc(data->nWaveTypes,"totE",0);
   data->demGround=0;
   data->pSigma=dimage->hdfGedi->pSigma;
   data->fSigma=dimage->hdfGedi->fSigma;
@@ -1674,8 +1672,8 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   for(i=0;i<dimage->hdfGedi->nBins;i++)data->z[i]=(double)(dimage->hdfGedi->z0[numb]-(float)i*data->res);
 
   /*set up number of messages*/
-  if(dimage->hdfLvis->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdfLvis->nWaves/dimage->gediIO.nMessages);
-  else                                     dimage->gediIO.nMessages=1;
+  if(dimage->hdfGedi->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdfGedi->nWaves/dimage->gediIO.nMessages);
+  else                                                dimage->gediIO.nMessages=1;
 
   return(data);
 }/*unpackHDFgedi*/
@@ -1802,6 +1800,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dim
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
   data->usable=1;
+  data->totE=falloc(data->nWaveTypes,"totE",0);
 
   /*copy data to structure*/
   data->zen=lvis->data[numb].zen;

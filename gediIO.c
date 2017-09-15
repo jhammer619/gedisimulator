@@ -493,7 +493,7 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   if(gediIO->ground){
     hdfData->slope=read1dFloatHDF5(file,"SLOPE",&nWaves);
     checkNwavesDF(nWaves,hdfData->nWaves);
-    hdfData->cov=read1dFloatHDF5(file,"COV",&nWaves);
+    hdfData->cov=read1dFloatHDF5(file,"COVER",&nWaves);
     checkNwavesDF(nWaves,hdfData->nWaves);
     hdfData->gElev=read1dFloatHDF5(file,"ZG",&nWaves);
     checkNwavesDF(nWaves,hdfData->nWaves);
