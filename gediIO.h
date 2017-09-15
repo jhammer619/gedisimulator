@@ -135,6 +135,7 @@ dataStruct **tidyAsciiStruct(dataStruct **,int);
 dataStruct *readASCIIdata(char *,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 void writeGEDIhdf(gediHDF *,char *);
+gediHDF *readGediHDF(char *,gediIOstruct *);
 gediHDF *tidyGediHDF(gediHDF *);
 
 /*# the end*/

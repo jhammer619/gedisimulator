@@ -24,9 +24,10 @@ dataStruct **tidyAsciiStruct(dataStruct **data,int nFiles)
 
   if(data){
     for(i=0;i<nFiles;i++){
-      TIDY(data[i]->wave);
-      TIDY(data[i]->ground);
+      TTIDY((void **)data[i]->wave,data[i]->nWaveTypes);
+      TTIDY((void **)data[i]->ground,data[i]->nWaveTypes);
       TIDY(data[i]->noised);
+      TIDY(data[i]->totE);
       TIDY(data[i]->z);
       TIDY(data[i]);
     }
@@ -42,7 +43,7 @@ dataStruct **tidyAsciiStruct(dataStruct **data,int nFiles)
 
 dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 {
-  int i=0,ind=0;
+  int i=0,ind=0,*numb=NULL;
   dataStruct *data=NULL;
   char line[400],temp1[100],temp2[100];
   char temp3[100],temp4[100],temp5[100];
@@ -71,136 +72,143 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
   data->nBins=0;
   while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))data->nBins++;
 
-  data->wave=fFalloc(data->nWaveTypes,"waves",0);
-  if(gediIO->ground)data->ground=fFalloc(data->nWaveTypes,"ground",0);
-  data->z=dalloc(data->nBins,"z",0);
-  for(i=0;i<data->nWaveTypes;i++){
+  /*is there usable data?*/
+  if(data->nBins==0){
+    data->usable=0;
+  }else{
+    data->wave=fFalloc(data->nWaveTypes,"waves",0);
+    if(gediIO->ground)data->ground=fFalloc(data->nWaveTypes,"ground",0);
+    data->z=dalloc(data->nBins,"z",0);
+    for(i=0;i<data->nWaveTypes;i++){
     data->wave[i]=falloc(data->nBins,"waveform",0);
-    if(gediIO->ground)data->ground[i]=falloc(data->nBins,"ground",0);
-  }
-  data->useID=0;
-  data->demGround=0;
-
-  /*rewind to start of file*/
-  if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
-    exit(1);
-  }
-
-  /*read data*/
-  i=0;
-  while(fgets(line,400,ipoo)!=NULL){
-    if(strncasecmp(line,"#",1)){
-      if(gediIO->useInt){  /*read intensity*/
-        ind=0;
-        if(gediIO->ground==0){   /*don't read ground*/
-          if(sscanf(line,"%s %s",temp1,temp2)==2){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp2);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp2);
-            data->ground[ind][i]=atof(temp4);
-            i++;
-          }
-        }/*ground switch*/
-      }
-      if(gediIO->useFrac){ /*read fraction*/
-        ind=(int)(gediIO->useInt+gediIO->useCount);
-        if(gediIO->ground==0){   /*don't read ground*/
-         if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp3);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10)==10){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp8);
-            data->ground[ind][i]=atof(temp10);
-            i++;
-          }
-        }/*ground switch*/
-      }
-      if(gediIO->useCount){ /*read count*/
-        ind=(int)gediIO->useInt;
-        if(gediIO->ground==0){   /*don't read ground*/
-          if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp3);
-            i++;
-          }
-        }else{                   /*read ground*/
-          if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
-            data->z[i]=atof(temp1);
-            data->wave[ind][i]=atof(temp5);
-            data->ground[ind][i]=atof(temp7);
-            i++;
-          }
-        }/*ground switch*/
-      }/*intensity or count switch*/
-    }else{  /*read the header*/
-      if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
-        if(!strncasecmp(temp2,"fSigma",6)){
-          data->fSigma=atof(temp3);
-          data->pSigma=atof(temp5);
-        }
-      }
-      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
-        if(!strncasecmp(temp2,"waveID",6)){
-          data->useID=1;
-          strcpy(&(data->waveID[0]),temp3);
-        }else if(!strncasecmp(temp2,"meanScanAng",11)){
-          data->zen=atof(temp3);
-        }
-      }
-      if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
-        if(!strncasecmp(temp2,"coord",5)){
-          data->lon=atof(temp3);
-          data->lat=atof(temp4);
-        }else if(!strncasecmp(temp2,"ground",6)){
-          if(!gediIO->dontTrustGround){
-            data->gElev=atof(temp3);
-            data->slope=atof(temp4);
-            data->demGround=1;
-          }else data->demGround=0;
-        }
-      }
-      if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
-        if(!strncasecmp(temp2,"density",7)){
-          data->pointDense=atof(temp4);
-          data->beamDense=atof(temp6);
-        }else if(!strncasecmp(temp2,"lvis",4)){
-          data->res=atof(temp4);
-          data->zen=atof(temp6);
-        }
-      }
+      if(gediIO->ground)data->ground[i]=falloc(data->nBins,"ground",0);
     }
-  }/*line loop*/
+    data->useID=0;
+    data->demGround=0;
 
-  if(data->res<=0.0)data->res=gediIO->res;
+    /*rewind to start of file*/
+    if(fseek(ipoo,(long)0,SEEK_SET)){
+      fprintf(stderr,"fseek error\n");
+      exit(1);
+    }
 
-  /*add up energy*/
-  data->totE=falloc(data->nWaveTypes,"",0);
-  for(ind=0;ind<data->nWaveTypes;ind++){
-    data->totE[ind]=0.0;
-    for(i=0;i<data->nBins;i++)data->totE[ind]+=data->wave[ind][i];
-  }
+    /*read data*/
+    numb=ialloc(data->nWaveTypes,"number",0);
+    for(i=0;i<data->nWaveTypes;i++)numb[i]=0;
+    while(fgets(line,400,ipoo)!=NULL){
+      if(strncasecmp(line,"#",1)){
+        if(gediIO->useInt){  /*read intensity*/
+          ind=0;
+          if(gediIO->ground==0){   /*don't read ground*/
+            if(sscanf(line,"%s %s",temp1,temp2)==2){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp2);
+              numb[ind]++;
+            }
+          }else{                   /*read ground*/
+            if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp2);
+              data->ground[ind][numb[ind]]=atof(temp4);
+              numb[ind]++;
+            }
+          }/*ground switch*/
+        }
+        if(gediIO->useFrac){ /*read fraction*/
+          ind=(int)(gediIO->useInt+gediIO->useCount);
+          if(gediIO->ground==0){   /*don't read ground*/
+           if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp3);
+              numb[ind]++;
+            }
+          }else{                   /*read ground*/
+            if(sscanf(line,"%s %s %s %s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10)==10){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp8);
+              data->ground[ind][numb[ind]]=atof(temp10);
+              numb[ind]++;
+            }
+          }/*ground switch*/
+        }
+        if(gediIO->useCount){ /*read count*/
+          ind=(int)gediIO->useInt;
+          if(gediIO->ground==0){   /*don't read ground*/
+            if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp3);
+              numb[ind]++;
+            }
+          }else{                   /*read ground*/
+            if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
+              data->z[numb[ind]]=atof(temp1);
+              data->wave[ind][numb[ind]]=atof(temp5);
+              data->ground[ind][numb[ind]]=atof(temp7);
+              numb[ind]++;
+            }
+          }/*ground switch*/
+        }/*intensity or count switch*/
+      }else{  /*read the header*/
+        if(sscanf(line,"%s %s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6,temp7)==7){
+          if(!strncasecmp(temp2,"fSigma",6)){
+            data->fSigma=atof(temp3);
+            data->pSigma=atof(temp5);
+          }
+        }
+        if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){
+          if(!strncasecmp(temp2,"waveID",6)){
+            data->useID=1;
+            strcpy(&(data->waveID[0]),temp3);
+          }else if(!strncasecmp(temp2,"meanScanAng",11)){
+            data->zen=atof(temp3);
+          }
+        }
+        if(sscanf(line,"%s %s %s %s",temp1,temp2,temp3,temp4)==4){
+          if(!strncasecmp(temp2,"coord",5)){
+            data->lon=atof(temp3);
+            data->lat=atof(temp4);
+          }else if(!strncasecmp(temp2,"ground",6)){
+            if(!gediIO->dontTrustGround){
+              data->gElev=atof(temp3);
+              data->slope=atof(temp4);
+              data->demGround=1;
+            }else data->demGround=0;
+          }
+        }
+        if(sscanf(line,"%s %s %s %s %s %s",temp1,temp2,temp3,temp4,temp5,temp6)==6){
+          if(!strncasecmp(temp2,"density",7)){
+            data->pointDense=atof(temp4);
+            data->beamDense=atof(temp6);
+          }else if(!strncasecmp(temp2,"lvis",4)){
+            data->res=atof(temp4);
+            data->zen=atof(temp6);
+          }
+        }
+      }
+    }/*line loop*/
+    TIDY(numb);
 
-  gediIO->res=gediIO->den->res=gediIO->gFit->res=fabs(data->z[1]-data->z[0]);
-  if(gediIO->den->res<TOL)data->usable=0;
-  if(data->totE[data->useType]<=0.0)data->usable=0;
-  if(gediIO->ground==0){   /*set to blank*/
-    data->cov=-1.0;
-    data->gLap=-1.0;
-    data->gMinimum=-1.0;
-    data->gInfl=-1.0;
-  }
-  if(data->fSigma<0.0)data->fSigma=gediIO->fSigma;
-  if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
+    if(data->res<=0.0)data->res=gediIO->res;
+
+    /*add up energy*/
+    data->totE=falloc(data->nWaveTypes,"",0);
+    for(ind=0;ind<data->nWaveTypes;ind++){
+      data->totE[ind]=0.0;
+      for(i=0;i<data->nBins;i++)data->totE[ind]+=data->wave[ind][i];
+    }
+
+    gediIO->res=gediIO->den->res=gediIO->gFit->res=fabs(data->z[1]-data->z[0]);
+    if(gediIO->den->res<TOL)data->usable=0;
+    if(data->totE[data->useType]<=0.0)data->usable=0;
+    if(gediIO->ground==0){   /*set to blank*/
+      data->cov=-1.0;
+      data->gLap=-1.0;
+      data->gMinimum=-1.0;
+      data->gInfl=-1.0;
+    }
+    if(data->fSigma<0.0)data->fSigma=gediIO->fSigma;
+    if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
+  }/*check there is dara*/
 
   if(ipoo){
     fclose(ipoo);
@@ -220,6 +228,7 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 
 gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 {
+  int i=0;
   gediHDF *hdfData=NULL;
   void trimDataLength(dataStruct **,gediHDF *);
 
@@ -228,10 +237,15 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
     fprintf(stderr,"error control allocation.\n");
     exit(1);
   }
-  hdfData->nWaves=gediIO->nFiles;
+
+  /*count nuber of usable waves*/
+  hdfData->nWaves=0;
+  for(i=0;i<gediIO->nFiles;i++)if(data[i]->usable)hdfData->nWaves++;
+
+  /*per scan*/
   hdfData->pSigma=data[0]->pSigma;
   hdfData->fSigma=data[0]->fSigma;
-  /*beams*/
+  /*per beam*/
   hdfData->z0=falloc(hdfData->nWaves,"top elevations",0);       /*wave elevations*/
   hdfData->zN=falloc(hdfData->nWaves,"bottom elevations",0);       /*wave elevations*/
   hdfData->lon=dalloc(hdfData->nWaves,"lon",0);     /*longitudes*/
@@ -257,7 +271,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 void trimDataLength(dataStruct **data,gediHDF *hdfData)
 {
   int i=0,j=0,maxBins=0,maxID=0;
-  int ind=0;
+  int ind=0,numb=0;;
   uint64_t place=0;
   int *start=NULL,*end=NULL;
   float tot=0,thresh=0,res=0;
@@ -274,6 +288,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
   /*determine start and end of all waves*/
   maxBins=maxID=-1;
   for(i=0;i<hdfData->nWaves;i++){
+    if(!data[i]->usable)continue;
     for(ind=0;ind<data[i]->nWaveTypes;ind++){
       /*total energy for a threshod*/
       tot=0.0;
@@ -327,37 +342,40 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
   hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"wave IDs",0);
 
   /*copy arrays*/
+  numb=0;
   for(i=0;i<hdfData->nWaves;i++){
+    if(!data[i]->usable)continue;
     /*range and resolution*/
     res=fabs(data[i]->z[0]-data[i]->z[data[i]->nBins-1])/(float)(data[i]->nBins-1);
-    hdfData->z0[i]=data[i]->z[start[i]];
-    hdfData->zN[i]=hdfData->z0[i]-(float)hdfData->nBins*res;
+    hdfData->z0[numb]=data[i]->z[start[i]];
+    hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*res;
     /*copy data*/
     for(ind=0;ind<hdfData->nTypeWaves;ind++){
       for(j=start[i];j<end[i];j++){
-        place=(uint64_t)i*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
+        place=(uint64_t)numb*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
         hdfData->wave[ind][place]=data[i]->wave[ind][j];
         hdfData->ground[ind][place]=data[i]->ground[ind][j];
       }
       /*pad end if not long enough*/
       for(j=end[i];j<(maxBins+start[i]);j++){
-        place=(uint64_t)i*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
+        place=(uint64_t)numb*(uint64_t)hdfData->nBins+(uint64_t)j-(uint64_t)start[i];
         hdfData->wave[ind][place]=0.0;
         hdfData->ground[ind][place]=0.0;
       }
     }
 
-    hdfData->lon[i]=data[i]->lon;
-    hdfData->lat[i]=data[i]->lat;
-    hdfData->slope[i]=data[i]->slope;
-    hdfData->cov[i]=data[i]->cov;
-    hdfData->gElev[i]=data[i]->gElev;
-    hdfData->demElev[i]=data[i]->demGround;
-    if(maxID>0)strcpy(&(hdfData->waveID[i*hdfData->idLength]),data[i]->waveID);
-    else       sprintf(&(hdfData->waveID[i*hdfData->idLength]),"%d",i);
-    hdfData->beamDense[i]=data[i]->beamDense;
-    hdfData->pointDense[i]=data[i]->pointDense;
-    hdfData->zen[i]=data[i]->zen;
+    hdfData->lon[numb]=data[i]->lon;
+    hdfData->lat[numb]=data[i]->lat;
+    hdfData->slope[numb]=data[i]->slope;
+    hdfData->cov[numb]=data[i]->cov;
+    hdfData->gElev[numb]=data[i]->gElev;
+    hdfData->demElev[numb]=data[i]->demGround;
+    if(maxID>0)strcpy(&(hdfData->waveID[numb*hdfData->idLength]),data[i]->waveID);
+    else       sprintf(&(hdfData->waveID[numb*hdfData->idLength]),"%d",i);
+    hdfData->beamDense[numb]=data[i]->beamDense;
+    hdfData->pointDense[numb]=data[i]->pointDense;
+    hdfData->zen[numb]=data[i]->zen;
+    numb++;
   }/*wave loop*/
 
   TIDY(start);
@@ -380,15 +398,18 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
   write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1);
   write1dIntHDF5(file,"NBINS",&hdfData->nBins,1);
   write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1);
+  write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1);
   write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
   write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1);
   /*write datasets*/
   write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
   write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves);
-  write1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
-  write1dFloatHDF5(file,"COVER",hdfData->cov,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZGdem",hdfData->demElev,hdfData->nWaves);
+  if(hdfData->ground){
+    write1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
+    write1dFloatHDF5(file,"COVER",hdfData->cov,hdfData->nWaves);
+    write1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
+    if(hdfData->demElev)write1dFloatHDF5(file,"ZGDEM",hdfData->demElev,hdfData->nWaves);
+  }
   write1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
   write1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
   write1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
@@ -400,6 +421,8 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
     write2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[2],hdfData->nWaves,hdfData->nBins);
     if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[2],hdfData->nWaves,hdfData->nBins);
   }else if(hdfData->nTypeWaves==1){
+    fprintf(stderr,"We are not set up for wrinting only one HDF5 wave yet");
+    exit(1);
     write2dFloatHDF5(file,"RXWAVE",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
     if(hdfData->ground)write2dFloatHDF5(file,"GRWAVE",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
   }else{
@@ -421,14 +444,153 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
 
 
 /*####################################################*/
+/*read HDF5 GEDI data into structure*/
+
+gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
+{
+  int nWaves=0,nBins=0;
+  int *tempI=NULL,ind=0;
+  float *tempF=NULL;
+  gediHDF *hdfData=NULL;
+  hid_t file;         /* Handles */
+  void checkNwavesDF(int,int);
+
+  /*allocate space for all*/
+  if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+
+  /*open file*/
+  fprintf(stdout,"Reading %s\n",namen);
+  file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
+
+  /*read the header*/
+  tempF=read1dFloatHDF5(file,"PSIGMA",&nWaves);
+  hdfData->pSigma=*tempF;
+  TIDY(tempF);
+  tempF=read1dFloatHDF5(file,"FSIGMA",&nWaves);
+  hdfData->fSigma=*tempF;
+  TIDY(tempF);
+  tempI=read1dIntHDF5(file,"NWAVES",&nWaves);
+  hdfData->nWaves=*tempI;
+  TIDY(tempI);
+  tempI=read1dIntHDF5(file,"NBINS",&nWaves);
+  hdfData->nBins=*tempI;
+  TIDY(tempI);
+  tempI=read1dIntHDF5(file,"NTYPEWAVES",&nWaves);
+  hdfData->nTypeWaves=*tempI;
+  TIDY(tempI);
+  tempI=read1dIntHDF5(file,"IDLENGTH",&nWaves);
+  hdfData->idLength=*tempI;
+  TIDY(tempI);
+
+  /*read ancillary data*/
+  hdfData->z0=read1dFloatHDF5(file,"Z0",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->zN=read1dFloatHDF5(file,"ZN",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  if(gediIO->ground){
+    hdfData->slope=read1dFloatHDF5(file,"SLOPE",&nWaves);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+    hdfData->cov=read1dFloatHDF5(file,"COV",&nWaves);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+    hdfData->gElev=read1dFloatHDF5(file,"ZG",&nWaves);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+  }
+  hdfData->beamDense=read1dFloatHDF5(file,"BEAMDENSE",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->pointDense=read1dFloatHDF5(file,"POINTDENSE",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->zen=read1dFloatHDF5(file,"INCIDENTANGLE",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->lon=read1dDoubleHDF5(file,"LON0",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->lat=read1dDoubleHDF5(file,"LAT0",&nWaves);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+  hdfData->waveID=read15dCharHDF5(file,"WAVEID",&nWaves,&nBins);
+  checkNwavesDF(nWaves,hdfData->nWaves);
+
+  //float *demElev;  /*ground elevation, DEM*/
+
+
+  /*determine how many waveforms we want to read*/
+  if((int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac)>hdfData->nTypeWaves){
+    fprintf(stderr,"Not enough waveform types for that option set. %d %d",hdfData->nTypeWaves,gediIO->useInt+gediIO->useCount+gediIO->useFrac);
+    exit(1);
+  }else hdfData->nTypeWaves=(int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac);
+
+  /*allocate waveform space*/
+  hdfData->wave=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
+  if(gediIO->ground)hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
+
+  /*read data*/
+  if(gediIO->useInt){
+    ind=0;
+    hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVEINT",&nWaves,&nBins);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+    checkNwavesDF(nBins,hdfData->nBins);
+    if(gediIO->ground){
+      hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVEINT",&nWaves,&nBins);
+      checkNwavesDF(nWaves,hdfData->nWaves);
+      checkNwavesDF(nBins,hdfData->nBins);
+    }
+  }
+  if(gediIO->useCount){
+    ind=(int)gediIO->useInt;
+    hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVECOUNT",&nWaves,&nBins);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+    checkNwavesDF(nBins,hdfData->nBins);
+    if(gediIO->ground){
+      hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVECOUNT",&nWaves,&nBins);
+      checkNwavesDF(nWaves,hdfData->nWaves);
+      checkNwavesDF(nBins,hdfData->nBins);
+    }
+  }
+  if(gediIO->useFrac){
+    ind=(int)(gediIO->useInt+gediIO->useCount);
+    hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVEFRAC",&nWaves,&nBins);
+    checkNwavesDF(nWaves,hdfData->nWaves);
+    checkNwavesDF(nBins,hdfData->nBins);
+    if(gediIO->ground){
+      hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVEFRAC",&nWaves,&nBins);
+      checkNwavesDF(nWaves,hdfData->nWaves);
+      checkNwavesDF(nBins,hdfData->nBins);
+    }
+  }
+
+  /*close file*/
+  if(H5Fclose(file)){
+    fprintf(stderr,"Issue closing file\n");
+    exit(1);
+  }
+  return(hdfData);
+}/*readGediHDF*/
+
+
+/*####################################################*/
+/*check that number of waves match*/
+
+void checkNwavesDF(int nRead,int nWaves)
+{
+  if(nRead!=nWaves){
+    fprintf(stderr,"number of waves mismatch: read %d, expecting %d\n",nRead,nWaves);
+    exit(1);
+  }
+
+  return;
+}/*checkNwavesDF*/
+
+
+/*####################################################*/
 /*tidy GEDI HDF data structire*/
 
 gediHDF *tidyGediHDF(gediHDF *hdfData)
 {
 
   if(hdfData){
-    TIDY(hdfData->wave);
-    TIDY(hdfData->ground);
+    TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
+    TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
     TIDY(hdfData->waveID);
     TIDY(hdfData->z0);       /*wave top elevations*/
     TIDY(hdfData->zN);       /*wave bottom elevations*/
