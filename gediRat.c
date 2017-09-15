@@ -258,6 +258,7 @@ int main(int argc,char **argv)
     /*loop over waveforms*/
     for(i=0;i<dimage->gNx;i++){
       for(j=0;j<dimage->gNy;j++){
+        if(dimage->writeHDF)fprintf(stdout,"Wave %d od %d\n",i*dimage->gNy+j,dimage->gNx*dimage->gNy);
         /*update centre coord*/
         updateCoord(dimage,i,j);
 
