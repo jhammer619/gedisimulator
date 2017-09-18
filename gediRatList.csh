@@ -183,7 +183,10 @@ gawk -v maxPer=$maxPer -f $GEDIRAT_ROOT/awk/splitCoords.awk root="$tempRoot" < $
 @ j=0
 while( $j <= $nReps )
   set input="$tempRoot.$j.coords"
-  if( ! -e $input )continue
+  if( ! -e $input )then
+    @ j++
+    continue
+  endif
 
   set output="$outRoot.$j"
   if( $useHDF )set output="$output.h5"
