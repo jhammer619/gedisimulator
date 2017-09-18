@@ -25,6 +25,9 @@ set maxScanAng=" "
 set polyGround=" "
 set pFile=" "
 set res=" "
+set hdf=" "
+@ maxPer=40000
+set ending="wave"
 
 
 # read options
@@ -121,6 +124,16 @@ while ($#argv>0)
   shift argv
   breaksw
 
+  case -hdf
+    set hdf="-hdf"
+  shift argv
+  breaksw
+
+  case -maxPer
+    @ maxPer=$argv[2]
+  shift argv;shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -141,6 +154,8 @@ while ($#argv>0)
     echo "-checkCover;       check that at least 2/3 of footprint is covered by ALS"
     echo "-maxScanAng ang;   maximimum scan angle to use, degrees"
     echo "-polyGround;       find the ground by fitting polynomial"
+    echo "-hdf;              output in HDF5"
+    echo "-maxPer n;         maximum number of runs per processor"
     echo " "
     exit
 
@@ -153,33 +168,34 @@ while ($#argv>0)
   endsw
 end
 
+set grabDir="butabe"
+if( ! -e $grabDir )mkdir $grabDir
 
 @ nCoords=`wc -l` < $coordList
 
-@ i=1
-while( $i <= $nCoords )
-  set coord=`gawk -v i=$i '{if(NR==i){for(j=1;j<=NF;j++)print $j}}'` < $coordList
-  set x=$coord[1]
-  set y=$coord[2]
-  set waveID=$coord[3]
+# split into sub files
+set tempRoot="gediRatList.$$"
+@ nPer=`echo "$nCoords $nPer"|gawk '{print int($1/$2+1)}'`
+gawk -v nPer=$nPer -f $GEDIRAT_ROOT/awk/splitCoords.awk root="$tempRoot" < $coordList
 
-  set output="$outRoot.$waveID.wave"
-  @ size=1
+@ j=0
+while( $j <= $nPer )
+  set input="$tempRoot.$j.coords"
+  if( ! -e $input )continue
 
-  if( ! -e $output )then
-    touch $output
-    overlapLasFiles.csh -input $inList -coord $x $y -rad 100 -output $temp
-    gediRat -inList $temp -output $output -coord $x $y -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround
+  set output="$outRoot.$j"
+  set grab="$grabDir/$output.grab"
 
-    # check size
-    @ size=`ls -l $output|gawk '{print int($5)}'`
+  if( ! -e $grab )then
+    touch $grab
+    overlapLasFiles.csh -input $inList -coordList $overlapLasFiles.csh -rad 100 -output $temp
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf
   endif
 
   # delete zero sized files
-  if( ! $size )rm $output
   if( -e $temp )rm $temp
-
-  @ i++
+  if( -e $input )rm $input
+  @ j++
 end
 
 echo "Ping"
