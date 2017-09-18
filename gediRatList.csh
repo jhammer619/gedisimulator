@@ -26,6 +26,7 @@ set polyGround=" "
 set pFile=" "
 set res=" "
 set hdf=" "
+@ useHDF=0
 @ maxPer=40000
 set ending="wave"
 
@@ -126,6 +127,7 @@ while ($#argv>0)
 
   case -hdf
     set hdf="-hdf"
+    @ useHDF=1
   shift argv
   breaksw
 
@@ -184,6 +186,7 @@ while( $j <= $nReps )
   if( ! -e $input )continue
 
   set output="$outRoot.$j"
+  if( $useHDF )set output="$output.h5"
   set grab="$grabDir/$output.grab"
 
   if( ! -e $grab )then
