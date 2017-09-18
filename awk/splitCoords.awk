@@ -6,7 +6,7 @@ BEGIN{
   namen=sprintf("%s.%d.coords",root,n);
   print $0 >> namen
 
-  if((numb%nPer)==0)n++;
+  if((numb%maxPer)==0)n++;
   numb++;
 }
 
