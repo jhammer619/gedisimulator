@@ -189,7 +189,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff -waveID $waveID $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf
   endif
 
   # delete zero sized files
