@@ -82,6 +82,9 @@ typedef struct{
   char waveNamen[200];
   char pulseFile[200];
 
+  /*IO structure*/
+  gediIOstruct gediIO; /*generic IO options*/
+
   /*options*/
   char ground;         /*only use ground points*/
   char readWave;       /*read waveform switch*/
@@ -258,7 +261,7 @@ int main(int argc,char **argv)
     /*loop over waveforms*/
     for(i=0;i<dimage->gNx;i++){
       for(j=0;j<dimage->gNy;j++){
-        if(dimage->writeHDF)fprintf(stdout,"Wave %d od %d\n",i*dimage->gNy+j,dimage->gNx*dimage->gNy);
+        if(dimage->writeHDF)fprintf(stdout,"Wave %d of %d\n",i*dimage->gNy+j,dimage->gNx*dimage->gNy);
         /*update centre coord*/
         updateCoord(dimage,i,j);
 
@@ -384,7 +387,7 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData)
   if(dimage->doGrid)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->coord[0],(int)dimage->coord[1]);
   else if(dimage->useID)strcpy(waveID,dimage->waveID);
   else                  sprintf(waveID,"%d",numb);
-  idLength=(hdfData->idLength<(strlen(waveID)+1))?hdfData->idLength:strlen(waveID)+1;
+  idLength=(hdfData->idLength<((int)strlen(waveID)+1))?hdfData->idLength:(int)strlen(waveID)+1;
   memcpy(&hdfData->waveID[numb*hdfData->idLength],waveID,idLength);
 
   /*waveform*/
@@ -1709,6 +1712,9 @@ void setGediGrid(control *dimage)
     dimage->globMaxY=dimage->coord[1]+dimage->maxSep;
   }
 
+  if((dimage->gNx*dimage->gNy)>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->gNx*dimage->gNy/dimage->gediIO.nMessages);
+  else                                                  dimage->gediIO.nMessages=1;
+
   return;
 }/*setGediGrid*/
 
@@ -1754,13 +1760,13 @@ void readFeetList(control *dimage)
       if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){ /*read coord and waveID*/
         dimage->coords[i][0]=atof(temp1);
         dimage->coords[i][1]=atof(temp2);
-        dimage->waveIDlist[i]=challoc(strlen(temp3)+1,"wave ID list",i+1);
+        dimage->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
         strcpy(dimage->waveIDlist[i],temp3);
       }else if(sscanf(line,"%s %s",temp1,temp2)==2){
         dimage->coords[i][0]=atof(temp1);
         dimage->coords[i][1]=atof(temp2);
         sprintf(temp3,"%f.%f",dimage->coords[i][0],dimage->coords[i][1]);
-        dimage->waveIDlist[i]=challoc(strlen(temp3)+1,"wave ID list",i+1);
+        dimage->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
         strcpy(dimage->waveIDlist[i],temp3);
       }else{
         fprintf(stderr,"coord list reading error \"%s\"\n",line);
@@ -2047,13 +2053,13 @@ gediHDF *setUpHDF(control *dimage)
   /*max id label length*/
   if(dimage->useID){
     if(dimage->doGrid){
-      hdfData->idLength=strlen(dimage->waveID)+1+20;
+      hdfData->idLength=(int)strlen(dimage->waveID)+1+20;
     }else if(dimage->waveIDlist){
       hdfData->idLength=-1;
       for(i=0;i<hdfData->nWaves;i++){
-        if((strlen(dimage->waveIDlist[i])+1)>hdfData->idLength)hdfData->idLength=strlen(dimage->waveIDlist[i])+1;
+        if(((int)strlen(dimage->waveIDlist[i])+1)>hdfData->idLength)hdfData->idLength=(int)strlen(dimage->waveIDlist[i])+1;
       }
-    }else hdfData->idLength=strlen(dimage->waveID)+1;
+    }else hdfData->idLength=(int)strlen(dimage->waveID)+1;
   }else hdfData->idLength=7;
 
   if(dimage->readPulse){
@@ -2083,7 +2089,7 @@ gediHDF *setUpHDF(control *dimage)
   hdfData->beamDense=falloc(hdfData->nWaves,"hdf beamDense",0);
   hdfData->pointDense=falloc(hdfData->nWaves,"hdf pointDense",0);
   hdfData->zen=falloc(hdfData->nWaves,"hdf zen",0);
-  hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"hdf zen",0);
+  hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"hdf waveID",0);
 
   return(hdfData);
 }/*setUpHDF*/
@@ -2145,7 +2151,7 @@ control *readCommands(int argc,char **argv)
   dimage->coords=NULL;       /*list of coordinates*/
   dimage->waveIDlist=NULL;   /*list of waveform IDs*/
   dimage->maxBins=1024;      /*to match LVIS*/
-
+  dimage->gediIO.nMessages=200;
 
   dimage->iThresh=0.0006;
   dimage->meanN=12.0;
