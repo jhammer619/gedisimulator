@@ -175,7 +175,7 @@ if( ! -e $grabDir )mkdir $grabDir
 
 # split into sub files
 set tempRoot="gediRatList.$$"
-@ nPer=`echo "$nCoords $nPer"|gawk '{print int($1/$2+1)}'`
+@ nPer=`echo "$nCoords $maxPer"|gawk '{print int($1/$2+1)}'`
 gawk -v nPer=$nPer -f $GEDIRAT_ROOT/awk/splitCoords.awk root="$tempRoot" < $coordList
 
 @ j=0
