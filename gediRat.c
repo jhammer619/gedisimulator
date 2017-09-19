@@ -221,7 +221,7 @@ int main(int argc,char **argv)
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
   void updateCoord(control *,int,int);
   void checkWaveOverwrite(control *,int);
-  void packGEDIhdf(control *,waveStruct *,gediHDF *);
+  void packGEDIhdf(control *,waveStruct *,gediHDF *,int);
 
  
   /*read command line*/
@@ -283,7 +283,7 @@ int main(int argc,char **argv)
           if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
           /*output results*/
-          if(dimage->writeHDF)packGEDIhdf(dimage,waves,hdfData);
+          if(dimage->writeHDF)packGEDIhdf(dimage,waves,hdfData,i);
           else                writeGEDIwave(dimage,waves,i);
         }
 
@@ -332,7 +332,7 @@ int main(int argc,char **argv)
 /*##############################################*/
 /*copy waveform into HDF structure*/
 
-void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData)
+void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb)
 {
   int i=0,j=0,start=0,numb=0;
   int nBins=0,idLength=0;
@@ -385,6 +385,7 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData)
 
   /*ID*/
   if(dimage->doGrid)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->coord[0],(int)dimage->coord[1]);
+  else if(dimage->waveIDlist)strcpy(waveID,dimage->waveIDlist[waveNumb]);
   else if(dimage->useID)strcpy(waveID,dimage->waveID);
   else                  sprintf(waveID,"%d",numb);
   idLength=(hdfData->idLength<((int)strlen(waveID)+1))?hdfData->idLength:(int)strlen(waveID)+1;
