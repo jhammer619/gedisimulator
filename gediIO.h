@@ -84,6 +84,7 @@ typedef struct{
   char useCount;    /*use no weighting*/
   char useFrac;     /*use fraction of hits per beam for weighting*/
   char dontTrustGround; /*don't trust ground included with waveforms*/
+  char readPsigma;   /*read psigma from files or not*/
 
   /*denoising parameters*/
   denPar *den;   /*for denoising*/
@@ -135,6 +136,8 @@ typedef struct{
 
 dataStruct **tidyAsciiStruct(dataStruct **,int);
 dataStruct *readASCIIdata(char *,gediIOstruct *);
+dataStruct *unpackHDFlvis(char *,lvisHDF *,gediIOstruct *,int);
+dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 void writeGEDIhdf(gediHDF *,char *);
 gediHDF *readGediHDF(char *,gediIOstruct *);

@@ -91,7 +91,6 @@ typedef struct{
   char readBinLVIS;  /*read binary LVIS rather than a list of ASCII files*/
   char readHDFlvis;  /*read HDF5 LVIS rather than ASCII*/
   char readHDFgedi;  /*read HDF5 GEDI rather than ASCII*/
-  char readPsigma;   /*read psigma from files or not*/
   char coord2dp;     /*round up coords to 2dp when writing*/
   char useBounds;    /*when we will process only a subset of bounds*/
   char writeGauss;   /*write Gaussian parameters*/
@@ -119,8 +118,6 @@ typedef struct{
   float newPsig;   /*new pulse sigma*/
 
   /*LVIS or HDF data*/
-  int verMaj;           /*major version*/
-  int verMin;           /*minor version*/
   lvisLGWstruct lvis;   /*LVIS lgw structure*/
   lvisHDF *hdfLvis;     /*LVIS HDF5 structure*/
   lvisL2struct *lvisL2; /*LVIS level2 data*/
@@ -196,8 +193,6 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
-  dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,control *);
-  dataStruct *unpackHDFlvis(char *,control *,int);
   dataStruct *unpackHDFgedi(char *,control *,int);
   metStruct *metric=NULL;
   void setL2ground(dataStruct *,int,control *);
@@ -231,8 +226,8 @@ int main(int argc,char **argv)
     if((i%dimage->gediIO.nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
 
     /*read waveform*/
-    if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,dimage);
-    else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],dimage,i);
+    if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,&dimage->gediIO);
+    else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],dimage->hdfLvis,&dimage->gediIO,i);
     else if(dimage->readHDFgedi)data=unpackHDFgedi(dimage->gediIO.inList[0],dimage,i);
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);
@@ -1679,212 +1674,6 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
 
 
 /*####################################################*/
-/*read LVIS HDF file*/
-
-dataStruct *unpackHDFlvis(char *namen,control *dimage,int numb)
-{
-  int i=0;
-  dataStruct *data=NULL;
-  float *tempPulse=NULL;
-  float pulseLenFromTX(float *,int);
-
-  /*read data if needed*/
-  if(dimage->hdfLvis==NULL){
-    dimage->hdfLvis=readLVIShdf(namen);
-    dimage->gediIO.nFiles=dimage->hdfLvis->nWaves;
-    dimage->gediIO.ground=0;
-  }
-
-  /*allocate space*/
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error control allocation.\n");
-    exit(1);
-  }
-  data->useID=1;
-  data->nBins=dimage->hdfLvis->nBins;
-  data->nWaveTypes=1;
-  data->useType=0;
-  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[0]=falloc(data->nBins,"waveform",0);
-  data->totE=falloc(data->nWaveTypes,"totE",0);
-  data->z=dalloc(data->nBins,"z",0);
-  data->ground=NULL;
-  data->demGround=0;
-  data->pSigma=-1.0;    /*nonesense pulse length*/
-  data->fSigma=-1.0;    /*nonesense footprint width*/
-  data->usable=1;
-
-  /*copy data to structure*/
-  data->zen=dimage->hdfLvis->zen[numb];
-  data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=fabs(dimage->hdfLvis->z0[numb]-dimage->hdfLvis->z1023[numb])/(float)dimage->hdfLvis->nBins;
-  data->totE[data->useType]=0.0;
-  for(i=0;i<dimage->hdfLvis->nBins;i++){
-    data->wave[data->useType][i]=(float)dimage->hdfLvis->wave[numb][i];
-    data->z[i]=(double)(dimage->hdfLvis->z0[numb]-(float)i*data->res);
-    data->totE[data->useType]+=data->wave[data->useType][i];
-  }
-  if(dimage->gediIO.den->res<TOL)data->usable=0;
-  if(data->totE[data->useType]<=0.0)data->usable=0;
-  if(dimage->gediIO.ground==0){   /*set to blank*/
-    data->cov=-1.0;
-    data->gLap=-1.0;
-    data->gMinimum=-1.0;
-    data->gInfl=-1.0;
-  }
-  data->lon=(dimage->hdfLvis->lon0[numb]+dimage->hdfLvis->lon1023[numb])/2.0;
-  data->lat=(dimage->hdfLvis->lat0[numb]+dimage->hdfLvis->lat1023[numb])/2.0;
-  data->lfid=dimage->hdfLvis->lfid[numb];
-  data->shotN=dimage->hdfLvis->shotN[numb];
-  sprintf(data->waveID,"%d.%d",dimage->hdfLvis->lfid[numb],dimage->hdfLvis->shotN[numb]);
-
-  /*analyse pulse*/
-  if(dimage->readPsigma){
-    tempPulse=falloc(dimage->hdfLvis->pBins,"temp pulse",0);
-    for(i=0;i<dimage->hdfLvis->pBins;i++)tempPulse[i]=(float)dimage->hdfLvis->pulse[numb][i];
-    data->pSigma=pulseLenFromTX(tempPulse,dimage->hdfLvis->pBins);
-    TIDY(tempPulse);
-  }else data->pSigma=dimage->gediIO.pSigma;
-
-  if(data->fSigma<0.0)data->fSigma=dimage->gediIO.fSigma;
-  if(data->pSigma<0.0)data->pSigma=dimage->gediIO.pSigma;
-
-  /*set up number of messages*/
-  if(dimage->hdfLvis->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdfLvis->nWaves/dimage->gediIO.nMessages);
-  else                                     dimage->gediIO.nMessages=1;
-
-  return(data);
-}/*unpackHDFlvis*/
-
-
-/*####################################################*/
-/*read LVIS binary data*/
-
-dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,control *dimage)
-{
-  int i=0;
-  dataStruct *data=NULL;
-  float *tempPulse=NULL;
-  float pulseLenFromTX(float *,int);
-
-  /*do we need to read all the data*/
-  if(lvis->data==NULL){
-    lvis->verMaj=dimage->verMaj;
-    lvis->verMin=dimage->verMin;
-    /*check version number*/
-    if((lvis->verMaj!=1)||(lvis->verMin!=3)){
-      fprintf(stderr,"Currently only works for version 1.3, not %d.%d\n",lvis->verMaj,lvis->verMin);
-      exit(1);
-    }
-    /*read data*/
-    lvis->nBins=432;
-    lvis->data=readLVISlgw(namen,&lvis->nWaves);
-    dimage->gediIO.nFiles=lvis->nWaves;
-  }
-
-
-  /*allocate space*/
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error control allocation.\n");
-    exit(1);
-  }
-  data->useID=1;
-  data->nBins=lvis->nBins;
-  data->useType=0;
-  data->nWaveTypes=1;
-  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[data->useType]=falloc(data->nBins,"waveform",0);
-  data->z=dalloc(data->nBins,"z",0);
-  data->ground=NULL;
-  data->demGround=0;
-  data->pSigma=-1.0;    /*nonesense pulse length*/
-  data->fSigma=-1.0;    /*nonesense footprint width*/
-  data->usable=1;
-  data->totE=falloc(data->nWaveTypes,"totE",0);
-
-  /*copy data to structure*/
-  data->zen=lvis->data[numb].zen;
-  data->res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
-  data->totE[data->useType]=0.0;
-  for(i=0;i<lvis->nBins;i++){
-    data->wave[data->useType][i]=(float)lvis->data[numb].rxwave[i];
-    data->z[i]=(double)(lvis->data[numb].z0-(float)i*data->res);
-    data->totE[data->useType]+=data->wave[data->useType][i];
-  }
-  if(dimage->gediIO.den->res<TOL)data->usable=0;
-  if(data->totE[data->useType]<=0.0)data->usable=0;
-  if(dimage->gediIO.ground==0){   /*set to blank*/
-    data->cov=-1.0;
-    data->gLap=-1.0;
-    data->gMinimum=-1.0;
-    data->gInfl=-1.0;
-  }
-  data->lon=(lvis->data[numb].lon0+lvis->data[numb].lon431)/2.0;
-  data->lat=(lvis->data[numb].lat0+lvis->data[numb].lat431)/2.0;
-  sprintf(data->waveID,"%d.%d",lvis->data[numb].lfid,lvis->data[numb].shotN);
-
-  /*analyse pulse*/
-  if(dimage->readPsigma){
-    tempPulse=falloc(80,"temp pulse",0);
-    for(i=0;i<80;i++)tempPulse[i]=(float)lvis->data[numb].rxwave[i];
-    data->pSigma=pulseLenFromTX(tempPulse,80);
-    TIDY(tempPulse);
-  }else data->pSigma=dimage->gediIO.pSigma;
-
-  if(data->fSigma<0.0)data->fSigma=dimage->gediIO.fSigma;
-  if(data->pSigma<0.0)data->pSigma=dimage->gediIO.pSigma;
-
-
-  /*set up number of messages*/
-  if(lvis->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(lvis->nWaves/dimage->gediIO.nMessages);
-  else                              dimage->gediIO.nMessages=1;
-
-  return(data);
-}/*readBinaryLVIS*/
-
-
-/*####################################################*/
-/*determine pulse width from TXwave*/
-
-float pulseLenFromTX(float *pulse,int nBins)
-{
-  int i=0;
-  float pSigma=0;
-  float *denoised=NULL;
-  float tot=0,CofG=0;
-  denPar den;
-  void setDenoiseDefault(denPar *);
-
-  /*denoise*/
-  setDenoiseDefault(&den);
-  den.varNoise=1;
-  den.threshScale=5.0;
-  den.noiseTrack=1;
-  den.minWidth=5;
-  den.statsLen=3.0;
-  den.res=0.15;
-  denoised=processFloWave(pulse,nBins,&den,1.0);
-
-  /*CofG*/
-  CofG=tot=0.0;
-  for(i=0;i<nBins;i++){
-    CofG+=(float)i*den.res*denoised[i];
-    tot+=denoised[i];
-  }
-  if(tot>0.0){
-    CofG/=tot;
-
-    pSigma=0.0;
-    for(i=0;i<nBins;i++)pSigma+=((float)i*den.res*denoised[i]-CofG)*((float)i*den.res*denoised[i]-CofG);
-    pSigma=sqrt(pSigma/tot);
-
-  }else pSigma=-1.0;
-
-  TIDY(denoised);
-  return(pSigma);
-}/*pulseLenFromTX*/
-
-
-/*####################################################*/
 /*read or copy LVIS L2 data*/
 
 void setL2ground(dataStruct *data,int numb,control *dimage)
@@ -2060,7 +1849,7 @@ control *readCommands(int argc,char **argv)
   dimage->readBinLVIS=0;      /*read ASCII rather than binary LVIS*/
   dimage->readHDFlvis=0;      /*read ASCII rather than HDF5 LVIS*/
   dimage->readHDFgedi=0;      /*read ASCII rather than HDF5 GEDI*/
-  dimage->readPsigma=1;       /*read pSigma from file*/
+  dimage->gediIO.readPsigma=1;       /*read pSigma from file*/
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
   dimage->writeGauss=0;       /*do not write Gaussian parameters*/
@@ -2094,8 +1883,6 @@ control *readCommands(int argc,char **argv)
   dimage->hNoise=0.0;
   dimage->offset=94.0;
   /*LVIS data*/
-  dimage->verMaj=1;  /*major version*/
-  dimage->verMin=3;  /*minor version*/
   dimage->lvis.data=NULL;
   dimage->hdfLvis=NULL;
   /*LVIS level2 data*/
@@ -2256,7 +2043,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-readHDFgedi",12)){
         dimage->readHDFgedi=1;
       }else if(!strncasecmp(argv[i],"-forcePsigma",12)){
-        dimage->readPsigma=0;
+        dimage->gediIO.readPsigma=0;
       }else if(!strncasecmp(argv[i],"-noRoundCoord",13)){
         dimage->coord2dp=0;
       }else if(!strncasecmp(argv[i],"-bounds",7)){

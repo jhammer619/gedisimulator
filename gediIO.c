@@ -622,6 +622,212 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
   return(hdfData);
 }/*tidyHDFdata*/
 
+
+/*####################################################*/
+/*read LVIS HDF file*/
+
+dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int numb)
+{
+  int i=0;
+  dataStruct *data=NULL;
+  float *tempPulse=NULL;
+  float pulseLenFromTX(float *,int);
+
+  /*read data if needed*/
+  if(hdfLvis==NULL){
+    hdfLvis=readLVIShdf(namen);
+    gediIO->nFiles=hdfLvis->nWaves;
+    gediIO->ground=0;
+  }
+
+  /*allocate space*/
+  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+  data->useID=1;
+  data->nBins=hdfLvis->nBins;
+  data->nWaveTypes=1;
+  data->useType=0;
+  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
+  data->wave[0]=falloc(data->nBins,"waveform",0);
+  data->totE=falloc(data->nWaveTypes,"totE",0);
+  data->z=dalloc(data->nBins,"z",0);
+  data->ground=NULL;
+  data->demGround=0;
+  data->pSigma=-1.0;    /*nonesense pulse length*/
+  data->fSigma=-1.0;    /*nonesense footprint width*/
+  data->usable=1;
+
+  /*copy data to structure*/
+  data->zen=hdfLvis->zen[numb];
+  data->res=gediIO->den->res=gediIO->gFit->res=fabs(hdfLvis->z0[numb]-hdfLvis->z1023[numb])/(float)hdfLvis->nBins;
+  data->totE[data->useType]=0.0;
+  for(i=0;i<hdfLvis->nBins;i++){
+    data->wave[data->useType][i]=(float)hdfLvis->wave[numb][i];
+    data->z[i]=(double)(hdfLvis->z0[numb]-(float)i*data->res);
+    data->totE[data->useType]+=data->wave[data->useType][i];
+  }
+  if(gediIO->den->res<TOL)data->usable=0;
+  if(data->totE[data->useType]<=0.0)data->usable=0;
+  if(gediIO->ground==0){   /*set to blank*/
+    data->cov=-1.0;
+    data->gLap=-1.0;
+    data->gMinimum=-1.0;
+    data->gInfl=-1.0;
+  }
+  data->lon=(hdfLvis->lon0[numb]+hdfLvis->lon1023[numb])/2.0;
+  data->lat=(hdfLvis->lat0[numb]+hdfLvis->lat1023[numb])/2.0;
+  data->lfid=hdfLvis->lfid[numb];
+  data->shotN=hdfLvis->shotN[numb];
+  sprintf(data->waveID,"%d.%d",hdfLvis->lfid[numb],hdfLvis->shotN[numb]);
+
+  /*analyse pulse*/
+  if(gediIO->readPsigma){
+    tempPulse=falloc(hdfLvis->pBins,"temp pulse",0);
+    for(i=0;i<hdfLvis->pBins;i++)tempPulse[i]=(float)hdfLvis->pulse[numb][i];
+    data->pSigma=pulseLenFromTX(tempPulse,hdfLvis->pBins);
+    TIDY(tempPulse);
+  }else data->pSigma=gediIO->pSigma;
+
+  if(data->fSigma<0.0)data->fSigma=gediIO->fSigma;
+  if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
+
+  /*set up number of messages*/
+  if(hdfLvis->nWaves>gediIO->nMessages)gediIO->nMessages=(int)(hdfLvis->nWaves/gediIO->nMessages);
+  else                                 gediIO->nMessages=1;
+
+  return(data);
+}/*unpackHDFlvis*/
+
+
+/*####################################################*/
+/*determine pulse width from TXwave*/
+
+float pulseLenFromTX(float *pulse,int nBins)
+{
+  int i=0;
+  float pSigma=0;
+  float *denoised=NULL;
+  float tot=0,CofG=0;
+  denPar den;
+  void setDenoiseDefault(denPar *);
+
+  /*denoise*/
+  setDenoiseDefault(&den);
+  den.varNoise=1;
+  den.threshScale=5.0;
+  den.noiseTrack=1;
+  den.minWidth=5;
+  den.statsLen=3.0;
+  den.res=0.15;
+  denoised=processFloWave(pulse,nBins,&den,1.0);
+
+  /*CofG*/
+  CofG=tot=0.0;
+  for(i=0;i<nBins;i++){
+    CofG+=(float)i*den.res*denoised[i];
+    tot+=denoised[i];
+  }
+  if(tot>0.0){
+    CofG/=tot;
+
+    pSigma=0.0;
+    for(i=0;i<nBins;i++)pSigma+=((float)i*den.res*denoised[i]-CofG)*((float)i*den.res*denoised[i]-CofG);
+    pSigma=sqrt(pSigma/tot);
+
+  }else pSigma=-1.0;
+
+  TIDY(denoised);
+  return(pSigma);
+}/*pulseLenFromTX*/
+
+
+/*####################################################*/
+/*read LVIS binary data*/
+
+dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct *gediIO)
+{
+  int i=0;
+  dataStruct *data=NULL;
+  float *tempPulse=NULL;
+  float pulseLenFromTX(float *,int);
+
+  /*do we need to read all the data*/
+  if(lvis->data==NULL){
+    lvis->verMaj=1; /*dimage->verMaj;*/
+    lvis->verMin=3; /*dimage->verMin;*/
+    /*check version number*/
+    if((lvis->verMaj!=1)||(lvis->verMin!=3)){
+      fprintf(stderr,"Currently only works for version 1.3, not %d.%d\n",lvis->verMaj,lvis->verMin);
+      exit(1);
+    }
+    /*read data*/
+    lvis->nBins=432;
+    lvis->data=readLVISlgw(namen,&lvis->nWaves);
+    gediIO->nFiles=lvis->nWaves;
+  }
+
+
+  /*allocate space*/
+  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+  data->useID=1;
+  data->nBins=lvis->nBins;
+  data->useType=0;
+  data->nWaveTypes=1;
+  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
+  data->wave[data->useType]=falloc(data->nBins,"waveform",0);
+  data->z=dalloc(data->nBins,"z",0);
+  data->ground=NULL;
+  data->demGround=0;
+  data->pSigma=-1.0;    /*nonesense pulse length*/
+  data->fSigma=-1.0;    /*nonesense footprint width*/
+  data->usable=1;
+  data->totE=falloc(data->nWaveTypes,"totE",0);
+
+  /*copy data to structure*/
+  data->zen=lvis->data[numb].zen;
+  data->res=gediIO->den->res=gediIO->gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
+  data->totE[data->useType]=0.0;
+  for(i=0;i<lvis->nBins;i++){
+    data->wave[data->useType][i]=(float)lvis->data[numb].rxwave[i];
+    data->z[i]=(double)(lvis->data[numb].z0-(float)i*data->res);
+    data->totE[data->useType]+=data->wave[data->useType][i];
+  }
+  if(gediIO->den->res<TOL)data->usable=0;
+  if(data->totE[data->useType]<=0.0)data->usable=0;
+  if(gediIO->ground==0){   /*set to blank*/
+    data->cov=-1.0;
+    data->gLap=-1.0;
+    data->gMinimum=-1.0;
+    data->gInfl=-1.0;
+  }
+  data->lon=(lvis->data[numb].lon0+lvis->data[numb].lon431)/2.0;
+  data->lat=(lvis->data[numb].lat0+lvis->data[numb].lat431)/2.0;
+  sprintf(data->waveID,"%d.%d",lvis->data[numb].lfid,lvis->data[numb].shotN);
+
+  /*analyse pulse*/
+  if(gediIO->readPsigma){
+    tempPulse=falloc(80,"temp pulse",0);
+    for(i=0;i<80;i++)tempPulse[i]=(float)lvis->data[numb].rxwave[i];
+    data->pSigma=pulseLenFromTX(tempPulse,80);
+    TIDY(tempPulse);
+  }else data->pSigma=gediIO->pSigma;
+
+  if(data->fSigma<0.0)data->fSigma=gediIO->fSigma;
+  if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
+
+
+  /*set up number of messages*/
+  if(lvis->nWaves>gediIO->nMessages)gediIO->nMessages=(int)(lvis->nWaves/gediIO->nMessages);
+  else                              gediIO->nMessages=1;
+
+  return(data);
+}/*readBinaryLVIS*/
+
 /*the end*/
 /*####################################################*/
 
