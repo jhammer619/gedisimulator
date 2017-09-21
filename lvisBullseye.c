@@ -104,6 +104,28 @@ int main(int argc,char **argv)
 
   /*tidy up*/
   if(dimage){
+    TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
+    TTIDY((void **)dimage->simIO.inList,dimage->simIO.nFiles);
+    if(dimage->lvisIO.den){
+      TTIDY((void **)dimage->lvisIO.den->pulse,2);
+      TIDY(dimage->lvisIO.den->matchPulse);
+      TIDY(dimage->lvisIO.den->hardPulse);
+      TIDY(dimage->lvisIO.den);
+    }
+    if(dimage->lvisIO.gFit){
+      TTIDY((void **)dimage->lvisIO.gFit->pulse,2);
+      TIDY(dimage->lvisIO.gFit);
+    }
+    if(dimage->simIO.den){
+      TTIDY((void **)dimage->simIO.den->pulse,2);
+      TIDY(dimage->simIO.den->matchPulse);
+      TIDY(dimage->simIO.den->hardPulse);
+      TIDY(dimage->simIO.den);
+    }
+    if(dimage->simIO.gFit){
+      TTIDY((void **)dimage->simIO.gFit->pulse,2);
+      TIDY(dimage->simIO.gFit);
+    }
     TIDY(dimage);
   }
   return(0);
@@ -173,8 +195,8 @@ void reprojectBounds(control *dimage,double *bounds)
 
     hSourceSRS=OSRNewSpatialReference(NULL);
     hTargetSRS=OSRNewSpatialReference(NULL);
-    err=OSRImportFromEPSG(hTargetSRS,dimage->aEPSG);
-    err=OSRImportFromEPSG(hSourceSRS,dimage->lEPSG);
+    err=OSRImportFromEPSG(hTargetSRS,dimage->lEPSG);
+    err=OSRImportFromEPSG(hSourceSRS,dimage->aEPSG);
     hTransform=OCTNewCoordinateTransformation(hSourceSRS,hTargetSRS);
     OCTTransform(hTransform,2,x,y,z);
     OCTDestroyCoordinateTransformation(hTransform);

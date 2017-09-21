@@ -661,7 +661,9 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
 
   /*copy data to structure*/
   data->zen=hdfLvis->zen[numb];
-  data->res=gediIO->den->res=gediIO->gFit->res=fabs(hdfLvis->z0[numb]-hdfLvis->z1023[numb])/(float)hdfLvis->nBins;
+  data->res=fabs(hdfLvis->z0[numb]-hdfLvis->z1023[numb])/(float)hdfLvis->nBins;
+  if(gediIO->den)gediIO->den->res=data->res;
+  if(gediIO->gFit)gediIO->gFit->res=data->res;
   data->totE[data->useType]=0.0;
   for(i=0;i<hdfLvis->nBins;i++){
     data->wave[data->useType][i]=(float)hdfLvis->wave[numb][i];
@@ -694,7 +696,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
   if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
 
   /*set up number of messages*/
-  if(hdfLvis->nWaves>gediIO->nMessages)gediIO->nMessages=(int)(hdfLvis->nWaves/gediIO->nMessages);
+  if((gediIO->nMessages>0)&&(hdfLvis->nWaves>gediIO->nMessages))gediIO->nMessages=(int)(hdfLvis->nWaves/gediIO->nMessages);
   else                                 gediIO->nMessages=1;
 
   return(data);
