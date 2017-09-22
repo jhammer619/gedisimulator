@@ -32,6 +32,28 @@
 /*########################################################################*/
 
 
+/*####################################*/
+/*pulse structure*/
+
+typedef struct{
+  int nBins;
+  int centBin;  /*peak bin*/
+  float *y;
+  float *x;
+}pulseStruct;
+               
+
+/*####################################*/
+/*lobe structure*/
+
+typedef struct{
+  double coord[2];  /*central coordinate*/
+  float E;          /*fraction of energy here*/
+  float fSigma;     /*footprint sigma*/
+  double maxSepSq;  /*maximum distance from footprint needed*/
+}lobeStruct;
+
+
 /*###########################################################*/
 /*data structure*/
 
@@ -90,10 +112,17 @@ typedef struct{
   denPar *den;   /*for denoising*/
   denPar *gFit;  /*for Gaussian fitting*/
 
-  /*pulse parameters*/
+  /*lidar parameters*/
+  float pFWHM;     /*pulse width in ns*/
   float pSigma;    /*pulse length*/
   float fSigma;    /*footprint width*/
   float res;      /*range resolution*/
+
+  /*system pulse*/
+  char readPulse;      /*read pulse to simulate with*/
+  char pulseFile[200];
+  pulseStruct *pulse;
+  float pRes;
 
   /*others*/
   int nMessages;  /*number of progress messages*/
@@ -109,6 +138,9 @@ typedef struct{
   char readWave;       /*read waveform switch*/
   char useShadow;      /*account for shadowing through voxelisation*/
   char topHat;       /*use a top hat wavefront rather than Gaussian*/
+  char normCover;      /*normalise for variable ALS coverage*/
+  char checkCover;     /*check that the whole footprit is covered by data*/
+  char useFootprint;   /*use footprint or not flag*/
 
   /*coordinates*/
   double coord[2];
@@ -117,6 +149,16 @@ typedef struct{
   char coordList[200]; /*list of coordinates*/
   char **waveIDlist;   /*list of waveform IDs*/
   double **coords;     /*list of coordinates*/
+
+  /*GEDI footprint parameters, per footprint*/
+  char sideLobe;     /*side lobe switch*/
+  float lobeAng;     /*lobe major axis, degrees*/
+  int nLobes;        /*number of side lobes*/
+  lobeStruct *lobe;  /*lobe structure*/
+  double minX;       /*minimum latitude of interest*/
+  double maxX;       /*maximum latitude of interest*/
+  double minY;       /*minimum longitude of interest*/
+  double maxY;       /*maximum longitude of interest*/
 
   /*global area of interest*/
   double globMinX;
@@ -133,6 +175,18 @@ typedef struct{
   double gMaxY;        /*maximum y of grid*/
   int gNx;             /*number of x steps*/
   int gNy;             /*number of y steps*/
+
+  /*grid to normalise sampling density*/
+  int *nGrid;    /*beam per grid cell*/
+  int gX;
+  int gY;
+  float gridRes;
+  double g0[2];  /*grid origin*/
+
+  /*point and beam density*/
+  float denseRadSq; /*radius to calculate density within*/
+  float pointDense; /*point density within 2 sigma*/
+  float beamDense;  /*beam density within 2 sigma*/
 
   /*others*/
   double maxSep;   /*maximum acceptable separation*/
@@ -180,11 +234,14 @@ dataStruct *readASCIIdata(char *,gediIOstruct *);
 dataStruct *unpackHDFlvis(char *,lvisHDF *,gediIOstruct *,int);
 dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
-void writeGEDIhdf(gediHDF *,char *);
 gediHDF *readGediHDF(char *,gediIOstruct *);
 gediHDF *tidyGediHDF(gediHDF *);
 pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat);
 void setGediGrid(gediIOstruct *,gediRatStruct *);
+void setGediPulse(gediIOstruct *,gediRatStruct *);
+void writeGEDIhdf(gediHDF *,char *);
+void setGediFootprint(gediRatStruct *,gediIOstruct *);
+void updateGediCoord(gediRatStruct *,int,int);
 
 /*# the end*/
 /*###########################################################*/

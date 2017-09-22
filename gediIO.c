@@ -1113,6 +1113,7 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
   void setRatBounds(gediRatStruct *);
 
   /*footprint width*/
+fprintf(stdout,"bits %f %f\n",gediIO->fSigma,gediRat->iThresh);
   if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
   else                  gediRat->maxSep=gediIO->fSigma;
 
@@ -1237,6 +1238,320 @@ void readFeetList(gediRatStruct *gediRat)
   }
   return;
 }/*readFeetList*/
+
+
+/*####################################*/
+/*set GEDI pulse*/
+
+void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
+{
+  int i=0;
+  float fwhm=0;   /*FWHM in metres*/
+  float x=0,y=0;
+  float max=0,tot=0;
+  void readSimPulse(gediIOstruct *,gediRatStruct *);
+
+
+  if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
+    fprintf(stderr,"error pulseStruct allocation.\n");
+    exit(1);
+  }
+
+
+  if(gediIO->readPulse==0){  /*Gaussian pulse*/
+    /*pulse length*/
+    /*calculate sigma from FWHM*/
+    if(gediIO->pSigma<0.0){  /*GEDI unless specificed*/
+      fwhm=gediIO->pFWHM*0.2998/2.0;  /*time for two way*/
+      gediIO->pSigma=fwhm/2.35482;  /* =2*sqrt(2*ln2) */
+    }
+
+    if(gediIO->pSigma>0.0){  /*if we are using a pulse width*/
+      /*determine number of bins*/
+      gediIO->pulse->nBins=0;
+      x=0.0;
+      do{
+        y=(float)gaussian((double)x,(double)gediIO->pSigma,0.0);
+        x+=gediIO->pRes;
+        gediIO->pulse->nBins+=2;  /*both sides of peak*/
+      }while(y>=gediRat->iThresh);
+
+      gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
+      gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+      gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);
+
+      max=-100.0;
+      tot=0.0;
+      x=-1.0*(float)gediIO->pulse->centBin*gediIO->pRes;
+      for(i=0;i<gediIO->pulse->nBins;i++){
+        gediIO->pulse->x[i]=x;
+        gediIO->pulse->y[i]=(float)gaussian((double)x,(float)gediIO->pSigma,0.0);
+        if(gediIO->pulse->y[i]>max){
+          max=gediIO->pulse->y[i];
+          gediIO->pulse->centBin=i;
+        }
+        tot+=gediIO->pulse->y[i];
+        x+=gediIO->pRes;
+      }
+      /*normalise to cope with rounding*/
+      for(i=0;i<gediIO->pulse->nBins;i++){
+        gediIO->pulse->y[i]/=tot;
+      }
+    }else{  /*dirac-delta*/
+      gediIO->pulse->nBins=1;
+      gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
+      gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+      gediIO->pulse->centBin=0;
+
+      gediIO->pulse->x[0]=0.0;
+      gediIO->pulse->y[0]=1.0;
+    }
+  }else{  /*read the pulse from a file*/
+    readSimPulse(gediIO,gediRat);
+  }
+
+  return;
+}/*setGediPulse*/
+
+
+/*####################################*/
+/*read pulse to use for simulator*/
+
+void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
+{
+  int i=0,maxBin=0;
+  float CofG=0,tot=0,centre=0;
+  float minSep=0,max=0;
+  float wThresh=0;
+  float p0=0,p1=0;
+  char line[400];
+  char temp1[100],temp2[100];
+  FILE *ipoo=NULL;
+
+  if((ipoo=fopen(gediIO->pulseFile,"r"))==NULL){
+    fprintf(stderr,"Error opening input file %s\n",gediIO->pulseFile);
+    exit(1);
+  }
+
+
+  /*count number of bins*/
+  gediIO->pulse->nBins=0;
+  while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))gediIO->pulse->nBins++;
+
+  gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
+  gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+
+  /*rewind to start of file*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read data*/
+  i=0;
+  while(fgets(line,400,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      if(sscanf(line,"%s %s",temp1,temp2)==2){
+        gediIO->pulse->x[i]=atof(temp1);
+        gediIO->pulse->y[i]=atof(temp2);
+        i++;
+      }
+    }
+  }
+  gediIO->pRes=fabs(gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0])/(float)(gediIO->pulse->nBins-1);
+
+  /*determine maximum to centre and total to normalise*/
+  tot=0.0;
+  CofG=0.0;
+  max=-1000.0;
+  for(i=0;i<gediIO->pulse->nBins;i++){
+    CofG+=gediIO->pulse->x[i]*gediIO->pulse->y[i];
+    if(gediIO->pulse->y[i]>max){
+      max=gediIO->pulse->y[i];
+      centre=gediIO->pulse->x[i];
+      maxBin=i;
+    }
+    tot+=gediIO->pulse->y[i];
+  }
+  CofG/=tot;
+
+  /*align pulse*/
+  minSep=1000.0;
+  gediIO->pSigma=0.0;
+  for(i=0;i<gediIO->pulse->nBins;i++){
+    gediIO->pulse->x[i]-=centre;
+
+    if(fabs(gediIO->pulse->x[i])<minSep){
+      minSep=fabs(gediIO->pulse->x[i]);
+      gediIO->pulse->centBin=i;
+    }
+  }
+
+  /*pulse width*/
+  wThresh=max*exp(-0.5);
+  minSep=1000000.0;
+  for(i=0;i<gediIO->pulse->nBins;i++){
+    if(i<maxBin){
+      if(fabs(gediIO->pulse->y[i]-wThresh)<minSep){
+        minSep=fabs(gediIO->pulse->y[i]-wThresh);
+        p0=gediIO->pulse->x[i];
+      }
+    }else if(i==maxBin){
+      minSep=1000000.0;
+    }else{
+      if(fabs(gediIO->pulse->y[i]-wThresh)<minSep){
+        minSep=fabs(gediIO->pulse->y[i]-wThresh);
+        p1=gediIO->pulse->x[i];
+      }
+    }
+  }
+  gediIO->pSigma=fabs(p1-p0)/2.0;
+
+  /*now normalise*/
+  for(i=0;i<gediIO->pulse->nBins;i++)gediIO->pulse->y[i]/=tot;
+
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return;
+}/*readSimPulse*/
+
+
+/*####################################*/
+/*set GEDI footprint*/
+
+void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
+{
+  int i=0;
+  float totE=0;
+  float az=0;
+  double tX=0,tY=0;
+
+
+  /*footprint width*/
+  az=gediRat->lobeAng*M_PI/180.0;  /*convert anlge to radians*/
+
+  /*number of lobes and allocate*/
+  if(gediRat->sideLobe==0)gediRat->nLobes=1;
+  else                   gediRat->nLobes=7;
+  if(!(gediRat->lobe=(lobeStruct *)calloc(gediRat->nLobes,sizeof(lobeStruct)))){
+    fprintf(stderr,"error lobeStruct allocation.\n");
+    exit(1);
+  }
+
+  /*central footprint*/
+  i=0;
+  gediRat->lobe[i].coord[0]=gediRat->coord[0];
+  gediRat->lobe[i].coord[1]=gediRat->coord[1];
+  gediRat->lobe[i].fSigma=gediIO->fSigma;
+  gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+  if(gediRat->sideLobe==0)gediRat->lobe[i].E=1.0;
+  else{  /*include side lobes*/
+    totE=1.0+0.0599+0.0731+0.0317+0.0319+0.0167+0.0163;
+    i=0;
+    gediRat->lobe[i].E=1.0/totE;
+
+    /*first southern lobe*/
+    i=1;
+    gediRat->lobe[i].E=0.0731/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]-20.0*sin(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]-20.0*cos(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+
+    /*first nothern lobe*/
+    i=2;
+    gediRat->lobe[i].E=0.0599/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]+20.0*sin(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]+20.0*cos(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+
+    /*western lobe*/
+    i=3;
+    gediRat->lobe[i].E=0.0319/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]-20.0*cos(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]-20.0*sin(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+
+    /*eastern lobe*/
+    i=4;
+    gediRat->lobe[i].E=0.0317/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]+20.0*cos(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]+20.0*sin(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+
+    /*second southern lobe*/
+    i=5;
+    gediRat->lobe[i].E=0.0167/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]-30.0*sin(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]-30.0*cos(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+
+    /*second northern lobe*/
+    i=6;
+    gediRat->lobe[i].E=0.0163/totE;
+    gediRat->lobe[i].coord[0]=gediRat->coord[0]+30.0*cos(az);
+    gediRat->lobe[i].coord[1]=gediRat->coord[1]+30.0*sin(az);
+    gediRat->lobe[i].fSigma=gediIO->fSigma;
+    gediRat->lobe[i].maxSepSq=(double)(gediRat->maxSep*gediRat->maxSep);
+  }/*side lobe test*/
+
+
+  /*determine min and max bounds*/
+  gediRat->minX=gediRat->minY=100000000000.0;
+  gediRat->maxX=gediRat->maxY=-1000000000000.0;
+  for(i=0;i<gediRat->nLobes;i++){
+    tX=gediRat->lobe[i].coord[0]-sqrt(gediRat->lobe[i].maxSepSq);
+    if(tX<gediRat->minX)gediRat->minX=tX;
+    tX=gediRat->lobe[i].coord[0]+sqrt(gediRat->lobe[i].maxSepSq);
+    if(tX>gediRat->maxX)gediRat->maxX=tX;
+    tY=gediRat->lobe[i].coord[1]-sqrt(gediRat->lobe[i].maxSepSq);
+    if(tY<gediRat->minY)gediRat->minY=tY;
+    tY=gediRat->lobe[i].coord[1]+sqrt(gediRat->lobe[i].maxSepSq);
+    if(tY>gediRat->maxY)gediRat->maxY=tY;
+  }
+
+  /*grid for normalising sampling*/
+  if(gediRat->normCover||gediRat->checkCover){
+    gediRat->gridRes=1.5;
+    gediRat->gX=(int)((float)(gediRat->maxX-gediRat->minX)/gediRat->gridRes)+2;
+    gediRat->gY=(int)((float)(gediRat->maxY-gediRat->minY)/gediRat->gridRes)+2;
+    gediRat->g0[0]=gediRat->minX+(double)gediRat->gridRes;
+    gediRat->g0[1]=gediRat->minY+(double)gediRat->gridRes;
+    gediRat->nGrid=ialloc(gediRat->gX*gediRat->gY,"nGrid",0);
+    for(i=gediRat->gX*gediRat->gY-1;i>=0;i--)gediRat->nGrid[i]=0;
+  }
+
+  /*radius to calculate density within*/
+  if(gediRat->topHat==0)gediRat->denseRadSq=gediIO->fSigma*gediIO->fSigma*4.0;
+  else                  gediRat->denseRadSq=gediIO->fSigma;
+  gediRat->pointDense=gediRat->beamDense=0.0;
+
+  return;
+}/*setGediFootprint*/
+
+
+/*##############################################*/
+/*update footprint cordinate*/
+
+void updateGediCoord(gediRatStruct *gediRat,int i,int j)
+{
+
+  if(gediRat->doGrid){
+    gediRat->coord[0]=gediRat->gMinX+(double)i*gediRat->gRes;
+    gediRat->coord[1]=gediRat->gMinY+(double)j*gediRat->gRes;
+  }else if(gediRat->readALSonce){
+    gediRat->coord[0]=gediRat->coords[i][0];
+    gediRat->coord[1]=gediRat->coords[i][1];
+  }
+
+  return;
+}/*updateGediCoord*/
 
 /*the end*/
 /*####################################################*/

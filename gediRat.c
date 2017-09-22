@@ -52,35 +52,13 @@
 
 
 /*####################################*/
-/*pulse structure*/
-
-typedef struct{
-  int nBins;
-  int centBin;  /*peak bin*/
-  float *y;
-  float *x;
-}pulseStruct;
-
-
-/*####################################*/
-/*lobe structure*/
-
-typedef struct{
-  double coord[2];  /*central coordinate*/
-  float E;          /*fraction of energy here*/
-  float fSigma;     /*footprint sigma*/
-  double maxSepSq;  /*maximum distance from footprint needed*/
-}lobeStruct;
-
-
-/*####################################*/
+/*control structure*/
 
 typedef struct{
   char **inList;
   int nFiles;
   char outNamen[200];
   char waveNamen[200];
-  char pulseFile[200];
 
   /*IO structure*/
   gediIOstruct gediIO; /*generic IO options*/
@@ -89,15 +67,11 @@ typedef struct{
   /*options*/
   char ground;         /*only use ground points*/
   char listFiles;      /*list waves only*/
-  char checkCover;     /*check that the whole footprit is covered by data*/
-  char useFootprint;   /*use footprint or not flag*/
   char overWrite;      /*overwrite old waveform switch*/
   char cleanOut;       /*clean subterranean outliers*/
-  char normCover;      /*normalise for variable ALS coverage*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char waveID[200];    /*wave ID if we are to use it*/
   char useID;          /*use wave ID*/
-  char readPulse;      /*read pulse to simulate with*/
   char polyGr;         /*fit a polynomial to the ground*/
   char nnGr;           /*ground DEM from nearest neighbour*/
 
@@ -106,39 +80,13 @@ typedef struct{
   int maxBins;         /*bins per wave for HDF5 output*/
   int hdfCount;        /*count used footprints*/
 
-  /*GEDI footprint parameters, per footprint*/
-  char sideLobe;     /*side lobe switch*/
-  float lobeAng;     /*lobe major axis, degrees*/
-  int nLobes;        /*number of side lobes*/
-  lobeStruct *lobe;  /*lobe structure*/
-  double minX;       /*minimum latitude of interest*/
-  double maxX;       /*maximum latitude of interest*/
-  double minY;       /*minimum longitude of interest*/
-  double maxY;       /*maximum longitude of interest*/
-
-  /*GEDI characteristics*/
-  float res;       /*range resolution*/
-  float pFWHM;     /*pulse width in ns*/
-  float pSigma;    /*pulse width in metres*/
-  float pRes;
-  pulseStruct *pulse;
-
   /*tolerances*/
   float meanN;
   char doDecon;    /*deconolution switch*/
   char indDecon;   /*deconolve individual ALS waves*/
   denPar *decon;   /*denoising parameters*/
 
-  /*grid to normalise sampling density*/
-  int *nGrid;    /*beam per grid cell*/
-  int gX;
-  int gY;
-  float gridRes;
-  double g0[2];  /*grid origin*/
-
   /*point and beam density*/
-  float denseRadSq; /*radius to calculate density within*/
-  float pointDense; /*point density within 2 sigma*/
   float beamDense;  /*beam density within 2 sigma*/
 
   /*for voxel shadows*/
@@ -178,16 +126,13 @@ int main(int argc,char **argv)
   lasFile *las=NULL;
   pCloudStruct **data=NULL;
   waveStruct *waves=NULL;
-  waveStruct *makeGediWaves(control *,pCloudStruct **);
+  waveStruct *makeGediWaves(control *,gediRatStruct *,pCloudStruct **);
   gediHDF *hdfData=NULL;
   gediHDF *setUpHDF(control *);
   void writeGEDIwave(control *,waveStruct *,int);
-  void setGediFootprint(control *);
-  void setGediPulse(control *);
   void tidySMoothPulse();
   void checkThisFile(lasFile *,control *,int);
   void groundFromDEM(pCloudStruct **,control *,waveStruct *);
-  void updateCoord(control *,int,int);
   void checkWaveOverwrite(control *,int);
   void packGEDIhdf(control *,waveStruct *,gediHDF *,int);
 
@@ -196,7 +141,7 @@ int main(int argc,char **argv)
   dimage=readCommands(argc,argv);
 
   /*set up the pulse*/
-  setGediPulse(dimage);
+  setGediPulse(&dimage->gediIO,&dimage->gediRat);
 
   /*set up grid or batch if needed*/
   setGediGrid(&dimage->gediIO,&dimage->gediRat);
@@ -231,22 +176,22 @@ int main(int argc,char **argv)
       for(j=0;j<dimage->gediRat.gNy;j++){
         if(dimage->writeHDF)fprintf(stdout,"Wave %d of %d\n",i*dimage->gediRat.gNy+j,dimage->gediRat.gNx*dimage->gediRat.gNy);
         /*update centre coord*/
-        updateCoord(dimage,i,j);
+        updateGediCoord(&dimage->gediRat,i,j);
 
         /*see if that file already exists*/
         checkWaveOverwrite(dimage,i);
 
         /*if it is not to be overwritten*/
-        if(dimage->useFootprint){
+        if(dimage->gediRat.useFootprint){
           /*set up footprint*/
-          setGediFootprint(dimage);
+          setGediFootprint(&dimage->gediRat,&dimage->gediIO);
 
           /*make waveforms*/
-          waves=makeGediWaves(dimage,data);
+          waves=makeGediWaves(dimage,&dimage->gediRat,data);
         }
 
         /*if it is usable*/
-        if(dimage->useFootprint){
+        if(dimage->gediRat.useFootprint){
           /*find the ground if needed*/
           if(dimage->ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
@@ -256,8 +201,8 @@ int main(int argc,char **argv)
         }
 
         /*tidy up*/
-        TIDY(dimage->nGrid);
-        TIDY(dimage->lobe);
+        TIDY(dimage->gediRat.nGrid);
+        TIDY(dimage->gediRat.lobe);
         if(waves){
           TTIDY((void **)waves->wave,waves->nWaves);
           TTIDY((void **)waves->canopy,3);
@@ -282,10 +227,10 @@ int main(int argc,char **argv)
   }
   hdfData=tidyGediHDF(hdfData);
   if(dimage){
-    if(dimage->pulse){
-      TIDY(dimage->pulse->y);
-      TIDY(dimage->pulse->x);
-      TIDY(dimage->pulse);
+    if(dimage->gediIO.pulse){
+      TIDY(dimage->gediIO.pulse->y);
+      TIDY(dimage->gediIO.pulse->x);
+      TIDY(dimage->gediIO.pulse);
     }
     TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
     TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
@@ -338,16 +283,16 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
   TIDY(cumul);
   TIDY(thresh);
 
-  start-=buff/dimage->res;
+  start-=buff/dimage->gediIO.res;
   if(start<0)start=0;
 
   /*copy data*/
-  hdfData->z0[numb]=waves->maxZ-(float)start*dimage->res;
-  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*dimage->res;
+  hdfData->z0[numb]=waves->maxZ-(float)start*dimage->gediIO.res;
+  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*dimage->gediIO.res;
   hdfData->lon[numb]=dimage->gediRat.coord[0];
   hdfData->lat[numb]=dimage->gediRat.coord[1];
-  hdfData->beamDense[numb]=dimage->beamDense;
-  hdfData->pointDense[numb]=dimage->pointDense;
+  hdfData->beamDense[numb]=dimage->gediRat.beamDense;
+  hdfData->pointDense[numb]=dimage->gediRat.pointDense;
   hdfData->zen[numb]=waves->meanScanAng;;
 
 
@@ -398,12 +343,12 @@ void checkWaveOverwrite(control *dimage,int numb)
   }
 
   /*see if the file exists if we are checking for overwriting*/
-  if(dimage->overWrite)dimage->useFootprint=1;
+  if(dimage->overWrite)dimage->gediRat.useFootprint=1;
   else{
     if((opoo=fopen(dimage->waveNamen,"r"))==NULL){
-      dimage->useFootprint=1;
+      dimage->gediRat.useFootprint=1;
     }else{
-      dimage->useFootprint=0;
+      dimage->gediRat.useFootprint=0;
     }
     if(opoo){
       fclose(opoo);
@@ -413,24 +358,6 @@ void checkWaveOverwrite(control *dimage,int numb)
 
   return;
 }/*checkWaveOverwrite*/
-
-
-/*##############################################*/
-/*update footprint cordinate*/
-
-void updateCoord(control *dimage,int i,int j)
-{
-
-  if(dimage->gediRat.doGrid){
-    dimage->gediRat.coord[0]=dimage->gediRat.gMinX+(double)i*dimage->gediRat.gRes;
-    dimage->gediRat.coord[1]=dimage->gediRat.gMinY+(double)j*dimage->gediRat.gRes;
-  }else if(dimage->gediRat.readALSonce){
-    dimage->gediRat.coord[0]=dimage->gediRat.coords[i][0];
-    dimage->gediRat.coord[1]=dimage->gediRat.coords[i][1];
-  }
-
-  return;
-}/*updateCoord*/
 
 
 /*##############################################*/
@@ -453,10 +380,10 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
 
   /*make DEM*/
   if(dimage->gediRat.doGrid){
-    minX=dimage->minX;
-    maxX=dimage->maxX;
-    minY=dimage->minY;
-    maxY=dimage->maxY;
+    minX=dimage->gediRat.minX;
+    maxX=dimage->gediRat.maxX;
+    minY=dimage->gediRat.minY;
+    maxY=dimage->gediRat.maxY;
   }else{
     minX=maxX=100000000000.0;
     maxX=maxY=-100000000000.0;
@@ -572,7 +499,7 @@ float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,
 
 void checkThisFile(lasFile *las,control *dimage,int i)
 {
-  if(checkFileBounds(las,dimage->minX,dimage->maxX,dimage->minY,dimage->maxY)){
+  if(checkFileBounds(las,dimage->gediRat.minX,dimage->gediRat.maxX,dimage->gediRat.minY,dimage->gediRat.maxY)){
     fprintf(stdout,"Need %s\n",dimage->inList[i]);
   }
   return;
@@ -608,9 +535,9 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
   /*write header*/
   if(dimage->ground==0)fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 discrete count, 4 discrete fraction, 5 ALS pulse, 6 ALS and GEDI pulse, 7 ind decon, 8 ind decon GEDI, 9 decon GEDI, 10 ind decon\n");
   else                 fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
-  fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->gediIO.fSigma,dimage->pSigma,dimage->res,dimage->sideLobe);
+  fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,dimage->gediRat.sideLobe);
   fprintf(opoo,"# coord %.2f %.2f\n",dimage->gediRat.coord[0],dimage->gediRat.coord[1]);
-  fprintf(opoo,"# density point %f beam %f\n",dimage->pointDense,dimage->beamDense);
+  fprintf(opoo,"# density point %f beam %f\n",dimage->gediRat.pointDense,dimage->gediRat.beamDense);
   fprintf(opoo,"# meanScanAng %f\n",waves->meanScanAng);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",waveID);
   if(dimage->ground&&(dimage->polyGr||dimage->nnGr))fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
@@ -618,7 +545,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
   /*write data*/
   for(i=0;i<waves->nBins;i++){
-    r=(float)waves->maxZ-(float)i*dimage->res;
+    r=(float)waves->maxZ-(float)i*dimage->gediIO.res;
 
     fprintf(opoo,"%f",r);
     for(j=0;j<waves->nWaves;j++){
@@ -640,7 +567,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 /*####################################*/
 /*make GEDI waveforms*/
 
-waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
+waveStruct *makeGediWaves(control *dimage,gediRatStruct *gediRat,pCloudStruct **data)
 {
   int j=0,k=0;
   float tot=0;
@@ -660,11 +587,11 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
   determineALScoverage(dimage,data);
 
   /*check that whole footprint is covered*/
-  if(dimage->checkCover)checkFootCovered(dimage);
-  else                  dimage->useFootprint=1;
+  if(gediRat->checkCover)checkFootCovered(dimage);
+  else                  gediRat->useFootprint=1;
 
   /*only if it contains data*/
-  if(dimage->useFootprint){
+  if(gediRat->useFootprint){
     /*allocate*/
     waves=allocateGEDIwaves(dimage,data);
 
@@ -672,7 +599,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
     if(dimage->doDecon)dimage->decon=setDeconForGEDI(dimage);
 
     /*make waves*/
-    if(dimage->gediRat.useShadow==0)waveFromPointCloud(dimage,data,waves);
+    if(gediRat->useShadow==0)waveFromPointCloud(dimage,data,waves);
     else                    waveFromShadows(dimage,data,waves);
 
     /*clean outliers if needed*/
@@ -685,7 +612,7 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
     /*normalise integral*/
     for(k=0;k<waves->nWaves;k++){
       tot=0.0;
-      for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->res;
+      for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*dimage->gediIO.res;
       if(tot>0.0){
         for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
         if(dimage->ground&&(k<3)){
@@ -707,8 +634,8 @@ waveStruct *makeGediWaves(control *dimage,pCloudStruct **data)
 
   /*check whether empty*/
   tot=0.0;
-  for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*dimage->res;
-  if((tot<TOL)||(waves->nBins==0))dimage->useFootprint=0;
+  for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*dimage->gediIO.res;
+  if((tot<TOL)||(waves->nBins==0))gediRat->useFootprint=0;
 
   return(waves);
 }/*makeGediWaves*/
@@ -730,35 +657,35 @@ void determineALScoverage(control *dimage,pCloudStruct **data)
   for(i=0;i<dimage->nFiles;i++){  /*file loop*/
     for(j=0;j<data[i]->nPoints;j++){ /*point loop*/
       /*check within bounds*/
-      if((data[i]->x[j]>=dimage->minX)&&(data[i]->x[j]<=dimage->maxX)&&(data[i]->y[j]>=dimage->minY)&&(data[i]->y[j]<=dimage->maxY)){
+      if((data[i]->x[j]>=dimage->gediRat.minX)&&(data[i]->x[j]<=dimage->gediRat.maxX)&&(data[i]->y[j]>=dimage->gediRat.minY)&&(data[i]->y[j]<=dimage->gediRat.maxY)){
         dx=data[i]->x[j]-dimage->gediRat.coord[0];
         dy=data[i]->y[j]-dimage->gediRat.coord[1];
         sepSq=dx*dx+dy*dy;
 
         /*ground grid for ALS coverage*/
-        if(dimage->normCover||dimage->checkCover){
+        if(dimage->gediRat.normCover||dimage->gediRat.checkCover){
           if(data[i]->retNumb[j]==data[i]->nRet[j]){  /*only once per beam*/
             /*mark sampling desnity for normalisation*/
-            gX=(int)((data[i]->x[j]-dimage->g0[0])/(double)dimage->gridRes);
-            gY=(int)((data[i]->y[j]-dimage->g0[1])/(double)dimage->gridRes);
-            if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
-              dimage->nGrid[gY*dimage->gX+gX]++;
+            gX=(int)((data[i]->x[j]-dimage->gediRat.g0[0])/(double)dimage->gediRat.gridRes);
+            gY=(int)((data[i]->y[j]-dimage->gediRat.g0[1])/(double)dimage->gediRat.gridRes);
+            if((gX>=0)&&(gX<dimage->gediRat.gX)&&(gY>=0)&&(gY<dimage->gediRat.gY)){
+              dimage->gediRat.nGrid[gY*dimage->gediRat.gX+gX]++;
             }
           }
         }/*ground grid for ALS coverage*/
 
         /*point and beam density*/
-        if(sepSq<=dimage->denseRadSq){
-          dimage->pointDense+=1.0;
-          if(data[i]->retNumb[j]==data[i]->nRet[j])dimage->beamDense+=1.0;
+        if(sepSq<=dimage->gediRat.denseRadSq){
+          dimage->gediRat.pointDense+=1.0;
+          if(data[i]->retNumb[j]==data[i]->nRet[j])dimage->gediRat.beamDense+=1.0;
         }
       }/*bounds check*/
     }/*point loop*/
   }/*file loop*/
 
-  area=M_PI*dimage->denseRadSq;
-  dimage->pointDense/=area;
-  dimage->beamDense/=area;
+  area=M_PI*dimage->gediRat.denseRadSq;
+  dimage->gediRat.pointDense/=area;
+  dimage->gediRat.beamDense/=area;
 
   return;
 }/*determineALScoverage*/
@@ -794,7 +721,7 @@ void waveFromShadows(control *dimage,pCloudStruct **data,waveStruct *waves)
   voxelGap(dimage,data,waves);
 
   /*create images*/
-  //rImage=allocateRangeImage(dimage->nFiles,data,dimage->pRes*4.0,iRes,&(grad[0]),dimage->gediRat.coord[0],dimage->gediRat.coord[1],waves->maxZ);
+  //rImage=allocateRangeImage(dimage->nFiles,data,dimage->gediIO.pRes*4.0,iRes,&(grad[0]),dimage->gediRat.coord[0],dimage->gediRat.coord[1],waves->maxZ);
   //rImage=allocateRangeImage(dimage->nFiles,data,NULL,0.15,0.01,&(grad[0]),dimage->gediRat.coord[0],dimage->gediRat.coord[1],waves->maxZ,NULL);
   fprintf(stderr,"THis method is no longer operational. Do not use\n");
   exit(1);
@@ -835,11 +762,11 @@ void voxelGap(control *dimage,pCloudStruct **data,waveStruct *waves)
   void countVoxGap(double,double,double,float *,voxStruct *,int,int,float,int);
 
 
-  bounds[0]=dimage->minX;
-  bounds[1]=dimage->minY;
+  bounds[0]=dimage->gediRat.minX;
+  bounds[1]=dimage->gediRat.minY;
   bounds[2]=waves->minZ;
-  bounds[3]=dimage->maxX;
-  bounds[4]=dimage->maxY;
+  bounds[3]=dimage->gediRat.maxX;
+  bounds[4]=dimage->gediRat.maxY;
   bounds[5]=waves->maxZ;
 
 
@@ -897,26 +824,26 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
   }
 
   /*make waves*/
-  for(n=0;n<dimage->nLobes;n++){
+  for(n=0;n<dimage->gediRat.nLobes;n++){
     for(numb=0;numb<dimage->nFiles;numb++){
       for(i=0;i<data[numb]->nPoints;i++){
-        dX=data[numb]->x[i]-dimage->lobe[n].coord[0];
-        dY=data[numb]->y[i]-dimage->lobe[n].coord[1];
+        dX=data[numb]->x[i]-dimage->gediRat.lobe[n].coord[0];
+        dY=data[numb]->y[i]-dimage->gediRat.lobe[n].coord[1];
         sep=sqrt(dX*dX+dY*dY);
 
-        if(dimage->gediRat.topHat==0)rScale=(float)gaussian(sep,(double)dimage->lobe[n].fSigma,0.0);
+        if(dimage->gediRat.topHat==0)rScale=(float)gaussian(sep,(double)dimage->gediRat.lobe[n].fSigma,0.0);
         else{
-          if(sep<=dimage->lobe[n].maxSepSq)rScale=1.0;
+          if(sep<=dimage->gediRat.lobe[n].maxSepSq)rScale=1.0;
           else                             rScale=0.0;
         }
 
         if(rScale>dimage->gediRat.iThresh){  /*if bright enough to matter*/
           /*scale by sampling density*/
-          if(dimage->normCover){
-            gX=(int)((data[numb]->x[i]-dimage->g0[0])/(double)dimage->gridRes);
-            gY=(int)((data[numb]->y[i]-dimage->g0[1])/(double)dimage->gridRes);
-            if((gX>=0)&&(gX<dimage->gX)&&(gY>=0)&&(gY<dimage->gY)){
-              if(dimage->nGrid[gY*dimage->gX+gX]>0)rScale/=(float)dimage->nGrid[gY*dimage->gX+gX];
+          if(dimage->gediRat.normCover){
+            gX=(int)((data[numb]->x[i]-dimage->gediRat.g0[0])/(double)dimage->gediRat.gridRes);
+            gY=(int)((data[numb]->y[i]-dimage->gediRat.g0[1])/(double)dimage->gediRat.gridRes);
+            if((gX>=0)&&(gX<dimage->gediRat.gX)&&(gY>=0)&&(gY<dimage->gediRat.gY)){
+              if(dimage->gediRat.nGrid[gY*dimage->gediRat.gX+gX]>0)rScale/=(float)dimage->gediRat.nGrid[gY*dimage->gediRat.gX+gX];
             }
           }/*scale by sampling density*/
 
@@ -925,21 +852,21 @@ void waveFromPointCloud(control *dimage,pCloudStruct **data,waveStruct *waves)
           refl=(float)data[numb]->refl[i]*rScale;
           if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
           else                     fracHit=1.0;
-          for(j=0;j<dimage->pulse->nBins;j++){
-            bin=(int)((waves->maxZ-data[numb]->z[i]+(double)dimage->pulse->x[j])/(double)dimage->res);
+          for(j=0;j<dimage->gediIO.pulse->nBins;j++){
+            bin=(int)((waves->maxZ-data[numb]->z[i]+(double)dimage->gediIO.pulse->x[j])/(double)dimage->gediIO.res);
             if((bin>=0)&&(bin<waves->nBins)){
-              waves->wave[0][bin]+=refl*dimage->pulse->y[j];
-              waves->wave[1][bin]+=rScale*dimage->pulse->y[j];
-              waves->wave[2][bin]+=rScale*fracHit*dimage->pulse->y[j];
+              waves->wave[0][bin]+=refl*dimage->gediIO.pulse->y[j];
+              waves->wave[1][bin]+=rScale*dimage->gediIO.pulse->y[j];
+              waves->wave[2][bin]+=rScale*fracHit*dimage->gediIO.pulse->y[j];
               if(dimage->ground){
                 if(data[numb]->class[i]==2){
-                  waves->ground[0][bin]+=refl*dimage->pulse->y[j];
-                  waves->ground[1][bin]+=rScale*dimage->pulse->y[j];
-                  waves->ground[2][bin]+=rScale*fracHit*dimage->pulse->y[j];
+                  waves->ground[0][bin]+=refl*dimage->gediIO.pulse->y[j];
+                  waves->ground[1][bin]+=rScale*dimage->gediIO.pulse->y[j];
+                  waves->ground[2][bin]+=rScale*fracHit*dimage->gediIO.pulse->y[j];
                 }else{
-                  waves->canopy[0][bin]+=refl*dimage->pulse->y[j];
-                  waves->canopy[1][bin]+=rScale*dimage->pulse->y[j];
-                  waves->canopy[2][bin]+=rScale*fracHit*dimage->pulse->y[j];
+                  waves->canopy[0][bin]+=refl*dimage->gediIO.pulse->y[j];
+                  waves->canopy[1][bin]+=rScale*dimage->gediIO.pulse->y[j];
+                  waves->canopy[2][bin]+=rScale*fracHit*dimage->gediIO.pulse->y[j];
                 }
               }/*ground recording if needed*/
             }/*bin bound check*/
@@ -1009,10 +936,10 @@ void cleanOutliers(waveStruct *waves,control *dimage)
       pastGround=1;
       gGap=0.0;
     }else{
-      if(pastGround)gGap+=dimage->res;
+      if(pastGround)gGap+=dimage->gediIO.res;
     }
     if(gGap>maxGap){  /*too big a break, delete*/
-      waves->groundBreakElev=waves->maxZ-(double)i*(double)dimage->res;
+      waves->groundBreakElev=waves->maxZ-(double)i*(double)dimage->gediIO.res;
       for(;i<waves->nBins;i++){
         waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
         for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
@@ -1025,7 +952,7 @@ void cleanOutliers(waveStruct *waves,control *dimage)
   maxGap=50.0;
   for(i=gStart;i>=0;i--){
     if(waves->wave[1][i]>=thresh)gGap=0.0;
-    gGap+=dimage->res;
+    gGap+=dimage->gediIO.res;
 
     if(gGap>=maxGap){
       for(;i>=0;i--){
@@ -1053,14 +980,14 @@ void checkFootCovered(control *dimage)
   if(useRad>(double)dimage->gediIO.fSigma)useRad=(double)dimage->gediIO.fSigma;
   radSq=useRad*useRad;
 
-  for(i=0;i<dimage->gX;i++){
-    dX=(double)i*(double)dimage->gridRes-dimage->gediRat.coord[0];
-    for(j=0;j<dimage->gY;j++){
-      dY=(double)j*(double)dimage->gridRes-dimage->gediRat.coord[1];
+  for(i=0;i<dimage->gediRat.gX;i++){
+    dX=(double)i*(double)dimage->gediRat.gridRes-dimage->gediRat.coord[0];
+    for(j=0;j<dimage->gediRat.gY;j++){
+      dY=(double)j*(double)dimage->gediRat.gridRes-dimage->gediRat.coord[1];
       sepSq=dX*dX+dY*dY;
 
       if(sepSq<radSq){
-        if(dimage->nGrid[j*dimage->gX+i]==0)nMissed++;
+        if(dimage->gediRat.nGrid[j*dimage->gediRat.gX+i]==0)nMissed++;
         nWithin++;
       }
     }/*y loop*/
@@ -1069,8 +996,8 @@ void checkFootCovered(control *dimage)
   thresh=(int)((float)nWithin*2.0/3.0);
   if(nMissed>thresh){
     fprintf(stderr,"Too many missed %d of %d\n",nMissed,nWithin);
-    dimage->useFootprint=0;
-  }else dimage->useFootprint=1;
+    dimage->gediRat.useFootprint=0;
+  }else dimage->gediRat.useFootprint=1;
 
   return;
 }/*checkFootCovered*/
@@ -1091,7 +1018,7 @@ void processAggragate(control *dimage,waveStruct *waves)
   /*deconvolve and reconvolve*/
   processed=processFloWave(&(waves->wave[7][0]),(int)waves->nBins,dimage->decon,1.0);
   for(i=0;i<waves->nBins;i++)waves->wave[8][i]=processed[i];
-  smooPro=smooth(dimage->pSigma,(int)waves->nBins,processed,dimage->res);
+  smooPro=smooth(dimage->gediIO.pSigma,(int)waves->nBins,processed,dimage->gediIO.res);
   TIDY(processed);
 
   TIDY(waves->wave[7]);
@@ -1133,19 +1060,19 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   /*deconvolve and reconvolve*/
   if(dimage->indDecon){
     processed=processWave(wave,(int)waveLen,dimage->decon,1.0);
-    smooPro=smooth(dimage->pSigma,(int)waveLen,processed,dimage->res);
+    smooPro=smooth(dimage->gediIO.pSigma,(int)waveLen,processed,dimage->gediIO.res);
   }
 
   /*convolve with GEDI pulse*/
   floWave=falloc((int)waveLen,"",0);
   for(j=0;j<(int)waveLen;j++)floWave[j]=(float)wave[j]-dimage->meanN;
-  smoothed=smooth(dimage->pSigma,(int)waveLen,floWave,dimage->res);
+  smoothed=smooth(dimage->gediIO.pSigma,(int)waveLen,floWave,dimage->gediIO.res);
   TIDY(floWave);
 
   /*add up*/
   for(j=0;j<(int)waveLen;j++){
     binPosition(&x,&y,&z,j-buffBins,data->x[i],data->y[i],data->z[i],data->time[i],&(grad[0]));
-    bin=(int)((waves->maxZ-z)/(double)dimage->res);
+    bin=(int)((waves->maxZ-z)/(double)dimage->gediIO.res);
     if((bin>=0)&&(bin<waves->nBins)){
       waves->wave[3][bin]+=((float)wave[j]-dimage->meanN)*rScale;  /*with ALS pulse*/
       waves->wave[4][bin]+=smoothed[j]*rScale;
@@ -1237,7 +1164,7 @@ waveStruct *allocateGEDIwaves(control *dimage,pCloudStruct **data)
   waves->minZ=minZ-buff;
   waves->maxZ=maxZ+buff;
 
-  waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)dimage->res);
+  waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)dimage->gediIO.res);
   waves->nWaves=9;
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
   for(j=0;j<waves->nWaves;j++){
@@ -1256,302 +1183,6 @@ waveStruct *allocateGEDIwaves(control *dimage,pCloudStruct **data)
 
   return(waves);
 }/*allocateGEDIwaves*/
-
-
-/*####################################*/
-/*set GEDI footprint*/
-
-void setGediFootprint(control *dimage)
-{
-  int i=0;
-  float totE=0;
-  float az=0;
-  double tX=0,tY=0;
-
-
-  /*footprint width*/
-  az=dimage->lobeAng*M_PI/180.0;  /*convert anlge to radians*/
-
-  /*number of lobes and allocate*/
-  if(dimage->sideLobe==0)dimage->nLobes=1;
-  else                   dimage->nLobes=7;
-  if(!(dimage->lobe=(lobeStruct *)calloc(dimage->nLobes,sizeof(lobeStruct)))){
-    fprintf(stderr,"error lobeStruct allocation.\n");
-    exit(1);
-  }
-
-  /*central footprint*/
-  i=0;
-  dimage->lobe[i].coord[0]=dimage->gediRat.coord[0];
-  dimage->lobe[i].coord[1]=dimage->gediRat.coord[1];
-  dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-  dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-  if(dimage->sideLobe==0)dimage->lobe[i].E=1.0;
-  else{  /*include side lobes*/
-    totE=1.0+0.0599+0.0731+0.0317+0.0319+0.0167+0.0163;
-    i=0;
-    dimage->lobe[i].E=1.0/totE;
-
-    /*first southern lobe*/
-    i=1;
-    dimage->lobe[i].E=0.0731/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]-20.0*sin(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]-20.0*cos(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-
-    /*first nothern lobe*/
-    i=2;
-    dimage->lobe[i].E=0.0599/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]+20.0*sin(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]+20.0*cos(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-
-    /*western lobe*/
-    i=3;
-    dimage->lobe[i].E=0.0319/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]-20.0*cos(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]-20.0*sin(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-
-    /*eastern lobe*/
-    i=4;
-    dimage->lobe[i].E=0.0317/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]+20.0*cos(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]+20.0*sin(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-
-    /*second southern lobe*/
-    i=5;
-    dimage->lobe[i].E=0.0167/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]-30.0*sin(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]-30.0*cos(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-
-    /*second northern lobe*/
-    i=6;
-    dimage->lobe[i].E=0.0163/totE;
-    dimage->lobe[i].coord[0]=dimage->gediRat.coord[0]+30.0*cos(az);
-    dimage->lobe[i].coord[1]=dimage->gediRat.coord[1]+30.0*sin(az);
-    dimage->lobe[i].fSigma=dimage->gediIO.fSigma;
-    dimage->lobe[i].maxSepSq=(double)(dimage->gediRat.maxSep*dimage->gediRat.maxSep);
-  }/*side lobe test*/
-
-
-  /*determine min and max bounds*/
-  dimage->minX=dimage->minY=100000000000.0;
-  dimage->maxX=dimage->maxY=-1000000000000.0;
-  for(i=0;i<dimage->nLobes;i++){
-    tX=dimage->lobe[i].coord[0]-sqrt(dimage->lobe[i].maxSepSq);
-    if(tX<dimage->minX)dimage->minX=tX;
-    tX=dimage->lobe[i].coord[0]+sqrt(dimage->lobe[i].maxSepSq);
-    if(tX>dimage->maxX)dimage->maxX=tX;
-    tY=dimage->lobe[i].coord[1]-sqrt(dimage->lobe[i].maxSepSq);
-    if(tY<dimage->minY)dimage->minY=tY;
-    tY=dimage->lobe[i].coord[1]+sqrt(dimage->lobe[i].maxSepSq);
-    if(tY>dimage->maxY)dimage->maxY=tY;
-  }
-
-  /*grid for normalising sampling*/
-  if(dimage->normCover||dimage->checkCover){
-    dimage->gridRes=1.5;
-    dimage->gX=(int)((float)(dimage->maxX-dimage->minX)/dimage->gridRes)+2;
-    dimage->gY=(int)((float)(dimage->maxY-dimage->minY)/dimage->gridRes)+2;
-    dimage->g0[0]=dimage->minX+(double)dimage->gridRes;
-    dimage->g0[1]=dimage->minY+(double)dimage->gridRes;
-    dimage->nGrid=ialloc(dimage->gX*dimage->gY,"nGrid",0);
-    for(i=dimage->gX*dimage->gY-1;i>=0;i--)dimage->nGrid[i]=0;
-  }
-
-  /*radius to calculate density within*/
-  if(dimage->gediRat.topHat==0)dimage->denseRadSq=dimage->gediIO.fSigma*dimage->gediIO.fSigma*4.0;
-  else                 dimage->denseRadSq=dimage->gediIO.fSigma;
-  dimage->pointDense=dimage->beamDense=0.0;
-
-  return;
-}/*setGediFootprint*/
-
-
-/*####################################*/
-/*set GEDI pulse*/
-
-void setGediPulse(control *dimage)
-{
-  int i=0;
-  float fwhm=0;   /*FWHM in metres*/
-  float x=0,y=0;
-  float max=0,tot=0;
-  void readSimPulse(control *);
-
-
-  if(!(dimage->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
-    fprintf(stderr,"error pulseStruct allocation.\n");
-    exit(1);
-  }
-
-
-  if(dimage->readPulse==0){  /*Gaussian pulse*/
-    /*pulse length*/
-    /*calculate sigma from FWHM*/
-    if(dimage->pSigma<0.0){  /*GEDI unless specificed*/
-      fwhm=dimage->pFWHM*0.2998/2.0;  /*time for two way*/
-      dimage->pSigma=fwhm/2.35482;  /* =2*sqrt(2*ln2) */
-    }
-
-    if(dimage->pSigma>0.0){  /*if we are using a pulse width*/
-      /*determine number of bins*/
-      dimage->pulse->nBins=0;
-      x=0.0;
-      do{
-        y=(float)gaussian((double)x,(double)dimage->pSigma,0.0);
-        x+=dimage->pRes;
-        dimage->pulse->nBins+=2;  /*both sides of peak*/
-      }while(y>=dimage->gediRat.iThresh);
-  
-      dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-      dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
-      dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
-
-      max=-100.0;
-      tot=0.0;
-      x=-1.0*(float)dimage->pulse->centBin*dimage->pRes;
-      for(i=0;i<dimage->pulse->nBins;i++){
-        dimage->pulse->x[i]=x;
-        dimage->pulse->y[i]=(float)gaussian((double)x,(float)dimage->pSigma,0.0);
-        if(dimage->pulse->y[i]>max){
-          max=dimage->pulse->y[i];
-          dimage->pulse->centBin=i;
-        }
-        tot+=dimage->pulse->y[i];
-        x+=dimage->pRes;
-      }
-      /*normalise to cope with rounding*/
-      for(i=0;i<dimage->pulse->nBins;i++){
-        dimage->pulse->y[i]/=tot;
-      }
-    }else{  /*dirac-delta*/
-      dimage->pulse->nBins=1;
-      dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-      dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
-      dimage->pulse->centBin=0;
-
-      dimage->pulse->x[0]=0.0;
-      dimage->pulse->y[0]=1.0;
-    }
-  }else{  /*read the pulse from a file*/
-    readSimPulse(dimage);
-  }
-
-  return;
-}/*setGediPulse*/
-
-
-/*####################################*/
-/*read pulse to use for simulator*/
-
-void readSimPulse(control *dimage)
-{
-  int i=0,maxBin=0;
-  float CofG=0,tot=0,centre=0;
-  float minSep=0,max=0;
-  float wThresh=0;
-  float p0=0,p1=0;
-  char line[400];
-  char temp1[100],temp2[100];
-  FILE *ipoo=NULL;
-
-  if((ipoo=fopen(dimage->pulseFile,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",dimage->pulseFile);
-    exit(1);
-  }
-
-
-  /*count number of bins*/
-  dimage->pulse->nBins=0;
-  while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))dimage->pulse->nBins++;
-
-  dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-  dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
-
-  /*rewind to start of file*/
-  if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
-    exit(1);
-  }
-
-  /*read data*/
-  i=0;
-  while(fgets(line,400,ipoo)!=NULL){
-    if(strncasecmp(line,"#",1)){
-      if(sscanf(line,"%s %s",temp1,temp2)==2){
-        dimage->pulse->x[i]=atof(temp1);
-        dimage->pulse->y[i]=atof(temp2);
-        i++;
-      }
-    }
-  }
-  dimage->pRes=fabs(dimage->pulse->x[dimage->pulse->nBins-1]-dimage->pulse->x[0])/(float)(dimage->pulse->nBins-1);
-
-  /*determine maximum to centre and total to normalise*/
-  tot=0.0;
-  CofG=0.0;
-  max=-1000.0;
-  for(i=0;i<dimage->pulse->nBins;i++){
-    CofG+=dimage->pulse->x[i]*dimage->pulse->y[i];
-    if(dimage->pulse->y[i]>max){
-      max=dimage->pulse->y[i];
-      centre=dimage->pulse->x[i];
-      maxBin=i;
-    }
-    tot+=dimage->pulse->y[i];
-  }
-  CofG/=tot;
-
-  /*align pulse*/
-  minSep=1000.0;
-  dimage->pSigma=0.0;
-  for(i=0;i<dimage->pulse->nBins;i++){
-    dimage->pulse->x[i]-=centre;
-
-    if(fabs(dimage->pulse->x[i])<minSep){
-      minSep=fabs(dimage->pulse->x[i]);
-      dimage->pulse->centBin=i;
-    }
-  }
-
-  /*pulse width*/
-  wThresh=max*exp(-0.5);
-  minSep=1000000.0;
-  for(i=0;i<dimage->pulse->nBins;i++){
-    if(i<maxBin){
-      if(fabs(dimage->pulse->y[i]-wThresh)<minSep){
-        minSep=fabs(dimage->pulse->y[i]-wThresh);
-        p0=dimage->pulse->x[i];
-      }
-    }else if(i==maxBin){
-      minSep=1000000.0;
-    }else{
-      if(fabs(dimage->pulse->y[i]-wThresh)<minSep){
-        minSep=fabs(dimage->pulse->y[i]-wThresh);
-        p1=dimage->pulse->x[i];
-      }
-    }
-  }
-  dimage->pSigma=fabs(p1-p0)/2.0;
-
-  /*now normalise*/
-  for(i=0;i<dimage->pulse->nBins;i++)dimage->pulse->y[i]/=tot;
-
-  if(ipoo){
-    fclose(ipoo);
-    ipoo=NULL;
-  }
-  return;
-}/*readSimPulse*/
 
 
 /*####################################*/
@@ -1638,7 +1269,7 @@ gediHDF *setUpHDF(control *dimage)
   hdfData->nWaves=dimage->gediRat.gNx*dimage->gediRat.gNy;
   hdfData->nBins=dimage->maxBins;
   hdfData->nTypeWaves=3;
-  hdfData->pSigma=dimage->pSigma;
+  hdfData->pSigma=dimage->gediIO.pSigma;
   hdfData->fSigma=dimage->gediIO.fSigma;
 
   /*max id label length*/
@@ -1653,11 +1284,11 @@ gediHDF *setUpHDF(control *dimage)
     }else hdfData->idLength=(int)strlen(dimage->waveID)+1;
   }else hdfData->idLength=7;
 
-  if(dimage->readPulse){
-    hdfData->pRes=dimage->pRes;
-    hdfData->nBins=dimage->pulse->nBins;
+  if(dimage->gediIO.readPulse){
+    hdfData->pRes=dimage->gediIO.pRes;
+    hdfData->nBins=dimage->gediIO.pulse->nBins;
     hdfData->pulse=falloc(hdfData->nBins,"hdf pulse",0);
-    memcpy(hdfData->pulse,dimage->pulse->y,sizeof(float)*hdfData->nBins);
+    memcpy(hdfData->pulse,dimage->gediIO.pulse->y,sizeof(float)*hdfData->nBins);
   }else{
     hdfData->pulse=NULL;
     hdfData->nPbins=0;
@@ -1704,26 +1335,26 @@ control *readCommands(int argc,char **argv)
   dimage->inList[0]=challoc(200,"inList",0);
   strcpy(&(dimage->inList[0][0]),"/Users/dill/data/teast/maryland_play/sc_79_112_1.las");
   strcpy(dimage->outNamen,"teast.wave");
-  dimage->pFWHM=15.0;   /*12 ns FWHM*/
+  dimage->gediIO.pFWHM=15.0;   /*12 ns FWHM*/
   dimage->gediIO.fSigma=5.5;  /*86% of energy within a diameter of 20-25m*/
-  dimage->res=0.15;
-  dimage->pRes=0.01;
+  dimage->gediIO.res=0.15;
+  dimage->gediIO.pRes=0.01;
   dimage->gediRat.coord[0]=624366.0;
   dimage->gediRat.coord[1]=3.69810*pow(10.0,6.0);
 
   /*switches*/
   dimage->gediRat.readWave=0;
   dimage->ground=0;
-  dimage->sideLobe=0;   /*no side lobes*/
-  dimage->lobeAng=0.0;
+  dimage->gediRat.sideLobe=0;   /*no side lobes*/
+  dimage->gediRat.lobeAng=0.0;
   dimage->listFiles=0;
   dimage->pBuffSize=(uint64_t)200000000;
-  dimage->checkCover=0;
-  dimage->normCover=1;
+  dimage->gediRat.checkCover=0;
+  dimage->gediRat.normCover=1;
   dimage->cleanOut=0;
   dimage->gediRat.topHat=0;
   dimage->useID=0;
-  dimage->readPulse=0;
+  dimage->gediIO.readPulse=0;
   dimage->gediRat.useShadow=0;
   dimage->vRes[0]=dimage->vRes[1]=dimage->vRes[2]=1.0;
   dimage->beamRad=0.165;    /*33 cm*/
@@ -1748,7 +1379,7 @@ control *readCommands(int argc,char **argv)
   dimage->meanN=12.0;
   dimage->doDecon=0;
   dimage->indDecon=0;
-  dimage->pSigma=-1.0;  /*leave blannk for default GEDI*/
+  dimage->gediIO.pSigma=-1.0;  /*leave blannk for default GEDI*/
 
   /*read the command line*/
   for (i=1;i<argc;i++){
@@ -1777,14 +1408,14 @@ control *readCommands(int argc,char **argv)
         dimage->indDecon=1;
         dimage->doDecon=1;
       }else if(!strncasecmp(argv[i],"-LVIS",5)){
-        dimage->pSigma=0.6893;  /*two way trip*/
+        dimage->gediIO.pSigma=0.6893;  /*two way trip*/
         dimage->gediIO.fSigma=6.25;
       }else if(!strncasecmp(argv[i],"-pSigma",7)){
         checkArguments(1,i,argc,"-pSigma");
-        dimage->pSigma=atof(argv[++i]);
+        dimage->gediIO.pSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-pFWHM",6)){
         checkArguments(1,i,argc,"-pFWHM");
-        dimage->pFWHM=atof(argv[++i]);
+        dimage->gediIO.pFWHM=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-fSigma",7)){
         checkArguments(1,i,argc,"-fSigma");
         dimage->gediIO.fSigma=atof(argv[++i]);
@@ -1794,19 +1425,19 @@ control *readCommands(int argc,char **argv)
         dimage->ground=1;
         dimage->cleanOut=1;
       }else if(!strncasecmp(argv[i],"-sideLobe",9)){
-        dimage->sideLobe=1;
+        dimage->gediRat.sideLobe=1;
       }else if(!strncasecmp(argv[i],"-lobeAng",8)){
         checkArguments(1,i,argc,"-lobeAng");
-        dimage->lobeAng=atof(argv[++i]);
+        dimage->gediRat.lobeAng=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-listFiles",10)){
         dimage->listFiles=1;
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
         checkArguments(1,i,argc,"-pBuff");
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
       }else if(!strncasecmp(argv[i],"-noNorm",7)){
-        dimage->normCover=0;
+        dimage->gediRat.normCover=0;
       }else if(!strncasecmp(argv[i],"-checkCover",11)){
-        dimage->checkCover=1;
+        dimage->gediRat.checkCover=1;
       }else if(!strncasecmp(argv[i],"-topHat",7)){
         dimage->gediRat.topHat=1;
       }else if(!strncasecmp(argv[i],"-waveID",7)){
@@ -1815,8 +1446,8 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->waveID,argv[++i]);
       }else if(!strncasecmp(argv[i],"-readPulse",10)){
         checkArguments(1,i,argc,"-readPulse");
-        dimage->readPulse=1;
-        strcpy(dimage->pulseFile,argv[++i]);
+        dimage->gediIO.readPulse=1;
+        strcpy(dimage->gediIO.pulseFile,argv[++i]);
       }else if(!strncasecmp(argv[i],"-maxScanAng",11)){
         checkArguments(1,i,argc,"-maxScanAng");
         dimage->gediRat.maxScanAng=atof(argv[++i]);
@@ -1828,7 +1459,7 @@ control *readCommands(int argc,char **argv)
         dimage->nnGr=1;
       }else if(!strncasecmp(argv[i],"-res",4)){
         checkArguments(1,i,argc,"-res");
-        dimage->res=atof(argv[++i]);
+        dimage->gediIO.res=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gridBound",10)){
         checkArguments(4,i,argc,"-gridBound");
         dimage->gediRat.doGrid=1;

@@ -92,6 +92,7 @@ int main(int argc,char **argv)
   dataStruct **readMultiLVIS(control *);
   pCloudStruct **als=NULL;
   pCloudStruct **readMultiALS(control *,dataStruct **);
+  void bullseyeCorrel(dataStruct **,pCloudStruct **,control *);
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
@@ -103,6 +104,7 @@ int main(int argc,char **argv)
   als=readMultiALS(dimage,lvis);
 
   /*loop over, simulating*/
+  bullseyeCorrel(lvis,als,dimage);
 
   /*tidy up*/
   if(dimage){
@@ -135,6 +137,90 @@ int main(int argc,char **argv)
 
 
 /*####################################################*/
+/*simulate and calculate correlation*/
+
+void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
+{
+  int i=0,j=0,k=0;
+  int nX=0;
+  double xOff=0,yOff=0;
+  double **coords=NULL;
+  double **shiftPrints(double **,double,double,int);
+
+
+  /*set up pulse*/
+  setGediPulse(&dimage->simIO,&dimage->gediRat);
+
+  /*number of steps*/
+  nX=(int)(dimage->maxShift/dimage->shiftStep+0.5);
+
+  /*save original coordinates*/
+  coords=dimage->gediRat.coords;
+  dimage->gediRat.coords=NULL;
+
+  /*loop over shifts*/
+  for(i=0;i<nX;i++){
+    xOff=(double)(i-nX/2)*(double)dimage->shiftStep;
+    for(j=0;j<nX;j++){
+      yOff=(double)(j-nX/2)*(double)dimage->shiftStep;
+      /*shift prints*/
+      dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
+
+      /*loop over footprints*/
+      for(k=0;k<dimage->gediRat.gNx;k++){
+        /*set one coordinate*/
+        updateGediCoord(&dimage->gediRat,k,0);
+
+        /*simulate waves*/
+        setGediFootprint(&dimage->gediRat,&dimage->simIO);
+
+        /*calculate correlation*/
+     
+      }/*footprint loop*/
+
+      /*tidy up*/
+      TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
+      TIDY(dimage->gediRat.nGrid);
+      TIDY(dimage->gediRat.lobe);
+    }/*y loop*/
+  }/*x loop*/
+
+
+  /*tidy up*/
+  dimage->gediRat.coords=coords;
+  coords=NULL;
+  if(dimage->simIO.pulse){
+    TIDY(dimage->simIO.pulse->y);
+    TIDY(dimage->simIO.pulse->x);
+    TIDY(dimage->simIO.pulse);
+  }
+  return;
+}/*bullseyeCorrel*/
+
+
+/*####################################################*/
+/*shift coordinate centres*/
+
+double **shiftPrints(double **coords,double xOff,double yOff,int numb)
+{
+  int i=0;
+  double **newCoords=NULL;
+
+  /*allocate space*/
+  newCoords=dDalloc(numb,"newCoords",0);
+
+  /*loop overall points*/
+  for(i=0;i<numb;i++){
+    newCoords[i]=dalloc(2,"newCoords",i+1);
+    newCoords[i][0]=coords[i][0]+xOff;
+    newCoords[i][1]=coords[i][1]+yOff;
+  }
+
+  return(newCoords);
+}/*shiftPrints*/
+
+
+/*####################################################*/
 /*read multiple ALS files and save relevant data*/
 
 pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
@@ -148,6 +234,11 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
   /*determine bounds*/
   copyLvisCoords(&dimage->gediRat,lvis,dimage->nLvis,dimage->aEPSG,dimage->lEPSG);
   setGediGrid(&dimage->simIO,&dimage->gediRat);
+ /*account for jittering*/
+  dimage->gediRat.globMinX-=(double)dimage->maxShift;
+  dimage->gediRat.globMaxX+=(double)dimage->maxShift;
+  dimage->gediRat.globMinY-=(double)dimage->maxShift;
+  dimage->gediRat.globMaxY+=(double)dimage->maxShift;
 
   /*allocate space*/
   if(!(als=(pCloudStruct **)calloc(dimage->simIO.nFiles,sizeof(pCloudStruct *)))){
@@ -162,11 +253,11 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
     /*read data*/
     als[i]=readALSdata(las,&dimage->gediRat);
+    fprintf(stdout,"%d ALS\n",als[i]->nPoints);
 
     /*tidy up*/
     las=tidyLasFile(las);
   }/*ALS file loop*/
-
 
   return(als);
 }/*readMultiALS*/
@@ -263,7 +354,7 @@ dataStruct **readMultiLVIS(control *dimage)
     }
   }/*file loop*/
 
-  fprintf(stdout,"Found %d\n",dimage->nLvis);
+  fprintf(stdout,"Found %d LVIS\n",dimage->nLvis);
   return(lvis);
 }/*readMultiLVIS*/
 
@@ -463,7 +554,16 @@ control *readCommands(int argc,char **argv)
   dimage->lEPSG=4326;
   dimage->pBuffSize=(uint64_t)200000000;
 
+  /*LVIS params*/
+  dimage->simIO.fSigma=5.5;
+  dimage->simIO.pSigma=0.9;
+  dimage->gediRat.iThresh=0.0006;
 
+  /*bullseyte params*/
+  dimage->maxShift=10.0;      /*maximum distance to shift*/
+  dimage->shiftStep=1.0;     /*distance to shift steps*/
+
+  /*simulation settings*/
   dimage->gediRat.readALSonce=1;    /*read all ALS data once*/
   dimage->gediRat.readWave=0;       /*do not read waveform switch*/
   dimage->gediRat.useShadow=0;      /*do not account for shadowing through voxelisation*/
