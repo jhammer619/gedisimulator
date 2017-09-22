@@ -1110,6 +1110,7 @@ char checkMultiPoints(double x,double y,double z,int nCoords,double **coords,dou
 void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
   void readFeetList(gediRatStruct *);
+  void setRatBounds(gediRatStruct *);
 
   /*footprint width*/
   if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
@@ -1125,6 +1126,8 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediRat->globMaxX=gediRat->gMaxX+gediRat->maxSep;
     gediRat->globMinY=gediRat->gMinY-gediRat->maxSep;
     gediRat->globMaxY=gediRat->gMaxY+gediRat->maxSep;
+  }else if(gediRat->coords){  /*we have provided a list of coordinates*/
+    setRatBounds(gediRat);
   }else if(gediRat->readALSonce){ /*it is a batch*/
     /*read list of coords*/
     readFeetList(gediRat);
@@ -1136,11 +1139,38 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediRat->globMaxY=gediRat->coord[1]+gediRat->maxSep;
   }
 
-  if((gediRat->gNx*gediRat->gNy)>gediIO->nMessages)gediIO->nMessages=(int)(gediRat->gNx*gediRat->gNy/gediIO->nMessages);
+  if((gediIO->nMessages>1)&&(gediRat->gNx*gediRat->gNy)>gediIO->nMessages)gediIO->nMessages=(int)(gediRat->gNx*gediRat->gNy/gediIO->nMessages);
   else                                             gediIO->nMessages=1;
 
   return;
 }/*setGediGrid*/
+
+
+/*####################################*/
+/*set bounds from list of coords*/
+
+void setRatBounds(gediRatStruct *gediRat)
+{
+  int i=0;
+  double minX=0,maxX=0;
+  double minY=0,maxY=0;
+
+  minX=minY=1000000000.0;
+  maxX=maxY=-1000000000.0;
+  for(i=0;i<gediRat->gNx;i++){
+    if(gediRat->coords[i][0]<minX)minX=gediRat->coords[i][0];
+    if(gediRat->coords[i][1]<minY)minY=gediRat->coords[i][1];
+    if(gediRat->coords[i][0]>maxX)maxX=gediRat->coords[i][0];
+    if(gediRat->coords[i][1]>maxY)maxY=gediRat->coords[i][1];
+  }
+
+  gediRat->globMinX=minX-gediRat->maxSep;
+  gediRat->globMaxX=maxX+gediRat->maxSep;
+  gediRat->globMinY=minY-gediRat->maxSep;
+  gediRat->globMaxY=maxY+gediRat->maxSep;
+
+  return;
+}/*readFeetList*/
 
 
 /*####################################*/

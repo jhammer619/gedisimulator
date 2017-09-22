@@ -210,11 +210,13 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
     OSRDestroySpatialReference(hTargetSRS);
 
     for(i=0;i<nLvis;i++){
+      gediRat->coords[i]=dalloc(2,"coords",i+1);
       gediRat->coords[i][0]=x[i];
       gediRat->coords[i][1]=y[i];
     }
   }else{
     for(i=0;i<nLvis;i++){
+      gediRat->coords[i]=dalloc(2,"coords",i+1);
       gediRat->coords[i][0]=lvis[i]->lon;
       gediRat->coords[i][1]=lvis[i]->lat;
     }
@@ -480,8 +482,8 @@ control *readCommands(int argc,char **argv)
         dimage->lvisIO.inList=chChalloc(dimage->lvisIO.nFiles,"input name list",0);
         dimage->lvisIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->lvisIO.inList[0],argv[i]);
-      }else if(!strncasecmp(argv[i],"-lvisList",9)){
-        checkArguments(1,i,argc,"-lvisList");
+      }else if(!strncasecmp(argv[i],"-listLvis",9)){
+        checkArguments(1,i,argc,"-listLvis");
         TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
         dimage->lvisIO.inList=readInList(&dimage->lvisIO.nFiles,argv[++i]);
       }else if(!strncasecmp(argv[i],"-als",4)){
@@ -492,8 +494,8 @@ control *readCommands(int argc,char **argv)
         dimage->simIO.inList=chChalloc(dimage->simIO.nFiles,"input name list",0);
         dimage->simIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->simIO.inList[0],argv[i]);
-      }else if(!strncasecmp(argv[i],"-alsList",8)){
-        checkArguments(1,i,argc,"-alsList");
+      }else if(!strncasecmp(argv[i],"-listAls",8)){
+        checkArguments(1,i,argc,"-listAls");
         TTIDY((void **)dimage->simIO.inList,dimage->simIO.nFiles);
         dimage->simIO.inList=readInList(&dimage->simIO.nFiles,argv[++i]);
       }else if(!strncasecmp(argv[i],"-output",7)){
