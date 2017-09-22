@@ -7,6 +7,7 @@
 #include "hdf5.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
+#include "libLasRead.h"
 #include "gediIO.h"
 
 
@@ -829,6 +830,383 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
   return(data);
 }/*readBinaryLVIS*/
+
+
+/*####################################*/
+/*read lasFile and save relevant data*/
+
+pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat)
+{
+  int j=0;
+  uint32_t i=0;
+  uint32_t pUsed=0;    /*number of points used*/
+  double x=0,y=0,z=0;
+  pCloudStruct *data=NULL;
+  char hasWave=0;   /*has waveform data, to save RAM*/
+  char useFile=0,usePoint=0;
+  char checkMultiFiles(lasFile *,int,double **,double);
+  char checkMultiPoints(double,double,double,int,double **,double);
+
+  /*allocate maximum number of points*/
+  if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
+    fprintf(stderr,"error pCloudStruct allocation.\n");
+    exit(1);
+  }
+
+  /*set nonsense bounds*/
+  data->bounds[0]=data->bounds[1]=data->bounds[2]=10000000000.0;
+  data->bounds[3]=data->bounds[4]=data->bounds[5]=-10000000000.0;
+
+  /*is file needed?*/
+  if(!gediRat->readALSonce)useFile=checkFileBounds(las,gediRat->globMinX,gediRat->globMaxX,gediRat->globMinY,gediRat->globMaxY);
+  else                    useFile=checkMultiFiles(las,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+
+  /*check file is needed*/
+  if(useFile){
+    data->x=dalloc(las->nPoints,"x",0);
+    data->y=dalloc(las->nPoints,"y",0);
+    data->z=dalloc(las->nPoints,"z",0);
+    data->refl=ialloc(las->nPoints,"refl",0);
+    data->class=uchalloc((uint64_t)las->nPoints,"class",0);
+    data->nRet=challoc((uint64_t)las->nPoints,"nRet",0);
+    data->retNumb=challoc((uint64_t)las->nPoints,"nRet",0);
+    data->scanAng=challoc((uint64_t)las->nPoints,"scanAng",0);
+    data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
+    data->grad=fFalloc(las->nPoints,"grad",0);
+    for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
+    data->time=falloc(las->nPoints,"time",0);              /*time in picoseconds of this wave*/
+    if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
+      fprintf(stderr,"error in input filename structure.\n");
+      exit(1);
+    }
+    if(!(data->waveLen=(uint32_t *)calloc(las->nPoints,sizeof(uint32_t)))){
+      fprintf(stderr,"error in input filename structure.\n");
+      exit(1);
+    }
+
+    /*loop over points*/
+    pUsed=0;
+    hasWave=0;
+    for(i=0;i<las->nPoints;i++){
+      /*read one point*/
+      readLasPoint(las,i);
+      setCoords(&x,&y,&z,las);
+
+      /*is the point is of use?*/
+      if(!gediRat->readALSonce){
+        if((x>=gediRat->globMinX)&&(x<=gediRat->globMaxX)&&(y>=gediRat->globMinY)&&(y<=gediRat->globMaxY)&&\
+           (z>-10000.0)&&(z<10000.0)&&(fabs((float)las->scanAng)<=gediRat->maxScanAng))usePoint=1;
+        else usePoint=0;
+      }else usePoint=checkMultiPoints(x,y,z,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+
+      /*if we need to use point*/
+      if(usePoint){
+        data->x[pUsed]=x;
+        data->y[pUsed]=y;
+        data->z[pUsed]=z;
+        if(las->refl>0)data->refl[pUsed]=(int)las->refl;
+        else           data->refl[pUsed]=1;
+        data->class[pUsed]=las->classif;
+        data->nRet[pUsed]=(char)las->field.nRet;
+        data->retNumb[pUsed]=(char)las->field.retNumb;
+        data->scanAng[pUsed]=las->scanAng;
+
+        /*determine data bounds*/
+        if(x<data->bounds[0])data->bounds[0]=x;
+        if(y<data->bounds[1])data->bounds[1]=y;
+        if(z<data->bounds[2])data->bounds[2]=z;
+        if(x>data->bounds[3])data->bounds[3]=x;
+        if(y>data->bounds[4])data->bounds[4]=y;
+        if(z>data->bounds[5])data->bounds[5]=z;
+
+        /*record waveform if needed*/
+        if(checkOneWave(las)){
+          hasWave=1;
+          data->packetDes[pUsed]=las->packetDes;
+          for(j=0;j<3;j++)data->grad[pUsed][j]=las->grad[j];
+          data->time[pUsed]=las->time;
+          data->waveMap[pUsed]=las->waveMap;
+          data->waveLen[pUsed]=las->waveLen;
+        }else{
+          data->packetDes[pUsed]=0;
+          data->grad[pUsed][0]=data->grad[pUsed][1]=data->grad[pUsed][2]=0.0;
+        }
+
+        /*count points here*/
+        pUsed++;
+      }
+    }/*point loop*/
+
+    /*trim data arrays*/
+    data->nPoints=pUsed;
+    if(pUsed>0){
+      if(!(data->x=(double *)realloc(data->x,data->nPoints*sizeof(double)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->y=(double *)realloc(data->y,data->nPoints*sizeof(double)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->z=(double *)realloc(data->z,data->nPoints*sizeof(double)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->refl=(int *)realloc(data->refl,data->nPoints*sizeof(int)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->class=(unsigned char *)realloc(data->class,data->nPoints*sizeof(unsigned char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->nRet=(char *)realloc(data->nRet,data->nPoints*sizeof(char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->retNumb=(char *)realloc(data->retNumb,data->nPoints*sizeof(char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->scanAng=(char *)realloc(data->scanAng,data->nPoints*sizeof(char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(gediRat->useShadow){
+        for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
+        if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
+          fprintf(stderr,"Balls\n");
+          exit(1);
+        }
+      }else if(hasWave==0){
+        TTIDY((void **)data->grad,las->nPoints);
+        data->grad=NULL;
+      }
+    }else{
+      TIDY(data->x);
+      TIDY(data->y);
+      TIDY(data->z);
+      TIDY(data->refl);
+      TIDY(data->class);
+      TTIDY((void **)data->grad,las->nPoints);
+      data->grad=NULL;
+    }
+    if(hasWave==1){
+      data->waveStart=las->waveStart;
+      if(!(data->packetDes=(unsigned char *)realloc(data->packetDes,data->nPoints*sizeof(unsigned char)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->time=(float *)realloc(data->time,data->nPoints*sizeof(float)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->waveMap=(uint64_t *)realloc(data->waveMap,data->nPoints*sizeof(uint64_t)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      if(!(data->waveLen=(uint32_t *)realloc(data->waveLen,data->nPoints*sizeof(uint32_t)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+      for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
+      if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
+        fprintf(stderr,"Balls\n");
+        exit(1);
+      }
+    }else{  /*clear out all the waveform bits*/
+      TIDY(data->packetDes);
+      if(!gediRat->useShadow){
+        TTIDY((void **)data->grad,las->nPoints);
+        data->grad=NULL;
+      }
+      TIDY(data->time);
+      TIDY(data->waveMap);
+      TIDY(data->waveLen);
+    }
+  }else{/*file bounds check*/
+    data->nPoints=0;
+    data->nRet=NULL;
+    data->retNumb=NULL;
+    data->packetDes=NULL;
+    data->grad=NULL;
+    data->time=NULL;
+    data->waveMap=NULL;
+    data->waveLen=NULL;
+    data->x=NULL;
+    data->y=NULL;
+    data->z=NULL;
+    data->refl=NULL;
+  }
+
+  data->hasWave=hasWave;
+  if(gediRat->readWave&&hasWave){  /*only leave files open for waveform*/
+    data->ipoo=las->ipoo;
+    las->ipoo=NULL;
+  }else{
+    data->ipoo=NULL;
+  }
+
+  return(data);
+}/*readALSdata*/
+
+
+/*##########################################################################*/
+/*see if we need to use this file when batch processing ALS data*/
+
+char checkMultiFiles(lasFile *las,int nCoords,double **coords,double maxSep)
+{
+  int i=0;
+  double maxX=0,minX=0;
+  double maxY=0,minY=0;
+  char useFile=0;
+
+  useFile=0;
+  for(i=0;i<nCoords;i++){
+    minX=coords[i][0]-maxSep;
+    maxX=coords[i][0]+maxSep;
+    minY=coords[i][1]-maxSep;
+    maxY=coords[i][1]+maxSep;
+    if((las->minB[0]<=maxX)&&(las->minB[1]<=maxY)&&(las->maxB[0]>=minX)&&(las->maxB[1]>=minY)){
+      useFile=1;
+      break;
+    }
+  }/*footprint loop*/
+
+  return(useFile);
+}/*checkMultiFiles*/
+
+
+/*##########################################################################*/
+/*see if we need to use this point when batch processing ALS data*/
+
+char checkMultiPoints(double x,double y,double z,int nCoords,double **coords,double maxSep)
+{
+  int i=0;
+  double maxX=0,minX=0;
+  double maxY=0,minY=0;
+  char usePoint=0;
+
+  usePoint=0;
+  for(i=0;i<nCoords;i++){
+    minX=coords[i][0]-maxSep;
+    maxX=coords[i][0]+maxSep;
+    minY=coords[i][1]-maxSep;
+    maxY=coords[i][1]+maxSep;
+
+    if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
+      usePoint=1;
+      break;
+    }
+  }/*footprint loop*/
+
+  return(usePoint);
+}/*checkMultiPoints*/
+
+
+/*####################################*/
+/*set GEDI grid or batch*/
+
+void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
+{
+  void readFeetList(gediRatStruct *);
+
+  /*footprint width*/
+  if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
+  else                  gediRat->maxSep=gediIO->fSigma;
+
+  if(gediRat->doGrid){  /*it is a grid*/
+    /*number of footprints*/
+    gediRat->gNx=(int)((gediRat->gMaxX-gediRat->gMinX)/gediRat->gRes+1);
+    gediRat->gNy=(int)((gediRat->gMaxY-gediRat->gMinY)/gediRat->gRes+1);
+
+    /*global bounds*/
+    gediRat->globMinX=gediRat->gMinX-gediRat->maxSep;
+    gediRat->globMaxX=gediRat->gMaxX+gediRat->maxSep;
+    gediRat->globMinY=gediRat->gMinY-gediRat->maxSep;
+    gediRat->globMaxY=gediRat->gMaxY+gediRat->maxSep;
+  }else if(gediRat->readALSonce){ /*it is a batch*/
+    /*read list of coords*/
+    readFeetList(gediRat);
+  }else{   /*single footprint*/
+    gediRat->gNx=gediRat->gNy=1;
+    gediRat->globMinX=gediRat->coord[0]-gediRat->maxSep;
+    gediRat->globMaxX=gediRat->coord[0]+gediRat->maxSep;
+    gediRat->globMinY=gediRat->coord[1]-gediRat->maxSep;
+    gediRat->globMaxY=gediRat->coord[1]+gediRat->maxSep;
+  }
+
+  if((gediRat->gNx*gediRat->gNy)>gediIO->nMessages)gediIO->nMessages=(int)(gediRat->gNx*gediRat->gNy/gediIO->nMessages);
+  else                                             gediIO->nMessages=1;
+
+  return;
+}/*setGediGrid*/
+
+
+/*####################################*/
+/*read list of coordinates*/
+
+void readFeetList(gediRatStruct *gediRat)
+{
+  int i=0;
+  char line[200],temp1[50];
+  char temp2[50],temp3[100];;
+  FILE *ipoo=NULL;
+
+  /*open file*/
+  if((ipoo=fopen(gediRat->coordList,"r"))==NULL){
+    fprintf(stderr,"Error opening input file list \"%s\"\n",gediRat->coordList);
+    exit(1);
+  }
+
+
+  /*count number of lines*/
+  i=0;
+  while(fgets(line,200,ipoo)!=NULL)if(strncasecmp(line,"#",1))i++;
+
+  /*allocate space*/
+  gediRat->gNx=i;
+  gediRat->gNy=1;
+  gediRat->coords=dDalloc(gediRat->gNx,"coord list",0);
+  gediRat->waveIDlist=chChalloc(gediRat->gNx,"wave ID list",0);
+
+  /*rewind to start of file*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read coordinate list*/
+  i=0;
+  while(fgets(line,200,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      gediRat->coords[i]=dalloc(2,"coord list",i+1);
+      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){ /*read coord and waveID*/
+        gediRat->coords[i][0]=atof(temp1);
+        gediRat->coords[i][1]=atof(temp2);
+        gediRat->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
+        strcpy(gediRat->waveIDlist[i],temp3);
+      }else if(sscanf(line,"%s %s",temp1,temp2)==2){
+        gediRat->coords[i][0]=atof(temp1);
+        gediRat->coords[i][1]=atof(temp2);
+        sprintf(temp3,"%f.%f",gediRat->coords[i][0],gediRat->coords[i][1]);
+        gediRat->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
+        strcpy(gediRat->waveIDlist[i],temp3);
+      }else{
+        fprintf(stderr,"coord list reading error \"%s\"\n",line);
+        exit(1);
+      }
+      i++;
+    }
+  }
+
+  /*close file*/
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return;
+}/*readFeetList*/
 
 /*the end*/
 /*####################################################*/

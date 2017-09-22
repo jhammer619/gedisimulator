@@ -101,6 +101,47 @@ typedef struct{
 
 
 /*###########################################################*/
+/*GEDI simulator options*/
+
+typedef struct{
+  /*switches*/
+  char readALSonce;    /*read all ALS data once*/
+  char readWave;       /*read waveform switch*/
+  char useShadow;      /*account for shadowing through voxelisation*/
+  char topHat;       /*use a top hat wavefront rather than Gaussian*/
+
+  /*coordinates*/
+  double coord[2];
+
+  /*read a batch of coords*/
+  char coordList[200]; /*list of coordinates*/
+  char **waveIDlist;   /*list of waveform IDs*/
+  double **coords;     /*list of coordinates*/
+
+  /*global area of interest*/
+  double globMinX;
+  double globMaxX;
+  double globMinY;
+  double globMaxY;
+
+  /*grid to output multiple waveforms per run*/
+  char doGrid;         /*gridded switch*/
+  double gRes;         /*grid resolution*/
+  double gMinX;        /*minimum x of grid*/
+  double gMaxX;        /*maximum x of grid*/
+  double gMinY;        /*minimum y of grid*/
+  double gMaxY;        /*maximum y of grid*/
+  int gNx;             /*number of x steps*/
+  int gNy;             /*number of y steps*/
+
+  /*others*/
+  double maxSep;   /*maximum acceptable separation*/
+  float maxScanAng;    /*maximum scan angle*/
+  float iThresh;   /*intensity threshold*/
+}gediRatStruct;
+
+
+/*###########################################################*/
 /*GEDI HDF5 structure*/
 
 typedef struct{
@@ -142,6 +183,8 @@ gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 void writeGEDIhdf(gediHDF *,char *);
 gediHDF *readGediHDF(char *,gediIOstruct *);
 gediHDF *tidyGediHDF(gediHDF *);
+pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat);
+void setGediGrid(gediIOstruct *,gediRatStruct *);
 
 /*# the end*/
 /*###########################################################*/

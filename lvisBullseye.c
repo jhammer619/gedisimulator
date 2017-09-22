@@ -52,8 +52,9 @@
 
 typedef struct{
   /*input/output*/
-  gediIOstruct simIO; /*input/output structure*/
-  gediIOstruct lvisIO; /*input/output structure*/
+  gediIOstruct simIO;    /*input/output structure*/
+  gediIOstruct lvisIO;   /*input/output structure*/
+  gediRatStruct gediRat; /*simulator options*/
   char outNamen[200];
 
   /*options*/
@@ -67,6 +68,7 @@ typedef struct{
 
   /**/
   int nLvis;           /*number of LVIS*/
+  uint64_t pBuffSize;  /*point buffer rading size in bytes*/
 
   /*bounds for subsets*/
   char useBounds;
@@ -88,7 +90,8 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct **lvis=NULL;
   dataStruct **readMultiLVIS(control *);
-
+  pCloudStruct **als=NULL;
+  pCloudStruct **readMultiALS(control *,dataStruct **);
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
@@ -96,9 +99,8 @@ int main(int argc,char **argv)
   /*read LVIS data*/
   lvis=readMultiLVIS(dimage);
 
-
   /*read ALS data*/
-
+  als=readMultiALS(dimage,lvis);
 
   /*loop over, simulating*/
 
@@ -130,6 +132,99 @@ int main(int argc,char **argv)
   }
   return(0);
 }/*main*/
+
+
+/*####################################################*/
+/*read multiple ALS files and save relevant data*/
+
+pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
+{
+  int i=0;
+  pCloudStruct **als=NULL;
+  lasFile *las=NULL;
+  void copyLvisCoords(gediRatStruct *,dataStruct **,int,int,int);
+
+
+  /*determine bounds*/
+  copyLvisCoords(&dimage->gediRat,lvis,dimage->nLvis,dimage->aEPSG,dimage->lEPSG);
+  setGediGrid(&dimage->simIO,&dimage->gediRat);
+
+  /*allocate space*/
+  if(!(als=(pCloudStruct **)calloc(dimage->simIO.nFiles,sizeof(pCloudStruct *)))){
+    fprintf(stderr,"error in lvis data allocation.\n");
+    exit(1);
+  } 
+
+  /*loop over ALS files*/
+  for(i=0;i<dimage->simIO.nFiles;i++){
+    /*read header*/
+    las=readLasHead(dimage->simIO.inList[i],dimage->pBuffSize);
+
+    /*read data*/
+    als[i]=readALSdata(las,&dimage->gediRat);
+
+    /*tidy up*/
+    las=tidyLasFile(las);
+  }/*ALS file loop*/
+
+
+  return(als);
+}/*readMultiALS*/
+
+
+/*####################################################*/
+/*copy LVIS coords into ALS structure*/
+
+void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG,int lEPSG)
+{
+  int i=0;
+  double *x=NULL,*y=NULL,*z=NULL;
+  OGRCoordinateTransformationH hTransform;
+  OGRSpatialReferenceH hSourceSRS,hTargetSRS;
+  OGRErr err;
+
+  gediRat->gNx=nLvis;
+  gediRat->gNy=1;
+  gediRat->coords=dDalloc(gediRat->gNx,"coord list",0);
+  gediRat->waveIDlist=NULL;
+
+
+  if(aEPSG!=lEPSG){
+    x=dalloc(nLvis,"x",0);
+    y=dalloc(nLvis,"y",0);
+    z=dalloc(nLvis,"z",0);
+    for(i=0;i<nLvis;i++){
+      x[i]=lvis[i]->lon;
+      y[i]=lvis[i]->lat;
+      z[i]=0.0;
+    }
+
+    hSourceSRS=OSRNewSpatialReference(NULL);
+    hTargetSRS=OSRNewSpatialReference(NULL);
+    err=OSRImportFromEPSG(hTargetSRS,aEPSG);
+    err=OSRImportFromEPSG(hSourceSRS,lEPSG);
+    hTransform=OCTNewCoordinateTransformation(hSourceSRS,hTargetSRS);
+    OCTTransform(hTransform,nLvis,x,y,z);
+    OCTDestroyCoordinateTransformation(hTransform);
+    OSRDestroySpatialReference(hSourceSRS);
+    OSRDestroySpatialReference(hTargetSRS);
+
+    for(i=0;i<nLvis;i++){
+      gediRat->coords[i][0]=x[i];
+      gediRat->coords[i][1]=y[i];
+    }
+  }else{
+    for(i=0;i<nLvis;i++){
+      gediRat->coords[i][0]=lvis[i]->lon;
+      gediRat->coords[i][1]=lvis[i]->lat;
+    }
+  }
+
+  TIDY(x);
+  TIDY(y);
+  TIDY(z);
+  return;
+}/*setGediGrid*/
 
 
 /*####################################################*/
@@ -166,8 +261,7 @@ dataStruct **readMultiLVIS(control *dimage)
     }
   }/*file loop*/
 
-fprintf(stdout,"Found %d\n",dimage->nLvis);
-
+  fprintf(stdout,"Found %d\n",dimage->nLvis);
   return(lvis);
 }/*readMultiLVIS*/
 
@@ -240,6 +334,15 @@ dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *b
 
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3]))nNew++;
   }
+  if(tempData){
+    TTIDY((void **)tempData->wave,tempData->nWaveTypes);
+    TTIDY((void **)tempData->ground,tempData->nWaveTypes);
+    TIDY(tempData->noised);
+    TIDY(tempData->totE);
+    TIDY(tempData->z);
+    TIDY(tempData);
+  }
+
 
   /*allocate space*/
   if(lvis==NULL){
@@ -356,7 +459,14 @@ control *readCommands(int argc,char **argv)
   dimage->useLvisLGW=0;
   dimage->aEPSG=32632;
   dimage->lEPSG=4326;
+  dimage->pBuffSize=(uint64_t)200000000;
 
+
+  dimage->gediRat.readALSonce=1;    /*read all ALS data once*/
+  dimage->gediRat.readWave=0;       /*do not read waveform switch*/
+  dimage->gediRat.useShadow=0;      /*do not account for shadowing through voxelisation*/
+  dimage->gediRat.maxScanAng=1000000000.0;    /*maximum scan angle*/
+  dimage->gediRat.coords=NULL;     /*list of coordinates*/
 
 
   /*read the command line*/
@@ -405,6 +515,9 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-lEPSG",6)){
         checkArguments(1,i,argc,"-lEPSG");
         dimage->lEPSG=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-pBuff",6)){
+        checkArguments(1,i,argc,"-pBuff");
+        dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
       }else if(!strncasecmp(argv[i],"-help",5)){
         fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-output name;   output filename\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n\n");
         exit(1);
