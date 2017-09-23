@@ -56,19 +56,17 @@ typedef struct{
   gediIOstruct lvisIO;   /*input/output structure*/
   gediRatStruct gediRat; /*simulator options*/
   char outNamen[200];
+  int nLvis;           /*number of LVIS*/
 
   /*options*/
   char useLvisHDF;
   char useLvisLGW;
   float offset;        /*vertical datum offset*/
+  uint64_t pBuffSize;  /*point buffer rading size in bytes*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum distance to shift*/
   float shiftStep;     /*distance to shift steps*/
-
-  /**/
-  int nLvis;           /*number of LVIS*/
-  uint64_t pBuffSize;  /*point buffer rading size in bytes*/
 
   /*bounds for subsets*/
   char useBounds;
@@ -86,10 +84,12 @@ typedef struct{
 
 int main(int argc,char **argv)
 {
+  int i=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct **lvis=NULL;
-  dataStruct **readMultiLVIS(control *);
+  dataStruct **readMultiLVIS(control *,float *);
+  dataStruct **tidyLvisWaves(dataStruct **,int);
   pCloudStruct **als=NULL;
   pCloudStruct **readMultiALS(control *,dataStruct **);
   void bullseyeCorrel(dataStruct **,pCloudStruct **,control *);
@@ -98,7 +98,7 @@ int main(int argc,char **argv)
   dimage=readCommands(argc,argv);
 
   /*read LVIS data*/
-  lvis=readMultiLVIS(dimage);
+  lvis=readMultiLVIS(dimage,&dimage->simIO.res);
 
   /*read ALS data*/
   als=readMultiALS(dimage,lvis);
@@ -107,6 +107,11 @@ int main(int argc,char **argv)
   bullseyeCorrel(lvis,als,dimage);
 
   /*tidy up*/
+  if(als){
+    for(i=0;i<dimage->simIO.nFiles;i++)als[i]=tidyPointCloud(als[i]);
+    TIDY(als);
+  }
+  lvis=tidyLvisWaves(lvis,dimage->nLvis);
   if(dimage){
     TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
     TTIDY((void **)dimage->simIO.inList,dimage->simIO.nFiles);
@@ -146,6 +151,8 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   double xOff=0,yOff=0;
   double **coords=NULL;
   double **shiftPrints(double **,double,double,int);
+  float **denoiseAllLvis(dataStruct **,control *);
+  float **denoised=NULL;
   waveStruct *waves=NULL;
 
   /*set up pulse*/
@@ -157,6 +164,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   /*save original coordinates*/
   coords=dimage->gediRat.coords;
   dimage->gediRat.coords=NULL;
+
+  /*denoise LVIS*/
+  denoised=denoiseAllLvis(lvis,dimage);
 
   /*loop over shifts*/
   for(i=0;i<nX;i++){
@@ -197,6 +207,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   /*tidy up*/
   dimage->gediRat.coords=coords;
   coords=NULL;
+  TTIDY((void **)denoised,dimage->nLvis);
   if(dimage->simIO.pulse){
     TIDY(dimage->simIO.pulse->y);
     TIDY(dimage->simIO.pulse->x);
@@ -204,6 +215,26 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   }
   return;
 }/*bullseyeCorrel*/
+
+
+/*####################################################*/
+/*denoiseall LVIS data*/
+
+float **denoiseAllLvis(dataStruct **lvis,control *dimage)
+{
+  int i=0;
+  float **denoised=NULL;
+
+  /*allocate space*/
+  denoised=fFalloc(dimage->nLvis,"denoised waveforms",0);
+
+  /*loop over LVIS footprints*/
+  for(i=0;i<dimage->nLvis;i++){
+    denoised[i]=processFloWave(lvis[i]->wave[0],lvis[i]->nBins,dimage->lvisIO.den,1.0);
+  }/*LVIS footprint loop*/
+
+  return(denoised);
+}/*denoiseAllLvis*/
 
 
 /*####################################################*/
@@ -331,13 +362,13 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
 /*####################################################*/
 /*read multiple LVIS files and save relevant data*/
 
-dataStruct **readMultiLVIS(control *dimage)
+dataStruct **readMultiLVIS(control *dimage,float *res)
 {
-  int i=0;
+  int i=0,j=0;
   dataStruct **lvis=NULL;
   dataStruct **copyLVIShdf(lvisHDF *,dataStruct **,control *,double *);
   dataStruct **copyLVISlgw(char *,dataStruct **,control *,double *);
-  double bounds[4];
+  double bounds[4],offset=0;
   lvisHDF *hdf=NULL;
   void reprojectBounds(control *,double *);
 
@@ -361,6 +392,20 @@ dataStruct **readMultiLVIS(control *dimage)
       lvis=copyLVISlgw(dimage->lvisIO.inList[i],lvis,dimage,bounds);
     }
   }/*file loop*/
+
+  /*offset vertical datum*/
+  if(fabs(dimage->offset)>0.001){
+    offset=(double)dimage->offset;
+    for(i=0;i<dimage->nLvis;i++){
+      for(j=0;j<lvis[i]->nBins;j++)lvis[i]->z[j]+=offset;
+    }
+  }
+
+  /*res for simulations*/
+  *res=0.0;
+  for(i=0;i<dimage->nLvis;i++)*res+=lvis[i]->res;
+  *res/=(float)dimage->nLvis;
+
 
   fprintf(stdout,"Found %d LVIS\n",dimage->nLvis);
   return(lvis);
@@ -529,6 +574,30 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
 
 
 /*####################################################*/
+/*tidy LVIS data*/
+
+dataStruct **tidyLvisWaves(dataStruct **lvis,int nLvis)
+{
+  int i=0;
+
+  if(lvis){
+    for(i=0;i<nLvis;i++){
+      if(lvis[i]){
+        TTIDY((void **)lvis[i]->wave,lvis[i]->nWaveTypes);
+        TTIDY((void **)lvis[i]->ground,lvis[i]->nWaveTypes);
+        TIDY(lvis[i]->noised);
+        TIDY(lvis[i]->z);
+        TIDY(lvis[i]);
+      }
+    }
+    TIDY(lvis);
+  }
+
+  return(lvis);
+}/*tidyLvisWaves*/
+
+
+/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -560,12 +629,20 @@ control *readCommands(int argc,char **argv)
   dimage->useLvisLGW=0;
   dimage->aEPSG=32632;
   dimage->lEPSG=4326;
+  dimage->offset=0.0;
   dimage->pBuffSize=(uint64_t)200000000;
 
-  /*LVIS params*/
+  /*LVIS params for sim*/
   dimage->simIO.fSigma=5.5;
   dimage->simIO.pSigma=0.9;
   dimage->gediRat.iThresh=0.0006;
+
+  /*LVIS denoising*/
+  setDenoiseDefault(dimage->lvisIO.den);
+  dimage->lvisIO.den->varNoise=1;
+  dimage->lvisIO.den->statsLen=12.0;
+  dimage->lvisIO.den->noiseTrack=1;
+  dimage->lvisIO.den->threshScale=4.0;
 
   /*bullseyte params*/
   dimage->maxShift=10.0;      /*maximum distance to shift*/
@@ -577,6 +654,22 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.useShadow=0;      /*do not account for shadowing through voxelisation*/
   dimage->gediRat.maxScanAng=1000000000.0;    /*maximum scan angle*/
   dimage->gediRat.coords=NULL;     /*list of coordinates*/
+  dimage->gediRat.readWave=0;
+  dimage->simIO.ground=0;
+  dimage->gediRat.sideLobe=0;   /*no side lobes*/
+  dimage->gediRat.lobeAng=0.0;
+  dimage->gediRat.checkCover=0;
+  dimage->gediRat.normCover=1;
+  dimage->gediRat.cleanOut=0;
+  dimage->gediRat.topHat=0;
+  dimage->simIO.readPulse=0;
+  dimage->gediRat.useShadow=0;
+  dimage->gediRat.maxScanAng=1000000.0;   /*maximum scan angle*/
+  dimage->gediRat.coords=NULL;       /*list of coordinates*/
+  dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
+  dimage->simIO.nMessages=200;
+  dimage->gediRat.doDecon=0;
+  dimage->gediRat.indDecon=0;
 
 
   /*read the command line*/
@@ -628,6 +721,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
         checkArguments(1,i,argc,"-pBuff");
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
+      }else if(!strncasecmp(argv[i],"-readPulse",10)){
+        checkArguments(1,i,argc,"-readPulse");
+        dimage->simIO.readPulse=1;
+        strcpy(dimage->simIO.pulseFile,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
         fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-output name;   output filename\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n\n");
         exit(1);
