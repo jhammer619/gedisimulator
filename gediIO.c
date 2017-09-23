@@ -8,6 +8,7 @@
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
 #include "libLasRead.h"
+#include "libLidVoxel.h"
 #include "gediIO.h"
 
 
@@ -1552,6 +1553,625 @@ void updateGediCoord(gediRatStruct *gediRat,int i,int j)
 
   return;
 }/*updateGediCoord*/
+
+
+/*####################################*/
+/*allocate wave structure*/
+
+waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,pCloudStruct **data)
+{
+  int j=0,numb=0,k=0;
+  uint32_t i=0;
+  double maxZ=0,minZ=0;
+  double buff=0;
+  waveStruct *waves=NULL;
+  char hasPoints=0;
+
+  if(!(waves=(waveStruct *)calloc(1,sizeof(waveStruct)))){
+    fprintf(stderr,"error waveStruct allocation.\n");
+    exit(1);
+  }
+
+  /*determine wave bounds*/
+  buff=35.0;
+  minZ=100000000000.0;
+  maxZ=-100000000000.0;
+  hasPoints=0;
+  for(numb=0;numb<gediIO->nFiles;numb++){
+    if(data[numb]->nPoints>0)hasPoints=1;
+    for(i=0;i<data[numb]->nPoints;i++){
+      if(data[numb]->z[i]>maxZ)maxZ=data[numb]->z[i];
+      if(data[numb]->z[i]<minZ)minZ=data[numb]->z[i];
+    }
+  }/*bound finding*/
+
+  if(hasPoints==0){
+    fprintf(stderr,"No points included\n");
+    exit(1);
+  }
+
+  waves->minZ=minZ-buff;
+  waves->maxZ=maxZ+buff;
+
+  waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
+  waves->nWaves=9;
+  waves->wave=fFalloc(waves->nWaves,"result waveform",0);
+  for(j=0;j<waves->nWaves;j++){
+    waves->wave[j]=falloc(waves->nBins,"result waveform",j+1);
+    for(k=0;k<waves->nBins;k++)waves->wave[j][k]=0.0;
+  }
+  if(gediIO->ground){
+    waves->canopy=fFalloc(3,"canopy",0);
+    waves->ground=fFalloc(3,"ground",0);
+    for(j=0;j<3;j++){
+      waves->canopy[j]=falloc(waves->nBins,"canopy waveform",j+1);
+      waves->ground[j]=falloc(waves->nBins,"ground waveform",j+1);
+      for(k=0;k<waves->nBins;k++)waves->canopy[j][k]=waves->ground[j][k]=0.0;
+    }
+  }
+
+  return(waves);
+}/*allocateGEDIwaves*/
+
+
+/*################################################################################*/
+/*determine ALS coverage*/
+
+void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data)
+{
+  int i=0;
+  int gX=0,gY=0;
+  uint32_t j=0;
+  double dx=0,dy=0;
+  double sepSq=0;
+  float area=0.0;
+
+
+  for(i=0;i<gediIO->nFiles;i++){  /*file loop*/
+    for(j=0;j<data[i]->nPoints;j++){ /*point loop*/
+      /*check within bounds*/
+      if((data[i]->x[j]>=gediRat->minX)&&(data[i]->x[j]<=gediRat->maxX)&&(data[i]->y[j]>=gediRat->minY)&&(data[i]->y[j]<=gediRat->maxY)){
+        dx=data[i]->x[j]-gediRat->coord[0];
+        dy=data[i]->y[j]-gediRat->coord[1];
+        sepSq=dx*dx+dy*dy;
+
+        /*ground grid for ALS coverage*/
+        if(gediRat->normCover||gediRat->checkCover){
+          if(data[i]->retNumb[j]==data[i]->nRet[j]){  /*only once per beam*/
+            /*mark sampling desnity for normalisation*/
+            gX=(int)((data[i]->x[j]-gediRat->g0[0])/(double)gediRat->gridRes);
+            gY=(int)((data[i]->y[j]-gediRat->g0[1])/(double)gediRat->gridRes);
+            if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
+              gediRat->nGrid[gY*gediRat->gX+gX]++;
+            }
+          }
+        }/*ground grid for ALS coverage*/
+
+        /*point and beam density*/
+        if(sepSq<=gediRat->denseRadSq){
+          gediRat->pointDense+=1.0;
+          if(data[i]->retNumb[j]==data[i]->nRet[j])gediRat->beamDense+=1.0;
+        }
+      }/*bounds check*/
+    }/*point loop*/
+  }/*file loop*/
+
+  area=M_PI*gediRat->denseRadSq;
+  gediRat->pointDense/=area;
+  gediRat->beamDense/=area;
+
+  return;
+}/*determineALScoverage*/
+
+
+/*####################################*/
+/*check footprint is covered by ALS*/
+
+void checkFootCovered(gediIOstruct *gediIO,gediRatStruct *gediRat)
+{
+  int i=0,j=0,nWithin=0;
+  int thresh=0,nMissed=0;
+  double dX=0,dY=0,sepSq=0;
+  double useRad=0,radSq=0;
+
+  useRad=10.0;
+  if(useRad>(double)gediIO->fSigma)useRad=(double)gediIO->fSigma;
+  radSq=useRad*useRad;
+
+  for(i=0;i<gediRat->gX;i++){
+    dX=(double)i*(double)gediRat->gridRes-gediRat->coord[0];
+    for(j=0;j<gediRat->gY;j++){
+      dY=(double)j*(double)gediRat->gridRes-gediRat->coord[1];
+      sepSq=dX*dX+dY*dY;
+
+      if(sepSq<radSq){
+        if(gediRat->nGrid[j*gediRat->gX+i]==0)nMissed++;
+        nWithin++;
+      }
+    }/*y loop*/
+  }/*x loop*/
+
+  thresh=(int)((float)nWithin*2.0/3.0);
+  if(nMissed>thresh){
+    fprintf(stderr,"Too many missed %d of %d\n",nMissed,nWithin);
+    gediRat->useFootprint=0;
+  }else gediRat->useFootprint=1;
+
+  return;
+}/*checkFootCovered*/
+
+
+/*####################################*/
+/*set deconvolution parameters for GEDI*/
+
+denPar *setDeconForGEDI(gediRatStruct *gediRat)
+{
+  void setDenoiseDefault(denPar *);
+  void readPulse(denPar *);
+  denPar *decon=NULL;
+
+  /*set defaults*/
+  if(!(decon=(denPar *)calloc(1,sizeof(denPar)))){
+    fprintf(stderr,"error decon structure allocation.\n");
+    exit(1);
+  }
+  setDenoiseDefault(decon);
+
+  /*particular values for here*/
+  decon->deChang=pow(10.0,-8.0);  /*change between decon iterations to stop*/
+  decon->thresh=17.0;
+  decon->meanN=13.0;
+  strcpy(decon->pNamen,"/Users/stevenhancock/data/bess/leica_shape/leicaPulse.dat");  /*pulse filename*/
+  decon->deconMeth=0;     /*Gold's method*/
+  decon->pScale=1.2;
+  decon->noiseTrack=0;
+
+  /*read system pulse*/
+  readPulse(decon);
+
+  return(decon);
+}/*setDeconForGEDI*/
+
+
+/*####################################*/
+/*GEDI wave from ALS waveforms*/
+
+void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *waves,gediRatStruct *gediRat,gediIOstruct *gediIO)
+{
+  int j=0,bin=0;
+  int buffBins=0;
+  uint32_t waveLen=0;
+  float grad[3],*smoothed=NULL,*floWave=NULL;
+  float *processed=NULL,*smooPro=NULL;
+  float *smooth(float,int,float *,float);
+  double x=0,y=0,z=0;
+  unsigned char *wave=NULL,*temp=NULL;
+
+  for(j=0;j<3;j++)grad[j]=data->grad[j][i];
+  wave=readLasWave(data->waveMap[i],data->waveLen[i],data->ipoo,data->waveStart);
+
+  /*buffer to give space for smoothing*/
+  buffBins=80;
+  waveLen=data->waveLen[i]+(uint32_t)(2*buffBins);
+  temp=uchalloc((uint64_t)waveLen,"temp waveform",0);
+  for(j=0;j<buffBins;j++)temp[j]=(unsigned char)gediRat->meanN;
+  for(j=0;j<(int)data->waveLen[i];j++)temp[j+buffBins]=wave[j];
+  for(j=(int)data->waveLen[i]+buffBins;j<(int)waveLen;j++)temp[j]=(unsigned char)gediRat->meanN;
+  TIDY(wave);
+  wave=temp;
+  temp=NULL;
+
+  /*deconvolve and reconvolve*/
+  if(gediRat->indDecon){
+    processed=processWave(wave,(int)waveLen,gediRat->decon,1.0);
+    smooPro=smooth(gediIO->pSigma,(int)waveLen,processed,gediIO->res);
+  }
+
+  /*convolve with GEDI pulse*/
+  floWave=falloc((int)waveLen,"",0);
+  for(j=0;j<(int)waveLen;j++)floWave[j]=(float)wave[j]-gediRat->meanN;
+  smoothed=smooth(gediIO->pSigma,(int)waveLen,floWave,gediIO->res);
+  TIDY(floWave);
+
+  /*add up*/
+  for(j=0;j<(int)waveLen;j++){
+    binPosition(&x,&y,&z,j-buffBins,data->x[i],data->y[i],data->z[i],data->time[i],&(grad[0]));
+    bin=(int)((waves->maxZ-z)/(double)gediIO->res);
+    if((bin>=0)&&(bin<waves->nBins)){
+      waves->wave[3][bin]+=((float)wave[j]-gediRat->meanN)*rScale;  /*with ALS pulse*/
+      waves->wave[4][bin]+=smoothed[j]*rScale;
+      if(gediRat->doDecon){
+        if(gediRat->indDecon){
+          waves->wave[5][bin]+=smooPro[j]*rScale;
+          waves->wave[6][bin]+=processed[j]*rScale;
+        }
+        waves->wave[7][bin]+=((float)wave[j]-gediRat->meanN)*rScale;
+      }
+    }
+  }/*wave bin loop*/
+
+  TIDY(wave);
+  TIDY(smooPro);
+  TIDY(smoothed);
+  TIDY(processed);
+  return;
+}/*gediFromWaveform*/
+
+
+/*################################################################################*/
+/*make waveform from point cloud*/
+
+void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+{
+  int numb=0,bin=0,j=0;
+  int gX=0,gY=0,n=0;
+  uint32_t i=0;
+  double sep=0;
+  double dX=0,dY=0;
+  double totGround=0;     /*contrbution to ground estimate*/
+  float refl=0,rScale=0,fracHit=0,totAng=0;
+  void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,gediRatStruct *,gediIOstruct *);
+
+  /*reset mean scan angle*/
+  waves->meanScanAng=totAng=0.0;
+  /*ground elevation estimate*/
+  if(gediIO->ground){
+    waves->gElevSimp=0.0;
+    totGround=0.0;
+  }
+
+  /*make waves*/
+  for(n=0;n<gediRat->nLobes;n++){
+    for(numb=0;numb<gediIO->nFiles;numb++){
+      for(i=0;i<data[numb]->nPoints;i++){
+        dX=data[numb]->x[i]-gediRat->lobe[n].coord[0];
+        dY=data[numb]->y[i]-gediRat->lobe[n].coord[1];
+        sep=sqrt(dX*dX+dY*dY);
+
+        if(gediRat->topHat==0)rScale=(float)gaussian(sep,(double)gediRat->lobe[n].fSigma,0.0);
+        else{
+          if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
+          else                             rScale=0.0;
+        }
+
+        if(rScale>gediRat->iThresh){  /*if bright enough to matter*/
+          /*scale by sampling density*/
+          if(gediRat->normCover){
+            gX=(int)((data[numb]->x[i]-gediRat->g0[0])/(double)gediRat->gridRes);
+            gY=(int)((data[numb]->y[i]-gediRat->g0[1])/(double)gediRat->gridRes);
+            if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
+              if(gediRat->nGrid[gY*gediRat->gX+gX]>0)rScale/=(float)gediRat->nGrid[gY*gediRat->gX+gX];
+            }
+          }/*scale by sampling density*/
+
+
+          /*discrete return*/
+          refl=(float)data[numb]->refl[i]*rScale;
+          if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
+          else                     fracHit=1.0;
+          for(j=0;j<gediIO->pulse->nBins;j++){
+            bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
+            if((bin>=0)&&(bin<waves->nBins)){
+              waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
+              waves->wave[1][bin]+=rScale*gediIO->pulse->y[j];
+              waves->wave[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+              if(gediIO->ground){
+                if(data[numb]->class[i]==2){
+                  waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
+                  waves->ground[1][bin]+=rScale*gediIO->pulse->y[j];
+                  waves->ground[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                }else{
+                  waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
+                  waves->canopy[1][bin]+=rScale*gediIO->pulse->y[j];
+                  waves->canopy[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                }
+              }/*ground recording if needed*/
+            }/*bin bound check*/
+          }/*pulse bin loop*/
+          if(gediIO->ground){
+            if(data[numb]->class[i]==2){
+              waves->gElevSimp+=rScale*data[numb]->z[i];
+              totGround+=rScale;
+            }
+          }
+          waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
+          totAng+=rScale*fracHit;
+
+          /*full-waveform*/
+          if(gediRat->readWave&&data[numb]->hasWave){
+            if(data[numb]->packetDes[i]){  /*test for waveform*/
+              gediFromWaveform(data[numb],i,rScale,waves,gediRat,gediIO);
+            }
+          }/*waveform test*/
+        }
+      }/*point loop*/
+    }/*file loop*/
+  }/*lobe loop*/
+
+  /*normalise mean scan angle*/
+  if(totAng>0.0)waves->meanScanAng/=totAng;
+  if(totGround>=0.0)waves->gElevSimp/=totGround;
+  else              waves->gElevSimp=-9999.0;
+
+  return;
+}/*waveFromPointCloud*/
+
+
+/*################################################################################*/
+/*make a map of voxel gaps*/
+
+void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+{
+  int i=0,vInd=0;
+  int xBin=0,yBin=0,zBin=0;
+  uint32_t j=0;
+  double bounds[6];
+  voxStruct *vox=NULL;
+  voxStruct *tidyVox(voxStruct *);
+  voxStruct *voxAllocate(int,float *,double *,char);
+  void countVoxGap(double,double,double,float *,voxStruct *,int,int,float,int);
+
+
+  bounds[0]=gediRat->minX;
+  bounds[1]=gediRat->minY;
+  bounds[2]=waves->minZ;
+  bounds[3]=gediRat->maxX;
+  bounds[4]=gediRat->maxY;
+  bounds[5]=waves->maxZ;
+
+
+  /*first make a voxel map*/
+  vox=voxAllocate(1,&(gediRat->vRes[0]),&(bounds[0]),0);
+
+  for(i=0;i<gediIO->nFiles;i++){ /*file loop*/
+    for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
+      countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(data[i]->grad[j][0]),vox,1,1,gediRat->beamRad,0);
+    }/*point loop*/
+  }/*file loop*/
+
+  /*calculate gap fraction for each return*/
+  for(i=0;i<gediIO->nFiles;i++){ /*file loop*/
+    data[i]->gap=falloc(data[i]->nPoints,"point gaps",i+1);
+    for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
+      xBin=(int)((data[i]->x[j]-vox->bounds[0])/vox->res[0]+0.5);
+      yBin=(int)((data[i]->y[j]-vox->bounds[1])/vox->res[1]+0.5);
+      zBin=(int)((data[i]->z[j]-vox->bounds[2])/vox->res[2]+0.5);
+      vInd=xBin+vox->nX*yBin+vox->nX*vox->nY*zBin;
+
+
+      if((vox->hits[0][vInd]+vox->miss[0][vInd])>0.0)data[i]->gap[j]=vox->hits[0][vInd]/(vox->hits[0][vInd]+vox->miss[0][vInd]);
+      else                                           data[i]->gap[j]=1.0;
+    }/*point loop*/
+  }/*file loop*/
+
+  vox=tidyVox(vox);
+  return;
+}/*voxelGap*/
+
+
+/*################################################################################*/
+/*make waveforms accounting for shadowing*/
+
+void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+{
+  int i=0;
+  float **tempWave=NULL;
+  //float iRes=0,grad[3];
+  float grad[3];
+  void voxelGap(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
+  rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
+  lidVoxPar lidPar;
+
+
+  /*iRes=0.02;*/
+  grad[0]=grad[1]=0.0;
+  grad[2]=-1.0;
+
+  /*set lidar parameters for a downwards looking ALS*/
+  lidPar.minRefl=1.0;             /*minimum refletance value to scale between 0 and 1*/
+  lidPar.maxRefl=1.0;             /*maximum refletance value to scale between 0 and 1*/
+  lidPar.appRefl=1.0 ;            /*scale between TLS reflectance and size*/
+  lidPar.beamTanDiv=0.0;          /*tan of beam divergence*/
+  lidPar.beamRad=gediRat->beamRad; /*start radius*/
+  lidPar.minGap=0.00001;          /*minimum gap fraction correction to apply*/
+
+  /*gap fraction from voxelising data*/
+  voxelGap(gediRat,gediIO,data,waves);
+
+  /*create images*/
+  /*rImage=allocateRangeImage(gediIO->nFiles,data,gediIO->pRes*4.0,iRes,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ);*/
+  /*rImage=allocateRangeImage(gediIO->nFiles,data,NULL,0.15,0.01,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ,NULL);*/
+  fprintf(stderr,"THis method is no longer operational. Do not use\n");
+  exit(1);
+
+
+  silhouetteImage(gediIO->nFiles,data,NULL,rImage,&lidPar,NULL,0,NULL);
+
+
+  /*convert images to waveform*/
+  tempWave=fFalloc(2,"",0);
+  for(i=0;i<2;i++)tempWave[i]=falloc(rImage->nBins,"",i+1);
+  waveFromImage(rImage,tempWave,1,gediIO->fSigma);
+  for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
+  TTIDY((void **)tempWave,2);
+  tempWave=NULL;
+
+
+  if(rImage){
+    TTIDY((void **)rImage->image,rImage->nBins);
+    rImage->image=NULL;
+    TIDY(rImage);
+  }
+  return;
+}/*waveFromShadows*/
+
+
+/*####################################*/
+/*clean outlier points from waveform*/
+
+void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
+{
+  int i=0,j=0,gStart=0;
+  char pastGround=0;
+  float gGap=0;  /*gap in ground return*/
+  float maxGap=0;
+  float maxGround=0,gThresh=0;
+  float max=0,thresh=0;
+
+  if(!gediIO->ground){
+    fprintf(stderr,"No need to clean without ground\n");
+    exit(1);
+  }
+
+  maxGap=10.0;  /*maximum permittable gap in the ground return*/
+  gGap=0.0;
+  pastGround=0;
+
+  /*determine max ground and max return*/
+  maxGround=max=0.0;
+  for(i=0;i<waves->nBins;i++){
+    if(waves->ground[1][i]>maxGround)maxGround=waves->ground[1][i];
+    if(waves->wave[1][i]>max)max=waves->wave[1][i];
+  }
+  gThresh=maxGround*0.01;
+  thresh=max*0.001;
+
+  for(i=0;i<waves->nBins;i++){
+    if(waves->ground[1][i]>=gThresh){
+      if(pastGround==0)gStart=i;
+      pastGround=1;
+      gGap=0.0;
+    }else{
+      if(pastGround)gGap+=gediIO->res;
+    }
+    if(gGap>maxGap){  /*too big a break, delete*/
+      waves->groundBreakElev=waves->maxZ-(double)i*(double)gediIO->res;
+      for(;i<waves->nBins;i++){
+        waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
+        for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
+      }
+    }/*too big a break, delete*/
+  }
+
+  /*look for above canopy outliers*/
+  gGap=0.0;
+  maxGap=50.0;
+  for(i=gStart;i>=0;i--){
+    if(waves->wave[1][i]>=thresh)gGap=0.0;
+    gGap+=gediIO->res;
+
+    if(gGap>=maxGap){
+      for(;i>=0;i--){
+        waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
+        for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
+      }
+    }
+  }
+
+  return;
+}/*cleanOutliers*/
+
+
+/*####################################*/
+/*deconvolve aggragated wave*/
+
+void processAggragate(gediRatStruct *gediRat,gediIOstruct *gediIO,waveStruct *waves)
+{
+  int i=0;
+  float *processed=NULL,*smooPro=NULL;
+  float *smooth(float,int,float *,float);
+
+  /*Add background noise back*/
+  for(i=0;i<waves->nBins;i++)waves->wave[7][i]+=gediRat->meanN;
+
+  /*deconvolve and reconvolve*/
+  processed=processFloWave(&(waves->wave[7][0]),(int)waves->nBins,gediRat->decon,1.0);
+  for(i=0;i<waves->nBins;i++)waves->wave[8][i]=processed[i];
+  smooPro=smooth(gediIO->pSigma,(int)waves->nBins,processed,gediIO->res);
+  TIDY(processed);
+
+  TIDY(waves->wave[7]);
+  waves->wave[7]=smooPro;
+  smooPro=NULL;
+
+  return;
+}/*processAggragate*/
+
+
+/*####################################*/
+/*make GEDI waveforms*/
+
+waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data)
+{
+  int j=0,k=0;
+  float tot=0;
+  waveStruct *waves=NULL;
+  waveStruct *allocateGEDIwaves(gediIOstruct *,pCloudStruct **);
+  void processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
+  void checkFootCovered(gediIOstruct *,gediRatStruct *);
+  void cleanOutliers(waveStruct *,gediIOstruct *);
+  void waveFromPointCloud(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
+  void waveFromShadows(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
+  void determineALScoverage(gediIOstruct *,gediRatStruct *,pCloudStruct **);
+  denPar *setDeconForGEDI(gediRatStruct *);
+
+
+  /*determine ALS coverage*/
+  determineALScoverage(gediIO,gediRat,data);
+
+  /*check that whole footprint is covered*/
+  if(gediRat->checkCover)checkFootCovered(gediIO,gediRat);
+  else                  gediRat->useFootprint=1;
+
+  /*only if it contains data*/
+  if(gediRat->useFootprint){
+    /*allocate*/
+    waves=allocateGEDIwaves(gediIO,data);
+
+    /*set up denoising if using*/
+    if(gediRat->doDecon)gediRat->decon=setDeconForGEDI(gediRat);
+
+    /*make waves*/
+    if(gediRat->useShadow==0)waveFromPointCloud(gediRat,gediIO,data,waves);
+    else                    waveFromShadows(gediRat,gediIO,data,waves);
+
+    /*clean outliers if needed*/
+    if(gediRat->cleanOut)cleanOutliers(waves,gediIO);
+    else                waves->groundBreakElev=-100000000.0;
+
+    /*deconvolve aggragated waveform*/
+    if(gediRat->doDecon)processAggragate(gediRat,gediIO,waves);
+
+    /*normalise integral*/
+    for(k=0;k<waves->nWaves;k++){
+      tot=0.0;
+      for(j=0;j<waves->nBins;j++)tot+=waves->wave[k][j]*gediIO->res;
+      if(tot>0.0){
+        for(j=0;j<waves->nBins;j++)waves->wave[k][j]/=tot;
+        if(gediIO->ground&&(k<3)){
+          for(j=0;j<waves->nBins;j++){
+            waves->canopy[k][j]/=tot;
+            waves->ground[k][j]/=tot;
+          }
+        }
+      }
+    }
+
+    /*tidy arrays*/
+    if(gediRat->decon){
+      TTIDY((void **)gediRat->decon->pulse,2);
+      gediRat->decon->pulse=NULL;
+      TIDY(gediRat->decon);
+    }
+  }/*contains data*/
+
+  /*check whether empty*/
+  tot=0.0;
+  for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*gediIO->res;
+  if((tot<TOL)||(waves->nBins==0))gediRat->useFootprint=0;
+
+  return(waves);
+}/*makeGediWaves*/
 
 /*the end*/
 /*####################################################*/

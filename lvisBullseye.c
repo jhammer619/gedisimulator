@@ -146,7 +146,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   double xOff=0,yOff=0;
   double **coords=NULL;
   double **shiftPrints(double **,double,double,int);
-
+  waveStruct *waves=NULL;
 
   /*set up pulse*/
   setGediPulse(&dimage->simIO,&dimage->gediRat);
@@ -173,9 +173,17 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
         /*simulate waves*/
         setGediFootprint(&dimage->gediRat,&dimage->simIO);
+        waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
         /*calculate correlation*/
      
+        /*tidy up*/
+        if(waves){
+          TTIDY((void **)waves->wave,waves->nWaves);
+          TTIDY((void **)waves->canopy,3);
+          TTIDY((void **)waves->ground,3);
+          TIDY(waves);
+        }
       }/*footprint loop*/
 
       /*tidy up*/

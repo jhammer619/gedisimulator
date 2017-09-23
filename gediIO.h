@@ -141,6 +141,7 @@ typedef struct{
   char normCover;      /*normalise for variable ALS coverage*/
   char checkCover;     /*check that the whole footprit is covered by data*/
   char useFootprint;   /*use footprint or not flag*/
+  char cleanOut;       /*clean subterranean outliers*/
 
   /*coordinates*/
   double coord[2];
@@ -188,10 +189,20 @@ typedef struct{
   float pointDense; /*point density within 2 sigma*/
   float beamDense;  /*beam density within 2 sigma*/
 
+  /*waveform processing*/
+  char doDecon;    /*deconolution switch*/
+  char indDecon;   /*deconolve individual ALS waves*/
+  float meanN;
+  denPar *decon;   /*denoising parameters*/
+
   /*others*/
   double maxSep;   /*maximum acceptable separation*/
   float maxScanAng;    /*maximum scan angle*/
   float iThresh;   /*intensity threshold*/
+
+  /*for voxel shadows*/
+  float beamRad;   /*beam radius at ground*/
+  float vRes[3];   /*resolution along each axis*/
 }gediRatStruct;
 
 
@@ -226,6 +237,26 @@ typedef struct{
 }gediHDF;
 
 
+/*####################################*/
+/*waveform structure*/
+
+typedef struct{
+  float **wave;  /*waveforms*/
+  float **canopy;/*canopy waveform*/
+  float **ground;/*ground waveform*/
+  double gElev;   /*ground elevation if calculated*/
+  float gSlope;    /*ground sope if calculated*/
+  double gElevSimp; /*simple ground elevation if calculated*/
+  float gSlopeSimp;  /*simple ground sope if calculated*/
+  float meanScanAng;/*mean ALS scan angle*/
+  double minZ;    /*elevation bounds*/
+  double maxZ;   /*elevation bounds*/
+  int nBins;     /*number of wave bins*/
+  int nWaves;    /*number of different ways*/
+  double groundBreakElev;  /*break in ground*/
+}waveStruct;
+
+
 /*###########################################################*/
 /*functions*/
 
@@ -237,6 +268,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 gediHDF *readGediHDF(char *,gediIOstruct *);
 gediHDF *tidyGediHDF(gediHDF *);
 pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat);
+waveStruct *makeGediWaves(gediRatStruct *,gediIOstruct *,pCloudStruct **);
 void setGediGrid(gediIOstruct *,gediRatStruct *);
 void setGediPulse(gediIOstruct *,gediRatStruct *);
 void writeGEDIhdf(gediHDF *,char *);
