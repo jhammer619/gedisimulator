@@ -1558,7 +1558,7 @@ void updateGediCoord(gediRatStruct *gediRat,int i,int j)
 /*####################################*/
 /*allocate wave structure*/
 
-waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,pCloudStruct **data)
+waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data)
 {
   int j=0,numb=0,k=0;
   uint32_t i=0;
@@ -1594,7 +1594,8 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,pCloudStruct **data)
   waves->maxZ=maxZ+buff;
 
   waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
-  waves->nWaves=9;
+  if(gediRat->readWave)waves->nWaves=9;
+  else                 waves->nWaves=3;
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
   for(j=0;j<waves->nWaves;j++){
     waves->wave[j]=falloc(waves->nBins,"result waveform",j+1);
@@ -2106,7 +2107,7 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   int j=0,k=0;
   float tot=0;
   waveStruct *waves=NULL;
-  waveStruct *allocateGEDIwaves(gediIOstruct *,pCloudStruct **);
+  waveStruct *allocateGEDIwaves(gediIOstruct *,gediRatStruct *,pCloudStruct **);
   void processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
   void checkFootCovered(gediIOstruct *,gediRatStruct *);
   void cleanOutliers(waveStruct *,gediIOstruct *);
@@ -2126,7 +2127,7 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   /*only if it contains data*/
   if(gediRat->useFootprint){
     /*allocate*/
-    waves=allocateGEDIwaves(gediIO,data);
+    waves=allocateGEDIwaves(gediIO,gediRat,data);
 
     /*set up denoising if using*/
     if(gediRat->doDecon)gediRat->decon=setDeconForGEDI(gediRat);

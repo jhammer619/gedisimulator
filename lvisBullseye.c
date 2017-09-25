@@ -153,9 +153,18 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   double **shiftPrints(double **,double,double,int);
   float **denoiseAllLvis(dataStruct **,control *);
   float **denoised=NULL;
-  float *waveCorrel(waveStruct *,float *,dataStruct *);
-  float *correl=NULL;
+  float **correl=NULL;
+  float *waveCorrel(waveStruct *,float *,dataStruct *,gediIOstruct *);
+  void writeCorrelStats(float **,int,int,FILE *,double,double);
   waveStruct *waves=NULL;
+  FILE *opoo=NULL;
+
+  /*open ourput file*/
+  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    exit(1);
+  }
+  fprintf(opoo,"# 1 xOff, 2 yOff, 3 correlInt, 4 stdev, 5 correlCount, 6 stdev, 7 correlFrac, 8 stdev, 9 numb\n");
 
   /*set up pulse*/
   setGediPulse(&dimage->simIO,&dimage->gediRat);
@@ -177,6 +186,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
       yOff=(double)(j-nX/2)*(double)dimage->shiftStep;
       /*shift prints*/
       dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
+      correl=fFalloc(dimage->gediRat.gNx,"correl",0);
 
       /*loop over footprints*/
       for(k=0;k<dimage->gediRat.gNx;k++){
@@ -188,9 +198,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
         waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
         /*calculate correlation*/
-        correl=waveCorrel(waves,denoised[i],lvis[i]);
-
-        /*correl stats*/
+        correl[k]=waveCorrel(waves,denoised[i],lvis[i],&dimage->simIO);
      
         /*tidy up*/
         if(waves){
@@ -199,11 +207,14 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
           TTIDY((void **)waves->ground,3);
           TIDY(waves);
         }
-        TIDY(correl);
       }/*footprint loop*/
+
+      /*output results*/
+      writeCorrelStats(correl,dimage->gediRat.gNx,waves->nWaves,opoo,xOff,yOff);
 
       /*tidy up*/
       TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
+      TTIDY((void **)correl,dimage->gediRat.gNx);
       TIDY(dimage->gediRat.nGrid);
       TIDY(dimage->gediRat.lobe);
     }/*y loop*/
@@ -219,27 +230,137 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
     TIDY(dimage->simIO.pulse->x);
     TIDY(dimage->simIO.pulse);
   }
+  if(opoo){
+    fclose(opoo);
+    opoo=NULL;
+  }
+  fprintf(stdout,"Written to %s\n",dimage->outNamen);
   return;
 }/*bullseyeCorrel*/
 
 
 /*####################################################*/
-/*calculate correlation*/
+/*correlation stats and write*/
 
-float *waveCorrel(waveStruct *waves,float *truth,dataStruct *lvis)
+void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff)
 {
   int i=0,k=0;
+  float mean=0,stdev=0;
+
+  fprintf(opoo,"%f %f",xOff,yOff);
+
+  /*loop over types*/
+  for(k=0;k<nTypes;k++){
+    mean=stdev=0.0;
+    for(i=0;i<numb;i++)mean+=correl[k][i];
+    mean/=(float)numb;
+    for(i=0;i<numb;i++)stdev+=pow(correl[k][i]-mean,2.0);
+    stdev=sqrt(stdev/(float)numb);
+    fprintf(opoo," %f %f",mean,stdev);
+  }
+  fprintf(opoo,"%d\n",numb);
+
+  return;
+}/*writeCorrelStats*/
+
+
+/*####################################################*/
+/*calculate correlation*/
+
+float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *simIO)
+{
+  int i=0,j=0,k=0,bin=0;
   float *correl=NULL;
   float totS=0,totL=0;
+  float sSumSq=0,lSumSq=0;
+  float CofGl=0,CofGs=0;
+  float z=0,thresh=0;
+  float sLx=0,eLx=0;
+  float sSx=0,eSx=0;
+  float startX=0,endX=0;
+  float varL=0,varS=0;
+  float sumProd=0,minSepSq=0;
+  float sepSq=0;
 
-  //correl=falloc(waves->nWaveTypes,"correlation",0);
+  /*allocate space fgor correlation and CofG shift*/
+  correl=falloc(2*sim->nWaves,"correlation",0);
 
   /*total energies*/
-  totL=0.0;
-  for(i=0;lvis->nBins;i++)totL+=lvis->wave[0][i];
-  totS=0.0;
-  for(i=0;waves->nBins;i++)totS+=waves->wave[k][i];
+  totL=lSumSq=CofGl=0.0;
+  for(i=0;lvis->nBins;i++){
+    totL+=truth[i];
+    lSumSq+=truth[i]*truth[i];
+    CofGl+=truth[i]*(float)lvis->z[i];
+  }
+  CofGl/=totL;
 
+  /*find lvis bounds*/
+  thresh=0.0001*totL;
+  for(i=0;lvis->nBins;i++){
+    if(truth[i]>thresh){
+      sLx=(float)lvis->z[i];
+      break;
+    }
+  }
+  for(i=lvis->nBins;i>=0;i--){
+    if(truth[i]>thresh){
+      eLx=(float)lvis->z[i];
+      break;
+    }
+  }
+
+  /*loop over three wave types*/
+  for(k=0;k<sim->nWaves;k++){
+    totS=sSumSq=CofGs=0.0;
+    for(i=0;sim->nBins;i++){
+      totS+=sim->wave[k][i];
+      sSumSq+=sim->wave[k][i]*sim->wave[k][i];
+      z=(float)sim->maxZ-(float)i*simIO->res;
+      CofGs+=sim->wave[k][i]*z;
+    }
+    thresh=0.0001*totS;
+    CofGs/=totS;
+    correl[2*k+1]=CofGl-CofGs;
+
+    /*find sim bounds*/
+    for(i=0;sim->nBins;i++){
+      if(sim->wave[k][i]>thresh){
+        sSx=(float)lvis->z[i];
+        break;
+      } 
+    }
+    for(i=sim->nBins-1;i>=0;i--){
+      if(sim->wave[k][i]>thresh){
+        eSx=(float)lvis->z[i];
+        break;
+      }
+    }
+
+    startX=(sSx<sLx)?sSx:sLx;
+    endX=(eSx>eLx)?eSx:eLx;
+
+    /*variances*/
+    varL=((float)(int)((endX-startX)/lvis->res))*lSumSq+totL*totL;
+    varS=((float)(int)((endX-startX)/simIO->res))*sSumSq+totS*totS;
+
+    /*shared variance*/
+    sumProd=0.0;
+    for(i=lvis->nBins;i>=0;i--){
+      if(((float)lvis->z[i]<startX)||((float)lvis->z[i]>endX))continue;
+      minSepSq=100000.0;
+      for(j=0;j<sim->nBins;j++){
+        z=(float)sim->maxZ-(float)j*simIO->res;
+        if((z<startX)||(z>endX))continue;
+        sepSq=pow((z-(float)lvis->z[i]),2.0);
+        if(sepSq<minSepSq){
+          minSepSq=sepSq;
+          bin=j;
+        }
+      }
+      sumProd+=truth[i]*sim->wave[k][bin];
+    }
+    correl[2*k]=((float)(int)((endX-startX)/lvis->res)*sumProd-totL*totS)/sqrt(varS*varL);
+  }/*wave type loop*/
 
   return(correl);
 }/*waveCorrel*/
