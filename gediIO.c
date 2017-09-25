@@ -1114,7 +1114,6 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
   void setRatBounds(gediRatStruct *);
 
   /*footprint width*/
-fprintf(stdout,"bits %f %f\n",gediIO->fSigma,gediRat->iThresh);
   if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
   else                  gediRat->maxSep=gediIO->fSigma;
 

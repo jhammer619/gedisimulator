@@ -12,7 +12,6 @@
 #include "gediIO.h"
 #include "ogr_srs_api.h"
 
-
 /*#############################*/
 /*# Uses simulated waveforms #*/
 /*# to correlte to LVIS to   #*/
@@ -89,7 +88,6 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct **lvis=NULL;
   dataStruct **readMultiLVIS(control *,float *);
-  dataStruct **tidyLvisWaves(dataStruct **,int);
   pCloudStruct **als=NULL;
   pCloudStruct **readMultiALS(control *,dataStruct **);
   void bullseyeCorrel(dataStruct **,pCloudStruct **,control *);
@@ -111,7 +109,7 @@ int main(int argc,char **argv)
     for(i=0;i<dimage->simIO.nFiles;i++)als[i]=tidyPointCloud(als[i]);
     TIDY(als);
   }
-  lvis=tidyLvisWaves(lvis,dimage->nLvis);
+  lvis=tidyAsciiStruct(lvis,dimage->nLvis);
   if(dimage){
     TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
     TTIDY((void **)dimage->simIO.inList,dimage->simIO.nFiles);
@@ -135,6 +133,9 @@ int main(int argc,char **argv)
       TTIDY((void **)dimage->simIO.gFit->pulse,2);
       TIDY(dimage->simIO.gFit);
     }
+    TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
+    TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
+    TIDY(dimage->gediRat.nGrid);
     TIDY(dimage);
   }
   return(0);
@@ -170,7 +171,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   setGediPulse(&dimage->simIO,&dimage->gediRat);
 
   /*number of steps*/
-  nX=(int)(dimage->maxShift/dimage->shiftStep+0.5);
+  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
 
   /*save original coordinates*/
   coords=dimage->gediRat.coords;
@@ -184,6 +185,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
     xOff=(double)(i-nX/2)*(double)dimage->shiftStep;
     for(j=0;j<nX;j++){
       yOff=(double)(j-nX/2)*(double)dimage->shiftStep;
+      fprintf(stdout,"Testing x %f y %f\n",xOff,yOff);
       /*shift prints*/
       dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
       correl=fFalloc(dimage->gediRat.gNx,"correl",0);
@@ -198,7 +200,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
         waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
         /*calculate correlation*/
-        correl[k]=waveCorrel(waves,denoised[i],lvis[i],&dimage->simIO);
+        if(dimage->gediRat.useFootprint){
+          correl[k]=waveCorrel(waves,denoised[k],lvis[k],&dimage->simIO);
+        }else correl[k]=NULL;
      
         /*tidy up*/
         if(waves){
@@ -207,16 +211,16 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
           TTIDY((void **)waves->ground,3);
           TIDY(waves);
         }
+        TIDY(dimage->gediRat.lobe);
+        TIDY(dimage->gediRat.nGrid);
       }/*footprint loop*/
 
       /*output results*/
-      writeCorrelStats(correl,dimage->gediRat.gNx,waves->nWaves,opoo,xOff,yOff);
+      writeCorrelStats(correl,dimage->gediRat.gNx,3,opoo,xOff,yOff);
 
       /*tidy up*/
       TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
       TTIDY((void **)correl,dimage->gediRat.gNx);
-      TIDY(dimage->gediRat.nGrid);
-      TIDY(dimage->gediRat.lobe);
     }/*y loop*/
   }/*x loop*/
 
@@ -244,7 +248,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
 void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff)
 {
-  int i=0,k=0;
+  int i=0,k=0,nUsed=0;
   float mean=0,stdev=0;
 
   fprintf(opoo,"%f %f",xOff,yOff);
@@ -252,13 +256,23 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
   /*loop over types*/
   for(k=0;k<nTypes;k++){
     mean=stdev=0.0;
-    for(i=0;i<numb;i++)mean+=correl[k][i];
-    mean/=(float)numb;
-    for(i=0;i<numb;i++)stdev+=pow(correl[k][i]-mean,2.0);
-    stdev=sqrt(stdev/(float)numb);
+    nUsed=0;
+    for(i=0;i<numb;i++){
+      if(correl[i]){
+        mean+=correl[i][k];
+        nUsed++;
+      }
+    }
+    mean/=(float)nUsed;
+    for(i=0;i<numb;i++){
+      if(correl[i]){
+        stdev+=pow(correl[i][k]-mean,2.0);
+      }
+    }
+    stdev=sqrt(stdev/(float)nUsed);
     fprintf(opoo," %f %f",mean,stdev);
   }
-  fprintf(opoo,"%d\n",numb);
+  fprintf(opoo," %d\n",nUsed);
 
   return;
 }/*writeCorrelStats*/
@@ -281,13 +295,14 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   float varL=0,varS=0;
   float sumProd=0,minSepSq=0;
   float sepSq=0;
+  float *smooSim=NULL;
 
   /*allocate space fgor correlation and CofG shift*/
   correl=falloc(2*sim->nWaves,"correlation",0);
 
   /*total energies*/
   totL=lSumSq=CofGl=0.0;
-  for(i=0;lvis->nBins;i++){
+  for(i=0;i<lvis->nBins;i++){
     totL+=truth[i];
     lSumSq+=truth[i]*truth[i];
     CofGl+=truth[i]*(float)lvis->z[i];
@@ -296,42 +311,46 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
 
   /*find lvis bounds*/
   thresh=0.0001*totL;
-  for(i=0;lvis->nBins;i++){
+  for(i=0;i<lvis->nBins;i++){
     if(truth[i]>thresh){
-      sLx=(float)lvis->z[i];
+      eLx=(float)lvis->z[i];
       break;
     }
   }
-  for(i=lvis->nBins;i>=0;i--){
+  for(i=lvis->nBins-1;i>=0;i--){
     if(truth[i]>thresh){
-      eLx=(float)lvis->z[i];
+      sLx=(float)lvis->z[i];
       break;
     }
   }
 
   /*loop over three wave types*/
   for(k=0;k<sim->nWaves;k++){
+    smooSim=processFloWave(sim->wave[k],sim->nBins,simIO->den,1.0);
+
+
     totS=sSumSq=CofGs=0.0;
-    for(i=0;sim->nBins;i++){
-      totS+=sim->wave[k][i];
-      sSumSq+=sim->wave[k][i]*sim->wave[k][i];
+    for(i=0;i<sim->nBins;i++){
+      totS+=smooSim[i];
+      sSumSq+=smooSim[i]*smooSim[i];
       z=(float)sim->maxZ-(float)i*simIO->res;
-      CofGs+=sim->wave[k][i]*z;
+      CofGs+=smooSim[i]*z;
     }
+
     thresh=0.0001*totS;
     CofGs/=totS;
     correl[2*k+1]=CofGl-CofGs;
 
     /*find sim bounds*/
-    for(i=0;sim->nBins;i++){
-      if(sim->wave[k][i]>thresh){
-        sSx=(float)lvis->z[i];
+    for(i=0;i<sim->nBins;i++){
+      if(smooSim[i]>thresh){
+        eSx=(float)lvis->z[i];
         break;
       } 
     }
     for(i=sim->nBins-1;i>=0;i--){
-      if(sim->wave[k][i]>thresh){
-        eSx=(float)lvis->z[i];
+      if(smooSim[i]>thresh){
+        sSx=(float)lvis->z[i];
         break;
       }
     }
@@ -345,7 +364,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
 
     /*shared variance*/
     sumProd=0.0;
-    for(i=lvis->nBins;i>=0;i--){
+    for(i=lvis->nBins-1;i>=0;i--){
       if(((float)lvis->z[i]<startX)||((float)lvis->z[i]>endX))continue;
       minSepSq=100000.0;
       for(j=0;j<sim->nBins;j++){
@@ -357,9 +376,10 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
           bin=j;
         }
       }
-      sumProd+=truth[i]*sim->wave[k][bin];
+      sumProd+=truth[i]*smooSim[bin];
     }
     correl[2*k]=((float)(int)((endX-startX)/lvis->res)*sumProd-totL*totS)/sqrt(varS*varL);
+    TIDY(smooSim);
   }/*wave type loop*/
 
   return(correl);
@@ -371,8 +391,8 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
 
 float **denoiseAllLvis(dataStruct **lvis,control *dimage)
 {
-  int i=0;
-  float **denoised=NULL;
+  int i=0,j=0;
+  float **denoised=NULL,tot=0;
 
   /*allocate space*/
   denoised=fFalloc(dimage->nLvis,"denoised waveforms",0);
@@ -380,6 +400,10 @@ float **denoiseAllLvis(dataStruct **lvis,control *dimage)
   /*loop over LVIS footprints*/
   for(i=0;i<dimage->nLvis;i++){
     denoised[i]=processFloWave(lvis[i]->wave[0],lvis[i]->nBins,dimage->lvisIO.den,1.0);
+    /*rescale*/
+    tot=0.0;
+    for(j=0;j<lvis[i]->nBins;j++)tot+=denoised[i][j];
+    for(j=0;j<lvis[i]->nBins;j++)denoised[i][j]/=tot;
   }/*LVIS footprint loop*/
 
   return(denoised);
@@ -723,30 +747,6 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
 
 
 /*####################################################*/
-/*tidy LVIS data*/
-
-dataStruct **tidyLvisWaves(dataStruct **lvis,int nLvis)
-{
-  int i=0;
-
-  if(lvis){
-    for(i=0;i<nLvis;i++){
-      if(lvis[i]){
-        TTIDY((void **)lvis[i]->wave,lvis[i]->nWaveTypes);
-        TTIDY((void **)lvis[i]->ground,lvis[i]->nWaveTypes);
-        TIDY(lvis[i]->noised);
-        TIDY(lvis[i]->z);
-        TIDY(lvis[i]);
-      }
-    }
-    TIDY(lvis);
-  }
-
-  return(lvis);
-}/*tidyLvisWaves*/
-
-
-/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -774,6 +774,7 @@ control *readCommands(int argc,char **argv)
 
 
   /*defaults*/
+  strcpy(dimage->outNamen,"teast.correl");
   dimage->useLvisHDF=1;
   dimage->useLvisLGW=0;
   dimage->aEPSG=32632;
@@ -783,7 +784,7 @@ control *readCommands(int argc,char **argv)
 
   /*LVIS params for sim*/
   dimage->simIO.fSigma=5.5;
-  dimage->simIO.pSigma=0.9;
+  dimage->simIO.pSigma=0.5;
   dimage->gediRat.iThresh=0.0006;
 
   /*LVIS denoising*/
@@ -807,7 +808,7 @@ control *readCommands(int argc,char **argv)
   dimage->simIO.ground=0;
   dimage->gediRat.sideLobe=0;   /*no side lobes*/
   dimage->gediRat.lobeAng=0.0;
-  dimage->gediRat.checkCover=0;
+  dimage->gediRat.checkCover=1;
   dimage->gediRat.normCover=1;
   dimage->gediRat.cleanOut=0;
   dimage->gediRat.topHat=0;
@@ -819,6 +820,11 @@ control *readCommands(int argc,char **argv)
   dimage->simIO.nMessages=200;
   dimage->gediRat.doDecon=0;
   dimage->gediRat.indDecon=0;
+  dimage->simIO.pRes=0.01;
+  setDenoiseDefault(dimage->simIO.den);
+  dimage->simIO.den->meanN=0.0;
+  dimage->simIO.den->thresh=0.0;
+  dimage->simIO.den->minWidth=0.0;
 
 
   /*read the command line*/
@@ -874,8 +880,17 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readPulse");
         dimage->simIO.readPulse=1;
         strcpy(dimage->simIO.pulseFile,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-smooth",7)){
+        checkArguments(1,i,argc,"-smooth");
+        dimage->lvisIO.den->sWidth=dimage->simIO.den->sWidth=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-maxShift",9)){
+        checkArguments(1,i,argc,"-maxShift");
+        dimage->maxShift=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-step",5)){
+        checkArguments(1,i,argc,"-step");
+        dimage->shiftStep=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-output name;   output filename\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-output name;   output filename\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-smooth sig;     smooth both waves before comparing\n-maxShift x;    distance to search over\n-step x;     steps to take\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
