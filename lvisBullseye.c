@@ -153,6 +153,8 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   double **shiftPrints(double **,double,double,int);
   float **denoiseAllLvis(dataStruct **,control *);
   float **denoised=NULL;
+  float *waveCorrel(waveStruct *,float *,dataStruct *);
+  float *correl=NULL;
   waveStruct *waves=NULL;
 
   /*set up pulse*/
@@ -186,6 +188,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
         waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
         /*calculate correlation*/
+        correl=waveCorrel(waves,denoised[i],lvis[i]);
+
+        /*correl stats*/
      
         /*tidy up*/
         if(waves){
@@ -194,6 +199,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
           TTIDY((void **)waves->ground,3);
           TIDY(waves);
         }
+        TIDY(correl);
       }/*footprint loop*/
 
       /*tidy up*/
@@ -215,6 +221,28 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   }
   return;
 }/*bullseyeCorrel*/
+
+
+/*####################################################*/
+/*calculate correlation*/
+
+float *waveCorrel(waveStruct *waves,float *truth,dataStruct *lvis)
+{
+  int i=0,k=0;
+  float *correl=NULL;
+  float totS=0,totL=0;
+
+  //correl=falloc(waves->nWaveTypes,"correlation",0);
+
+  /*total energies*/
+  totL=0.0;
+  for(i=0;lvis->nBins;i++)totL+=lvis->wave[0][i];
+  totS=0.0;
+  for(i=0;waves->nBins;i++)totS+=waves->wave[k][i];
+
+
+  return(correl);
+}/*waveCorrel*/
 
 
 /*####################################################*/
