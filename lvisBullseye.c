@@ -880,6 +880,12 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readPulse");
         dimage->simIO.readPulse=1;
         strcpy(dimage->simIO.pulseFile,argv[++i]);
+      }else if(!strncasecmp(argv[i],"-pSigma",7)){
+        checkArguments(1,i,argc,"-pSigma");
+        dimage->simIO.pSigma=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-fSigma",7)){
+        checkArguments(1,i,argc,"-fSigma");
+        dimage->simIO.fSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-smooth",7)){
         checkArguments(1,i,argc,"-smooth");
         dimage->lvisIO.den->sWidth=dimage->simIO.den->sWidth=atof(argv[++i]);
@@ -893,7 +899,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-offset");
         dimage->offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
