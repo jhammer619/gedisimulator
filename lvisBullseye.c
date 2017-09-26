@@ -465,7 +465,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
     /*read data*/
     als[i]=readALSdata(las,&dimage->gediRat);
-    fprintf(stdout,"%d ALS\n",als[i]->nPoints);
+    if(als[i]->nPoints>0)fprintf(stdout,"%d ALS\n",als[i]->nPoints);
 
     /*tidy up*/
     las=tidyLasFile(las);
@@ -656,8 +656,8 @@ dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *b
   for(i=0;i<lgw.nWaves;i++){
     x=(lgw.data[i].lon0+lgw.data[i].lon431)/2.0;
     y=(lgw.data[i].lat0+lgw.data[i].lat431)/2.0;
+    if((dimage->lEPSG==4326)&&(x>180.0))x-=360.0;
 
-fprintf(stdout,"%f %f %f %f\n",x,y,bounds[0],bounds[2]);
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3]))nNew++;
   }
   if(tempData){
@@ -688,6 +688,7 @@ fprintf(stdout,"%f %f %f %f\n",x,y,bounds[0],bounds[2]);
   for(i=0;i<lgw.nWaves;i++){
     x=(lgw.data[i].lon0+lgw.data[i].lon431)/2.0;
     y=(lgw.data[i].lat0+lgw.data[i].lat431)/2.0;
+    if((dimage->lEPSG==4326)&&(x>180.0))x-=360.0;
 
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3])){
       lvis[nNew+dimage->nLvis]=readBinaryLVIS(namen,&lgw,i,&dimage->lvisIO);

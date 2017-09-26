@@ -762,8 +762,6 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
     /*read data*/
     lvis->data=readLVISlgw(namen,lvis);
     gediIO->nFiles=lvis->nWaves;
-for(i=0;i<lvis->nWaves;i++)fprintf(stdout,"tea %f\n",lvis->data[i].lon0);
-exit(1);
   }
 
 
