@@ -640,17 +640,24 @@ void reprojectBounds(control *dimage,double *bounds)
 dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *bounds)
 {
   int i=0,nNew=0;
+  int oldN=0;
   double x=0,y=0;
   lvisLGWstruct lgw;
   dataStruct *tempData=NULL;
 
+  /*as this is overwritten later*/
+  oldN=dimage->lvisIO.nFiles;
+
   /*count number of new files*/
   nNew=0;
+  lgw.data=NULL;
+  lgw.ipoo=NULL;
   tempData=readBinaryLVIS(namen,&lgw,0,&dimage->lvisIO);
   for(i=0;i<lgw.nWaves;i++){
     x=(lgw.data[i].lon0+lgw.data[i].lon431)/2.0;
     y=(lgw.data[i].lat0+lgw.data[i].lat431)/2.0;
 
+fprintf(stdout,"%f %f %f %f\n",x,y,bounds[0],bounds[2]);
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3]))nNew++;
   }
   if(tempData){
@@ -690,8 +697,12 @@ dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *b
 
   /*keep count*/
   dimage->nLvis+=nNew;
+  dimage->lvisIO.nFiles=oldN;
   TIDY(lgw.data);
-
+  if(lgw.ipoo){
+    fclose(lgw.ipoo);
+    lgw.ipoo=NULL;
+  }
   return(lvis);
 }/*copyLVISlgw*/
 

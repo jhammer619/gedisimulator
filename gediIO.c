@@ -770,6 +770,8 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
     lvis->nBins=432;
     lvis->data=readLVISlgw(namen,&lvis->nWaves);
     gediIO->nFiles=lvis->nWaves;
+for(i=0;i<lvis->nWaves;i++)fprintf(stdout,"tea %f\n"),lvis->data[i].lon0;;
+exit(1);
   }
 
 
@@ -794,7 +796,9 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
   /*copy data to structure*/
   data->zen=lvis->data[numb].zen;
-  data->res=gediIO->den->res=gediIO->gFit->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
+  data->res=(lvis->data[numb].z0-lvis->data[numb].z431)/(float)lvis->nBins;
+  if(gediIO->den)gediIO->den->res=data->res;
+  if(gediIO->gFit)gediIO->gFit->res=data->res;
   data->totE[data->useType]=0.0;
   for(i=0;i<lvis->nBins;i++){
     data->wave[data->useType][i]=(float)lvis->data[numb].rxwave[i];
@@ -826,7 +830,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
 
   /*set up number of messages*/
-  if(lvis->nWaves>gediIO->nMessages)gediIO->nMessages=(int)(lvis->nWaves/gediIO->nMessages);
+  if((gediIO->nMessages>0)&&(lvis->nWaves>gediIO->nMessages))gediIO->nMessages=(int)(lvis->nWaves/gediIO->nMessages);
   else                              gediIO->nMessages=1;
 
   return(data);
