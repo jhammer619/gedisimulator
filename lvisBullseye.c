@@ -889,8 +889,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-step",5)){
         checkArguments(1,i,argc,"-step");
         dimage->shiftStep=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-offset",8)){
+        checkArguments(1,i,argc,"-offset");
+        dimage->offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
