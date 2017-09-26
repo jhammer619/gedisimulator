@@ -759,18 +759,10 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
   /*do we need to read all the data*/
   if(lvis->data==NULL){
-    lvis->verMaj=1; /*dimage->verMaj;*/
-    lvis->verMin=3; /*dimage->verMin;*/
-    /*check version number*/
-    if((lvis->verMaj!=1)||(lvis->verMin!=3)){
-      fprintf(stderr,"Currently only works for version 1.3, not %d.%d\n",lvis->verMaj,lvis->verMin);
-      exit(1);
-    }
     /*read data*/
-    lvis->nBins=432;
-    lvis->data=readLVISlgw(namen,&lvis->nWaves);
+    lvis->data=readLVISlgw(namen,lvis);
     gediIO->nFiles=lvis->nWaves;
-for(i=0;i<lvis->nWaves;i++)fprintf(stdout,"tea %f\n"),lvis->data[i].lon0;;
+for(i=0;i<lvis->nWaves;i++)fprintf(stdout,"tea %f\n",lvis->data[i].lon0);
 exit(1);
   }
 
