@@ -249,7 +249,10 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff)
 {
   int i=0,k=0,nUsed=0;
+  int usedNew=0;
   float mean=0,stdev=0;
+  float newMean=0,meanCofG=0;
+  float thresh=0;
 
   fprintf(opoo,"%f %f",xOff,yOff);
 
@@ -259,18 +262,44 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
     nUsed=0;
     for(i=0;i<numb;i++){
       if(correl[i]){
-        mean+=correl[i][k];
+        mean+=correl[i][2*k];
         nUsed++;
       }
     }
     mean/=(float)nUsed;
+    meanCofG/=(float)nUsed;
     for(i=0;i<numb;i++){
       if(correl[i]){
-        stdev+=pow(correl[i][k]-mean,2.0);
+        stdev+=pow(correl[i][2*k]-mean,2.0);
       }
     }
     stdev=sqrt(stdev/(float)nUsed);
-    fprintf(opoo," %f %f",mean,stdev);
+
+    /*check for outliers*/
+    usedNew=0;
+    newMean=meanCofG=0.0;
+    thresh=2.5*stdev;
+    for(i=0;i<numb;i++){
+      if(correl[i]){
+        if((mean-correl[i][2*k])<thresh){
+          newMean+=correl[i][2*k];
+          meanCofG+=correl[i][2*k+1];
+          usedNew++;
+        }
+      }
+    }
+    newMean/=(float)usedNew;
+    meanCofG/=(float)usedNew;
+    stdev=0.0;
+    for(i=0;i<numb;i++){
+      if(correl[i]){
+        if((mean-=correl[i][2*k])<thresh){
+          stdev+=pow(correl[i][2*k]-newMean,2.0);
+        }
+      }
+    }
+    stdev=sqrt(stdev/(float)usedNew);
+    fprintf(opoo," %f %f %f %d",newMean,stdev,meanCofG,usedNew);
   }
   fprintf(opoo," %d\n",nUsed);
 
