@@ -159,8 +159,8 @@ int main(int argc,char **argv)
           if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   
           /*output results*/
-          if(dimage->writeHDF)packGEDIhdf(dimage,waves,hdfData,i);
-          else                writeGEDIwave(dimage,waves,i);
+          if(dimage->writeHDF)packGEDIhdf(dimage,waves,hdfData,i+j*dimage->gediRat.gNx);
+          else                writeGEDIwave(dimage,waves,i+j*dimage->gediRat.gNx);
         }
 
         /*tidy up*/
