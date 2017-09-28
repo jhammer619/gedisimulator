@@ -165,7 +165,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
     fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
     exit(1);
   }
-  fprintf(opoo,"# 1 xOff, 2 yOff, 3 correlInt, 4 stdev, 5 correlCount, 6 stdev, 7 correlFrac, 8 stdev, 9 numb\n");
+  fprintf(opoo,"# 1 xOff, 2 yOff, 3 correlInt, 4 stdev, 5 deltaCofGint, 6 numb, 7 correlCount, 8 stdev, 9 deltaCofGcount, 10 numb, 11 correlFrac, 12 stdev, 13 deltaCofGfrac, 14 numb\n");
 
   /*set up pulse*/
   setGediPulse(&dimage->simIO,&dimage->gediRat);
