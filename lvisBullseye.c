@@ -62,6 +62,7 @@ typedef struct{
   char useLvisLGW;
   float offset;        /*vertical datum offset*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
+  char filtOutli;      /*filter outliers to avoid falling trees*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum distance to shift*/
@@ -156,7 +157,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   float **denoised=NULL;
   float **correl=NULL;
   float *waveCorrel(waveStruct *,float *,dataStruct *,gediIOstruct *);
-  void writeCorrelStats(float **,int,int,FILE *,double,double);
+  void writeCorrelStats(float **,int,int,FILE *,double,double,control *);
   waveStruct *waves=NULL;
   FILE *opoo=NULL;
 
@@ -216,7 +217,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
       }/*footprint loop*/
 
       /*output results*/
-      writeCorrelStats(correl,dimage->gediRat.gNx,3,opoo,xOff,yOff);
+      writeCorrelStats(correl,dimage->gediRat.gNx,3,opoo,xOff,yOff,dimage);
 
       /*tidy up*/
       TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
@@ -246,7 +247,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 /*####################################################*/
 /*correlation stats and write*/
 
-void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff)
+void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff,control *dimage)
 {
   int i=0,k=0,nUsed=0;
   int usedNew=0;
@@ -276,9 +277,11 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
     stdev=sqrt(stdev/(float)nUsed);
 
     /*check for outliers*/
+    if(dimage->filtOutli)thresh=2.5*stdev;
+    else                 thresh=1000000000.0;
+
     usedNew=0;
     newMean=meanCofG=0.0;
-    thresh=2.5*stdev;
     for(i=0;i<numb;i++){
       if(correl[i]){
         if((mean-correl[i][2*k])<thresh){
@@ -822,6 +825,7 @@ control *readCommands(int argc,char **argv)
   dimage->lEPSG=4326;
   dimage->offset=0.0;
   dimage->pBuffSize=(uint64_t)200000000;
+  dimage->filtOutli=1;    /*filter outliers*/
 
   /*LVIS params for sim*/
   dimage->simIO.fSigma=4.31;
@@ -941,8 +945,10 @@ control *readCommands(int argc,char **argv)
         dimage->offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noNorm",7)){
         dimage->gediRat.normCover=0;
+      }else if(!strncasecmp(argv[i],"-noFilt",7)){
+        dimage->filtOutli=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
