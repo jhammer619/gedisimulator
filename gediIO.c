@@ -1106,10 +1106,15 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
   void readFeetList(gediRatStruct *);
   void setRatBounds(gediRatStruct *);
+  void readWavefront(gediRatStruct *,gediIOstruct *);
 
   /*footprint width*/
-  if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
-  else                  gediRat->maxSep=gediIO->fSigma;
+  if(gediRat->defWfront==0){   /*regular footprint*/
+    if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
+    else                  gediRat->maxSep=gediIO->fSigma;
+  }else{    /*read assymetric footprint*/
+    readWavefront(gediRat,gediIO);
+  }
 
   if(gediRat->doGrid){  /*it is a grid*/
     /*number of footprints*/
@@ -1139,6 +1144,136 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
   return;
 }/*setGediGrid*/
+
+
+/*###################################################*/
+
+void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
+{
+  int i=0,j=0,maxI=0;
+  float total=0;
+  char line[20000];
+  char *token=NULL;
+  void setWavefrontRes(wFrontStruct *,float);
+  FILE *ipoo=NULL;
+
+  /*open file*/
+  if((ipoo=fopen(gediRat->wavefront->frontFile,"r"))==NULL){
+    fprintf(stderr,"Error opening wavefront file \"%s\"\n",gediRat->wavefront->frontFile);
+    exit(1);
+  }
+
+  /*find file size*/
+  j=0;
+  maxI=0;
+  while(fgets(line,20000,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      i=0;
+      token=strtok(line,",");
+      while(token){
+        token=strtok(NULL,",");
+        i++;
+      }
+      if(i>maxI)maxI=i;
+      j++;
+    }
+  }/*file size counting*/
+  gediRat->wavefront->nX=maxI;
+  gediRat->wavefront->nY=j;
+
+  /*allocate space*/
+  gediRat->wavefront->front=fFalloc(gediRat->wavefront->nX,"wavefront",0);
+  for(i=0;i<gediRat->wavefront->nX;i++){
+    gediRat->wavefront->front[i]=falloc(gediRat->wavefront->nY,"wavefront",j);
+    for(j=0;j<gediRat->wavefront->nY;j++)gediRat->wavefront->front[i][j]=-1.0;  /*mark as blank*/
+  }/*allocation*/
+
+  /*rewind*/
+  if(fseek(ipoo,(long)0,SEEK_SET)){
+    fprintf(stderr,"fseek error\n");
+    exit(1);
+  }
+
+  /*read data*/
+  total=0.0;
+  j=gediRat->wavefront->nY-1;
+  while(fgets(line,20000,ipoo)!=NULL){
+    if(strncasecmp(line,"#",1)){
+      i=0;
+      token=strtok(line,",");
+      while(token){
+        token=strtok(NULL,",");
+        if(strncasecmp(token,",",1)){  /*is there a result*/
+          gediRat->wavefront->front[i][j]=atof(token);
+          total+=gediRat->wavefront->front[i][j];
+        }
+        i++;
+      }
+      j--;
+    }
+  }/*data reading*/
+
+  /*normalise*/
+  for(i=0;i<gediRat->wavefront->nX;i++){
+    for(j=0;j<gediRat->wavefront->nY;j++){
+      if(gediRat->wavefront->front[i][j]>0.0)gediRat->wavefront->front[i][j]/=total;
+    }
+  }/*normalisation*/
+
+  /*determine resolution from footprint width*/
+  setWavefrontRes(gediRat->wavefront,gediIO->fSigma);
+
+  /*tidy up*/
+  if(ipoo){
+    fclose(ipoo);
+    ipoo=NULL;
+  }
+  return;
+}/*readWavefront*/
+
+
+/*##########################################################*/
+/*determine wavefront resolution and peak*/
+
+void setWavefrontRes(wFrontStruct *wavefront,float fSigma)
+{
+  int i=0,j=0;
+  int i0=0,j0=0;
+  float max=0,tot=0;
+  float xStdev=0,yStdev=0;
+
+  /*find centre*/
+  max=-1.0;
+  for(i=0;i<wavefront->nX;i++){
+    for(j=0;j<wavefront->nY;j++){
+      if(wavefront->front[i][j]>max){
+        i0=i;
+        j0=j;
+      }
+    }
+  }
+
+  /*determine width in two axes*/
+  tot=xStdev=0.0;
+  for(i=0;i<wavefront->nX;i++){
+    if(wavefront->front[i][j0]>=0.0){
+      xStdev+=(float)(i-i0)*wavefront->front[i][j0]*(float)(i-i0)*wavefront->front[i][j0];
+      tot+=wavefront->front[i][j0];
+    }
+  }
+  xStdev=sqrt(xStdev/tot);
+  tot=yStdev=0.0;
+  for(j=0;j<wavefront->nY;j++){
+    if(wavefront->front[i0][j]>=0.0){
+      yStdev+=(float)(j-j0)*wavefront->front[i0][j]*(float)(j-j0)*wavefront->front[i0][j];
+      tot+=wavefront->front[i0][j];
+    }
+  }
+  yStdev=sqrt(yStdev/tot);
+  wavefront->res=(xStdev+yStdev)/(2.0*fSigma);
+
+  return;
+}/*setWavefrontRes*/
 
 
 /*####################################*/
@@ -2166,6 +2301,26 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
 
   return(waves);
 }/*makeGediWaves*/
+
+
+/*####################################################*/
+/*allocate space and copy wavefront filename*/
+
+wFrontStruct *copyFrontFilename(char *namen)
+{
+  wFrontStruct *wavefront=NULL;
+
+  if(!(wavefront=(wFrontStruct *)calloc(1,sizeof(wFrontStruct)))){
+    fprintf(stderr,"error in wavefront allocation.\n");
+    exit(1);
+  }
+
+  wavefront->front=NULL;
+  strcpy(wavefront->frontFile,namen);
+
+  return(wavefront);
+}/*copyFrontFilename*/
+
 
 /*the end*/
 /*####################################################*/

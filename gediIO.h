@@ -41,6 +41,20 @@ typedef struct{
   float *y;
   float *x;
 }pulseStruct;
+
+
+/*####################################*/
+/*wavefront structure*/
+
+typedef struct{
+  int nX;         /*number of x pixels*/
+  int nY;         /*number of y pixels*/
+  float **front;  /*wavefront array*/
+  float res;      /*resolution of wavefront grid*/
+  char frontFile[200];/*file containing wavefront*/
+  float x0;       /*centre coordinate*/
+  float y0;       /*centre coordinate*/
+}wFrontStruct;
                
 
 /*####################################*/
@@ -160,6 +174,9 @@ typedef struct{
   double maxX;       /*maximum latitude of interest*/
   double minY;       /*minimum longitude of interest*/
   double maxY;       /*maximum longitude of interest*/
+  /*non-Gaussian wavefront if needed*/
+  char defWfront;            /*define wavefront switch*/
+  wFrontStruct *wavefront;   /*wavefront structure*/
 
   /*global area of interest*/
   double globMinX;
@@ -274,6 +291,7 @@ void setGediPulse(gediIOstruct *,gediRatStruct *);
 void writeGEDIhdf(gediHDF *,char *);
 void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
+wFrontStruct *copyFrontFilename(char *);
 
 /*# the end*/
 /*###########################################################*/
