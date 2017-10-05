@@ -198,6 +198,10 @@ int main(int argc,char **argv)
     TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
     TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
     TTIDY((void **)dimage->inList,dimage->gediIO.nFiles);
+    if(dimage->gediRat.wavefront){
+      TTIDY((void **)dimage->gediRat.wavefront->front,dimage->gediRat.wavefront->nX);
+      TIDY(dimage->gediRat.wavefront);
+    }
     TIDY(dimage);
   }
   tidySMoothPulse();

@@ -49,11 +49,11 @@ typedef struct{
 typedef struct{
   int nX;         /*number of x pixels*/
   int nY;         /*number of y pixels*/
-  float **front;  /*wavefront array*/
+  int x0;         /*centre coordinate*/
+  int y0;         /*centre coordinate*/
   float res;      /*resolution of wavefront grid*/
+  float **front;  /*wavefront array*/
   char frontFile[200];/*file containing wavefront*/
-  float x0;       /*centre coordinate*/
-  float y0;       /*centre coordinate*/
 }wFrontStruct;
                
 

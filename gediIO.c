@@ -1114,7 +1114,7 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     else                  gediRat->maxSep=gediIO->fSigma;
   }else{    /*read assymetric footprint*/
     readWavefront(gediRat,gediIO);
-  }
+  }/*footprint width setting*/
 
   if(gediRat->doGrid){  /*it is a grid*/
     /*number of footprints*/
@@ -1151,7 +1151,7 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
 {
   int i=0,j=0,maxI=0;
-  float total=0;
+  float len=0; /*total=0*/
   char line[20000];
   char *token=NULL;
   void setWavefrontRes(wFrontStruct *,float);
@@ -1195,39 +1195,49 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
   }
 
   /*read data*/
-  total=0.0;
+  /*total=0.0;*/
   j=gediRat->wavefront->nY-1;
   while(fgets(line,20000,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){
       i=0;
       token=strtok(line,",");
       while(token){
-        token=strtok(NULL,",");
         if(strncasecmp(token,",",1)){  /*is there a result*/
           gediRat->wavefront->front[i][j]=atof(token);
-          total+=gediRat->wavefront->front[i][j];
+          /*total+=gediRat->wavefront->front[i][j];*/
         }
+        token=strtok(NULL,",");
         i++;
       }
       j--;
     }
   }/*data reading*/
 
-  /*normalise*/
-  for(i=0;i<gediRat->wavefront->nX;i++){
-    for(j=0;j<gediRat->wavefront->nY;j++){
-      if(gediRat->wavefront->front[i][j]>0.0)gediRat->wavefront->front[i][j]/=total;
-    }
-  }/*normalisation*/
-
-  /*determine resolution from footprint width*/
-  setWavefrontRes(gediRat->wavefront,gediIO->fSigma);
-
   /*tidy up*/
   if(ipoo){
     fclose(ipoo);
     ipoo=NULL;
   }
+
+  /*normalise*/
+  /*for(i=0;i<gediRat->wavefront->nX;i++){
+    for(j=0;j<gediRat->wavefront->nY;j++){
+      if(gediRat->wavefront->front[i][j]>0.0)gediRat->wavefront->front[i][j]/=total;
+    }
+  }*//*normalisation*/
+
+  /*determine resolution from footprint width*/
+  setWavefrontRes(gediRat->wavefront,gediIO->fSigma);
+
+  /*set bounds for reading*/
+  gediRat->maxSep=-100000.0;
+  len=(gediRat->wavefront->x0>(gediRat->wavefront->nX/2))?(float)gediRat->wavefront->x0*gediRat->wavefront->res:\
+                  (float)(gediRat->wavefront->nX-gediRat->wavefront->x0)*gediRat->wavefront->res;
+  gediRat->maxSep=(len>gediRat->maxSep)?len:gediRat->maxSep;
+  len=(gediRat->wavefront->y0>(gediRat->wavefront->nY/2))?(float)gediRat->wavefront->y0*gediRat->wavefront->res:\
+                  (float)(gediRat->wavefront->nY-gediRat->wavefront->y0)*gediRat->wavefront->res;
+  gediRat->maxSep=(len>gediRat->maxSep)?len:gediRat->maxSep;
+
   return;
 }/*readWavefront*/
 
@@ -1238,17 +1248,35 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
 void setWavefrontRes(wFrontStruct *wavefront,float fSigma)
 {
   int i=0,j=0;
-  int i0=0,j0=0;
-  float max=0,tot=0;
+  int ii=0,jj=0;
+  int window=0,contN=0;
+  float max=0,tot=0,mean=0;
   float xStdev=0,yStdev=0;
 
   /*find centre*/
+  window=2;
   max=-1.0;
   for(i=0;i<wavefront->nX;i++){
     for(j=0;j<wavefront->nY;j++){
-      if(wavefront->front[i][j]>max){
-        i0=i;
-        j0=j;
+      mean=0.0;
+      contN=0;
+      for(ii=i-window;ii<(i+window);ii++){
+        if((ii<0)||(ii>=wavefront->nX))continue;
+        for(jj=j-window;jj<(j+window);jj++){
+          if((jj<0)||(jj>=wavefront->nY))continue;
+          if(wavefront->front[i][j]>=0.0){
+            mean+=wavefront->front[ii][jj];
+            contN++;
+          }
+        }
+      }
+      if(contN>0){
+        mean/=(float)contN;
+        if(mean>max){
+          max=mean;
+          wavefront->x0=i;
+          wavefront->y0=j;
+        }
       }
     }
   }
@@ -1256,21 +1284,21 @@ void setWavefrontRes(wFrontStruct *wavefront,float fSigma)
   /*determine width in two axes*/
   tot=xStdev=0.0;
   for(i=0;i<wavefront->nX;i++){
-    if(wavefront->front[i][j0]>=0.0){
-      xStdev+=(float)(i-i0)*wavefront->front[i][j0]*(float)(i-i0)*wavefront->front[i][j0];
-      tot+=wavefront->front[i][j0];
+    if(wavefront->front[i][wavefront->y0]>=0.0){
+      xStdev+=pow((float)(i-wavefront->x0),2.0)*wavefront->front[i][wavefront->y0];
+      tot+=wavefront->front[i][wavefront->y0];
     }
   }
   xStdev=sqrt(xStdev/tot);
   tot=yStdev=0.0;
   for(j=0;j<wavefront->nY;j++){
-    if(wavefront->front[i0][j]>=0.0){
-      yStdev+=(float)(j-j0)*wavefront->front[i0][j]*(float)(j-j0)*wavefront->front[i0][j];
-      tot+=wavefront->front[i0][j];
+    if(wavefront->front[wavefront->x0][j]>=0.0){
+      yStdev+=pow((float)(j-wavefront->y0),2.0)*wavefront->front[wavefront->x0][j];
+      tot+=wavefront->front[wavefront->x0][j];
     }
   }
   yStdev=sqrt(yStdev/tot);
-  wavefront->res=(xStdev+yStdev)/(2.0*fSigma);
+  wavefront->res=2.0*fSigma/(xStdev+yStdev);
 
   return;
 }/*setWavefrontRes*/
@@ -1934,6 +1962,7 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
 {
   int numb=0,bin=0,j=0;
   int gX=0,gY=0,n=0;
+  int xInd=0,yInd=0;
   uint32_t i=0;
   double sep=0;
   double dX=0,dY=0;
@@ -1953,15 +1982,25 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
   for(n=0;n<gediRat->nLobes;n++){
     for(numb=0;numb<gediIO->nFiles;numb++){
       for(i=0;i<data[numb]->nPoints;i++){
+
+        /*determine laser intensity at this point*/
         dX=data[numb]->x[i]-gediRat->lobe[n].coord[0];
         dY=data[numb]->y[i]-gediRat->lobe[n].coord[1];
-        sep=sqrt(dX*dX+dY*dY);
-
-        if(gediRat->topHat==0)rScale=(float)gaussian(sep,(double)gediRat->lobe[n].fSigma,0.0);
-        else{
-          if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
-          else                             rScale=0.0;
-        }
+        if(gediRat->defWfront==0){    /*symmetric wavefront*/
+          sep=sqrt(dX*dX+dY*dY);
+          if(gediRat->topHat==0)rScale=(float)gaussian(sep,(double)gediRat->lobe[n].fSigma,0.0);
+          else{
+            if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
+            else                             rScale=0.0;
+          }
+        }else{     /*read assymmetric pulse*/
+          xInd=(int)((dX*cos(gediRat->lobeAng)+dY*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->x0;
+          yInd=(int)((dY*cos(gediRat->lobeAng)-dX*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->y0;
+          if((xInd>=0)&&(xInd<gediRat->wavefront->nX)&&(yInd>=0)&&(yInd<gediRat->wavefront->nY)){
+            if(gediRat->wavefront->front[xInd][yInd]>0.0)rScale=gediRat->wavefront->front[xInd][yInd];
+            else rScale=0.0;
+          }else rScale=0.0;
+        }/*determine laser intensity at this point*/
 
         if(rScale>gediRat->iThresh){  /*if bright enough to matter*/
           /*scale by sampling density*/
