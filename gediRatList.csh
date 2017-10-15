@@ -29,6 +29,7 @@ set hdf=" "
 @ useHDF=0
 @ maxPer=40000
 set ending="wave"
+set wavefront=" "
 
 
 # read options
@@ -136,6 +137,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -wavefront
+    set wavefront="-wavefront $argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -146,6 +152,7 @@ while ($#argv>0)
     echo "-pSigma sigma;     pulse width, sigma in m"
     echo "-pFWHM fwhm;       pulse FWHM in ns"
     echo "-pFile name;       read the pulse from an ASCII file"
+    echo "-wavefront file;   read wavefront shape for non-Gaussian footprints"
     echo "-fSigma sigma;     footprint width, sigma in m"
     echo "-res res;          output range resolution, in metres"
     echo "-ground;           output ground and canopy waveforms"
@@ -195,7 +202,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront
   endif
 
   # delete zero sized files
