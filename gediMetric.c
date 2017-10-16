@@ -1632,17 +1632,10 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   data->nWaveTypes=dimage->hdfGedi->nTypeWaves;
   data->useType=0;
   data->demGround=0;
-  if(dimage->readHDFgedi){
-    data->pSigma=dimage->hdfGedi->pSigma;
-    data->fSigma=dimage->hdfGedi->fSigma;
-    data->beamDense=dimage->hdfGedi->beamDense[numb];
-    data->pointDense=dimage->hdfGedi->pointDense[numb];
-  }else{
-    data->pSigma=dimage->gediIO.pSigma;
-    data->fSigma=dimage->gediIO.fSigma;
-    data->beamDense=-1.0;
-    data->pointDense=-1.0;
-  }
+  data->pSigma=dimage->hdfGedi->pSigma;
+  data->fSigma=dimage->hdfGedi->fSigma;
+  data->beamDense=dimage->hdfGedi->beamDense[numb];
+  data->pointDense=dimage->hdfGedi->pointDense[numb];
   data->lon=dimage->hdfGedi->lon[numb];
   data->lat=dimage->hdfGedi->lat[numb];
   data->zen=dimage->hdfGedi->zen[numb];
