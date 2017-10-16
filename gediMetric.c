@@ -227,7 +227,7 @@ int main(int argc,char **argv)
 
     /*read waveform*/
     if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,&dimage->gediIO);
-    else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],dimage->hdfLvis,&dimage->gediIO,i);
+    else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],&dimage->hdfLvis,&dimage->gediIO,i);
     else if(dimage->readHDFgedi)data=unpackHDFgedi(dimage->gediIO.inList[0],dimage,i);
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);

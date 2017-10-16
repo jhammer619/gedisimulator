@@ -778,7 +778,7 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
     y=(hdf->lat0[i]+hdf->lat1023[i])/2.0;
 
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3])){
-      lvis[nNew+dimage->nLvis]=unpackHDFlvis(NULL,hdf,&dimage->lvisIO,i);
+      lvis[nNew+dimage->nLvis]=unpackHDFlvis(NULL,&hdf,&dimage->lvisIO,i);
       nNew++;
     }
   }

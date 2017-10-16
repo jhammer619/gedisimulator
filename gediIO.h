@@ -279,7 +279,7 @@ typedef struct{
 
 dataStruct **tidyAsciiStruct(dataStruct **,int);
 dataStruct *readASCIIdata(char *,gediIOstruct *);
-dataStruct *unpackHDFlvis(char *,lvisHDF *,gediIOstruct *,int);
+dataStruct *unpackHDFlvis(char *,lvisHDF **,gediIOstruct *,int);
 dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 gediHDF *readGediHDF(char *,gediIOstruct *);

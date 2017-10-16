@@ -628,7 +628,7 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 /*####################################################*/
 /*read LVIS HDF file*/
 
-dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int numb)
+dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int numb)
 {
   int i=0;
   dataStruct *data=NULL;
@@ -636,9 +636,9 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
   float pulseLenFromTX(float *,int);
 
   /*read data if needed*/
-  if(hdfLvis==NULL){
-    hdfLvis=readLVIShdf(namen);
-    gediIO->nFiles=hdfLvis->nWaves;
+  if(*hdfLvis==NULL){
+    *hdfLvis=readLVIShdf(namen);
+    gediIO->nFiles=hdfLvis[0]->nWaves;
     gediIO->ground=0;
   }
 
@@ -648,7 +648,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
     exit(1);
   }
   data->useID=1;
-  data->nBins=hdfLvis->nBins;
+  data->nBins=hdfLvis[0]->nBins;
   data->nWaveTypes=1;
   data->useType=0;
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
@@ -662,14 +662,14 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
   data->usable=1;
 
   /*copy data to structure*/
-  data->zen=hdfLvis->zen[numb];
-  data->res=fabs(hdfLvis->z0[numb]-hdfLvis->z1023[numb])/(float)hdfLvis->nBins;
+  data->zen=hdfLvis[0]->zen[numb];
+  data->res=fabs(hdfLvis[0]->z0[numb]-hdfLvis[0]->z1023[numb])/(float)hdfLvis[0]->nBins;
   if(gediIO->den)gediIO->den->res=data->res;
   if(gediIO->gFit)gediIO->gFit->res=data->res;
   data->totE[data->useType]=0.0;
-  for(i=0;i<hdfLvis->nBins;i++){
-    data->wave[data->useType][i]=(float)hdfLvis->wave[numb][i];
-    data->z[i]=(double)(hdfLvis->z0[numb]-(float)i*data->res);
+  for(i=0;i<hdfLvis[0]->nBins;i++){
+    data->wave[data->useType][i]=(float)hdfLvis[0]->wave[numb][i];
+    data->z[i]=(double)(hdfLvis[0]->z0[numb]-(float)i*data->res);
     data->totE[data->useType]+=data->wave[data->useType][i];
   }
   if(gediIO->den->res<TOL)data->usable=0;
@@ -680,17 +680,17 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
     data->gMinimum=-1.0;
     data->gInfl=-1.0;
   }
-  data->lon=(hdfLvis->lon0[numb]+hdfLvis->lon1023[numb])/2.0;
-  data->lat=(hdfLvis->lat0[numb]+hdfLvis->lat1023[numb])/2.0;
-  data->lfid=hdfLvis->lfid[numb];
-  data->shotN=hdfLvis->shotN[numb];
-  sprintf(data->waveID,"%d.%d",hdfLvis->lfid[numb],hdfLvis->shotN[numb]);
+  data->lon=(hdfLvis[0]->lon0[numb]+hdfLvis[0]->lon1023[numb])/2.0;
+  data->lat=(hdfLvis[0]->lat0[numb]+hdfLvis[0]->lat1023[numb])/2.0;
+  data->lfid=hdfLvis[0]->lfid[numb];
+  data->shotN=hdfLvis[0]->shotN[numb];
+  sprintf(data->waveID,"%d.%d",hdfLvis[0]->lfid[numb],hdfLvis[0]->shotN[numb]);
 
   /*analyse pulse*/
   if(gediIO->readPsigma){
-    tempPulse=falloc(hdfLvis->pBins,"temp pulse",0);
-    for(i=0;i<hdfLvis->pBins;i++)tempPulse[i]=(float)hdfLvis->pulse[numb][i];
-    data->pSigma=pulseLenFromTX(tempPulse,hdfLvis->pBins);
+    tempPulse=falloc(hdfLvis[0]->pBins,"temp pulse",0);
+    for(i=0;i<hdfLvis[0]->pBins;i++)tempPulse[i]=(float)hdfLvis[0]->pulse[numb][i];
+    data->pSigma=pulseLenFromTX(tempPulse,hdfLvis[0]->pBins);
     TIDY(tempPulse);
   }else data->pSigma=gediIO->pSigma;
 
@@ -698,7 +698,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF *hdfLvis,gediIOstruct *gediIO,int 
   if(data->pSigma<0.0)data->pSigma=gediIO->pSigma;
 
   /*set up number of messages*/
-  if((gediIO->nMessages>0)&&(hdfLvis->nWaves>gediIO->nMessages))gediIO->nMessages=(int)(hdfLvis->nWaves/gediIO->nMessages);
+  if((gediIO->nMessages>0)&&(hdfLvis[0]->nWaves>gediIO->nMessages))gediIO->nMessages=(int)(hdfLvis[0]->nWaves/gediIO->nMessages);
   else                                 gediIO->nMessages=1;
 
   return(data);
