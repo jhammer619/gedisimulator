@@ -1632,12 +1632,19 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   data->nWaveTypes=dimage->hdfGedi->nTypeWaves;
   data->useType=0;
   data->demGround=0;
-  data->pSigma=dimage->hdfGedi->pSigma;
-  data->fSigma=dimage->hdfGedi->fSigma;
+  if(dimage->readHDFgedi){
+    data->pSigma=dimage->hdfGedi->pSigma;
+    data->fSigma=dimage->hdfGedi->fSigma;
+    data->beamDense=dimage->hdfGedi->beamDense[numb];
+    data->pointDense=dimage->hdfGedi->pointDense[numb];
+  }else{
+    data->pSigma=dimage->gediIO.pSigma;
+    data->fSigma=dimage->gediIO.fSigma;
+    data->beamDense=-1.0;
+    data->pointDense=-1.0;
+  }
   data->lon=dimage->hdfGedi->lon[numb];
   data->lat=dimage->hdfGedi->lat[numb];
-  data->beamDense=dimage->hdfGedi->beamDense[numb];
-  data->pointDense=dimage->hdfGedi->pointDense[numb];
   data->zen=dimage->hdfGedi->zen[numb];
   strcpy(data->waveID,&dimage->hdfGedi->waveID[numb*dimage->hdfGedi->idLength]);
 
@@ -2040,6 +2047,7 @@ control *readCommands(int argc,char **argv)
         dimage->readBinLVIS=1;
       }else if(!strncasecmp(argv[i],"-readHDFlvis",12)){
         dimage->readHDFlvis=1;
+        dimage->gediIO.readPsigma=0;
       }else if(!strncasecmp(argv[i],"-readHDFgedi",12)){
         dimage->readHDFgedi=1;
       }else if(!strncasecmp(argv[i],"-forcePsigma",12)){
