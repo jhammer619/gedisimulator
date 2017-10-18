@@ -1980,6 +1980,8 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
 
   /*make waves*/
   for(n=0;n<gediRat->nLobes;n++){
+    /*octree search goes here*/
+
     for(numb=0;numb<gediIO->nFiles;numb++){
       for(i=0;i<data[numb]->nPoints;i++){
 
