@@ -10,6 +10,7 @@
 #include "libLasRead.h"
 #include "libLidVoxel.h"
 #include "gediIO.h"
+#include "libOctree.h"
 
 
 /*tolerances*/
