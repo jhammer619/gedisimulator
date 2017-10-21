@@ -718,7 +718,7 @@ control *readCommands(int argc,char **argv)
 
   /*octree*/
   dimage->gediRat.useOctree=1;
-  dimage->gediRat.octLevels=7;
+  dimage->gediRat.octLevels=5;
   dimage->gediRat.nOctTop=10;   
   dimage->gediRat.octree=NULL;
 
