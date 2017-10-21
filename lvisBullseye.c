@@ -496,7 +496,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
     las=readLasHead(dimage->simIO.inList[i],dimage->pBuffSize);
 
     /*read data*/
-    als[i]=readALSdata(las,&dimage->gediRat);
+    als[i]=readALSdata(las,&dimage->gediRat,i);
     if(als[i]->nPoints>0)fprintf(stdout,"%d ALS\n",als[i]->nPoints);
 
     /*tidy up*/

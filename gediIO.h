@@ -160,6 +160,14 @@ typedef struct{
   /*coordinates*/
   double coord[2];
 
+  /*octree*/
+  char useOctree;        /*octree switch*/
+  int octLevels;         /*number of octree levels*/
+  int nOctTop;           /*number of pixels at top level*/
+  octreeStruct *octree;  /*the octree*/
+  int nOct;              /*number of octree pixels intersected*/
+  int *octList;          /*list of intersected octree pixels*/
+
   /*read a batch of coords*/
   char coordList[200]; /*list of coordinates*/
   char **waveIDlist;   /*list of waveform IDs*/
@@ -284,7 +292,7 @@ dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 gediHDF *readGediHDF(char *,gediIOstruct *);
 gediHDF *tidyGediHDF(gediHDF *);
-pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat);
+pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int);
 waveStruct *makeGediWaves(gediRatStruct *,gediIOstruct *,pCloudStruct **);
 void setGediGrid(gediIOstruct *,gediRatStruct *);
 void setGediPulse(gediIOstruct *,gediRatStruct *);

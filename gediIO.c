@@ -9,8 +9,8 @@
 #include "libLidarHDF.h"
 #include "libLasRead.h"
 #include "libLidVoxel.h"
-#include "gediIO.h"
 #include "libOctree.h"
+#include "gediIO.h"
 
 
 /*tolerances*/
@@ -831,7 +831,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 /*####################################*/
 /*read lasFile and save relevant data*/
 
-pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat)
+pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
 {
   int j=0;
   uint32_t i=0;
@@ -855,7 +855,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat)
 
   /*is file needed?*/
   if(!gediRat->readALSonce)useFile=checkFileBounds(las,gediRat->globMinX,gediRat->globMaxX,gediRat->globMinY,gediRat->globMaxY);
-  else                    useFile=checkMultiFiles(las,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+  else                     useFile=checkMultiFiles(las,gediRat->gNx,gediRat->coords,gediRat->maxSep);
 
   /*check file is needed*/
   if(useFile){
@@ -927,6 +927,9 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat)
           data->packetDes[pUsed]=0;
           data->grad[pUsed][0]=data->grad[pUsed][1]=data->grad[pUsed][2]=0.0;
         }
+
+        /*map to octree if needed*/
+        if(gediRat->useOctree)fillOctree(x,y,z,nFile,pUsed,gediRat->octree);
 
         /*count points here*/
         pUsed++;
@@ -1118,6 +1121,7 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
   }/*footprint width setting*/
 
   if(gediRat->doGrid){  /*it is a grid*/
+fprintf(stderr,"Doing grid\n");
     /*number of footprints*/
     gediRat->gNx=(int)((gediRat->gMaxX-gediRat->gMinX)/gediRat->gRes+1);
     gediRat->gNy=(int)((gediRat->gMaxY-gediRat->gMinY)/gediRat->gRes+1);
@@ -1127,11 +1131,10 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediRat->globMaxX=gediRat->gMaxX+gediRat->maxSep;
     gediRat->globMinY=gediRat->gMinY-gediRat->maxSep;
     gediRat->globMaxY=gediRat->gMaxY+gediRat->maxSep;
-  }else if(gediRat->coords){  /*we have provided a list of coordinates*/
-    setRatBounds(gediRat);
   }else if(gediRat->readALSonce){ /*it is a batch*/
     /*read list of coords*/
     readFeetList(gediRat);
+    setRatBounds(gediRat);
   }else{   /*single footprint*/
     gediRat->gNx=gediRat->gNy=1;
     gediRat->globMinX=gediRat->coord[0]-gediRat->maxSep;
@@ -1142,6 +1145,12 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
   if((gediIO->nMessages>1)&&(gediRat->gNx*gediRat->gNy)>gediIO->nMessages)gediIO->nMessages=(int)(gediRat->gNx*gediRat->gNy/gediIO->nMessages);
   else                                             gediIO->nMessages=1;
+
+  /*allocate octree if needed*/
+  if(gediRat->useOctree){
+    gediRat->octree=allocateOctree(gediRat->octLevels,gediRat->nOctTop,\
+            gediRat->globMinX,gediRat->globMaxX,gediRat->globMinY,gediRat->globMaxY);
+  }else gediRat->octree=NULL;
 
   return;
 }/*setGediGrid*/
@@ -1329,7 +1338,7 @@ void setRatBounds(gediRatStruct *gediRat)
   gediRat->globMaxY=maxY+gediRat->maxSep;
 
   return;
-}/*readFeetList*/
+}/*setRatBounds*/
 
 
 /*####################################*/
@@ -1585,6 +1594,7 @@ void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
   float totE=0;
   float az=0;
   double tX=0,tY=0;
+  void intersectOctree(gediRatStruct *);
 
 
   /*footprint width*/
@@ -1690,8 +1700,45 @@ void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
   else                  gediRat->denseRadSq=gediIO->fSigma;
   gediRat->pointDense=gediRat->beamDense=0.0;
 
+  /*determine which octree cells are intresected*/
+  if(gediRat->useOctree)intersectOctree(gediRat);
+
   return;
 }/*setGediFootprint*/
+
+
+/*#####################################################*/
+/*determine which top level octree pixels intersect*/
+
+void intersectOctree(gediRatStruct *gediRat)
+{
+  int i=0,j=0;
+  int minI=0,maxI=0;
+  int minJ=0,maxJ=0;
+  int *markInt(int,int *,int);
+
+  /*reset counters*/
+  gediRat->nOct=0;
+  TIDY(gediRat->octList);
+  gediRat->octList=NULL;
+
+  /*determine bounds to search*/
+  minI=(int)((gediRat->minX-gediRat->octree->minX)/(double)gediRat->octree->res);
+  maxI=(int)((gediRat->maxX-gediRat->octree->minX)/(double)gediRat->octree->res+0.5);
+  minJ=(int)((gediRat->minY-gediRat->octree->minY)/(double)gediRat->octree->res);
+  maxJ=(int)((gediRat->maxY-gediRat->octree->minY)/(double)gediRat->octree->res+0.5);
+
+  /*loop over and test*/
+  for(i=minI;i<=maxI;i++){
+    if((i<0)||(i>=gediRat->octree->nX))continue;
+    for(j=minJ;j<=maxJ;j++){
+      if((j<0)||(j>=gediRat->octree->nY))continue;
+      gediRat->octList=markInt(gediRat->nOct,gediRat->octList,i+j*gediRat->octree->nX);
+      gediRat->nOct++;
+    }
+  }
+  return;
+}/*intersectOctree*/
 
 
 /*##############################################*/
@@ -1715,10 +1762,10 @@ void updateGediCoord(gediRatStruct *gediRat,int i,int j)
 /*####################################*/
 /*allocate wave structure*/
 
-waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data)
+waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data,pointMapStruct *pointmap)
 {
   int j=0,numb=0,k=0;
-  uint32_t i=0;
+  uint32_t i=0,n=0;
   double maxZ=0,minZ=0;
   double buff=0;
   waveStruct *waves=NULL;
@@ -1734,12 +1781,13 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   minZ=100000000000.0;
   maxZ=-100000000000.0;
   hasPoints=0;
-  for(numb=0;numb<gediIO->nFiles;numb++){
+
+  for(n=0;n<pointmap->nPoints;n++){
+    numb=pointmap->fList[n];
+    i=pointmap->pList[n];
     if(data[numb]->nPoints>0)hasPoints=1;
-    for(i=0;i<data[numb]->nPoints;i++){
-      if(data[numb]->z[i]>maxZ)maxZ=data[numb]->z[i];
-      if(data[numb]->z[i]<minZ)minZ=data[numb]->z[i];
-    }
+    if(data[numb]->z[i]>maxZ)maxZ=data[numb]->z[i];
+    if(data[numb]->z[i]<minZ)minZ=data[numb]->z[i];
   }/*bound finding*/
 
   if(hasPoints==0){
@@ -1775,44 +1823,44 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
 /*################################################################################*/
 /*determine ALS coverage*/
 
-void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data)
+void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStruct **data,pointMapStruct *pointmap)
 {
   int i=0;
   int gX=0,gY=0;
-  uint32_t j=0;
+  uint32_t j=0,k=0;
   double dx=0,dy=0;
   double sepSq=0;
   float area=0.0;
 
+  /*loop over points needed*/
+  for(k=0;k<pointmap->nPoints;k++){
+    i=pointmap->fList[k];
+    j=pointmap->pList[k];
+    /*check within bounds*/
+    if((data[i]->x[j]>=gediRat->minX)&&(data[i]->x[j]<=gediRat->maxX)&&(data[i]->y[j]>=gediRat->minY)&&(data[i]->y[j]<=gediRat->maxY)){
+      dx=data[i]->x[j]-gediRat->coord[0];
+      dy=data[i]->y[j]-gediRat->coord[1];
+      sepSq=dx*dx+dy*dy;
 
-  for(i=0;i<gediIO->nFiles;i++){  /*file loop*/
-    for(j=0;j<data[i]->nPoints;j++){ /*point loop*/
-      /*check within bounds*/
-      if((data[i]->x[j]>=gediRat->minX)&&(data[i]->x[j]<=gediRat->maxX)&&(data[i]->y[j]>=gediRat->minY)&&(data[i]->y[j]<=gediRat->maxY)){
-        dx=data[i]->x[j]-gediRat->coord[0];
-        dy=data[i]->y[j]-gediRat->coord[1];
-        sepSq=dx*dx+dy*dy;
-
-        /*ground grid for ALS coverage*/
-        if(gediRat->normCover||gediRat->checkCover){
-          if(data[i]->retNumb[j]==data[i]->nRet[j]){  /*only once per beam*/
-            /*mark sampling desnity for normalisation*/
-            gX=(int)((data[i]->x[j]-gediRat->g0[0])/(double)gediRat->gridRes);
-            gY=(int)((data[i]->y[j]-gediRat->g0[1])/(double)gediRat->gridRes);
-            if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
-              gediRat->nGrid[gY*gediRat->gX+gX]++;
-            }
+      /*ground grid for ALS coverage*/
+      if(gediRat->normCover||gediRat->checkCover){
+        if(data[i]->retNumb[j]==data[i]->nRet[j]){  /*only once per beam*/
+          /*mark sampling desnity for normalisation*/
+          gX=(int)((data[i]->x[j]-gediRat->g0[0])/(double)gediRat->gridRes);
+          gY=(int)((data[i]->y[j]-gediRat->g0[1])/(double)gediRat->gridRes);
+          if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
+            gediRat->nGrid[gY*gediRat->gX+gX]++;
           }
-        }/*ground grid for ALS coverage*/
-
-        /*point and beam density*/
-        if(sepSq<=gediRat->denseRadSq){
-          gediRat->pointDense+=1.0;
-          if(data[i]->retNumb[j]==data[i]->nRet[j])gediRat->beamDense+=1.0;
         }
-      }/*bounds check*/
-    }/*point loop*/
-  }/*file loop*/
+      }/*ground grid for ALS coverage*/
+
+      /*point and beam density*/
+      if(sepSq<=gediRat->denseRadSq){
+        gediRat->pointDense+=1.0;
+        if(data[i]->retNumb[j]==data[i]->nRet[j])gediRat->beamDense+=1.0;
+      }
+    }/*bounds check*/
+  }/*point loop*/
 
   area=M_PI*gediRat->denseRadSq;
   gediRat->pointDense/=area;
@@ -1959,12 +2007,12 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
 /*################################################################################*/
 /*make waveform from point cloud*/
 
-void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
 {
   int numb=0,bin=0,j=0;
   int gX=0,gY=0,n=0;
   int xInd=0,yInd=0;
-  uint32_t i=0;
+  uint32_t i=0,k=0;
   double sep=0;
   double dX=0,dY=0;
   double totGround=0;     /*contrbution to ground estimate*/
@@ -1981,82 +2029,80 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
 
   /*make waves*/
   for(n=0;n<gediRat->nLobes;n++){
-    /*octree search goes here*/
+    for(k=0;k<pointmap->nPoints;k++){
+      numb=pointmap->fList[k];
+      i=pointmap->pList[k];
 
-    for(numb=0;numb<gediIO->nFiles;numb++){
-      for(i=0;i<data[numb]->nPoints;i++){
-
-        /*determine laser intensity at this point*/
-        dX=data[numb]->x[i]-gediRat->lobe[n].coord[0];
-        dY=data[numb]->y[i]-gediRat->lobe[n].coord[1];
-        if(gediRat->defWfront==0){    /*symmetric wavefront*/
-          sep=sqrt(dX*dX+dY*dY);
-          if(gediRat->topHat==0)rScale=(float)gaussian(sep,(double)gediRat->lobe[n].fSigma,0.0);
-          else{
-            if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
-            else                             rScale=0.0;
-          }
-        }else{     /*read assymmetric pulse*/
-          xInd=(int)((dX*cos(gediRat->lobeAng)+dY*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->x0;
-          yInd=(int)((dY*cos(gediRat->lobeAng)-dX*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->y0;
-          if((xInd>=0)&&(xInd<gediRat->wavefront->nX)&&(yInd>=0)&&(yInd<gediRat->wavefront->nY)){
-            if(gediRat->wavefront->front[xInd][yInd]>0.0)rScale=gediRat->wavefront->front[xInd][yInd];
-            else rScale=0.0;
-          }else rScale=0.0;
-        }/*determine laser intensity at this point*/
-
-        if(rScale>gediRat->iThresh){  /*if bright enough to matter*/
-          /*scale by sampling density*/
-          if(gediRat->normCover){
-            gX=(int)((data[numb]->x[i]-gediRat->g0[0])/(double)gediRat->gridRes);
-            gY=(int)((data[numb]->y[i]-gediRat->g0[1])/(double)gediRat->gridRes);
-            if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
-              if(gediRat->nGrid[gY*gediRat->gX+gX]>0)rScale/=(float)gediRat->nGrid[gY*gediRat->gX+gX];
-            }
-          }/*scale by sampling density*/
-
-
-          /*discrete return*/
-          refl=(float)data[numb]->refl[i]*rScale;
-          if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
-          else                     fracHit=1.0;
-          for(j=0;j<gediIO->pulse->nBins;j++){
-            bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
-            if((bin>=0)&&(bin<waves->nBins)){
-              waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
-              waves->wave[1][bin]+=rScale*gediIO->pulse->y[j];
-              waves->wave[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
-              if(gediIO->ground){
-                if(data[numb]->class[i]==2){
-                  waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
-                  waves->ground[1][bin]+=rScale*gediIO->pulse->y[j];
-                  waves->ground[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
-                }else{
-                  waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
-                  waves->canopy[1][bin]+=rScale*gediIO->pulse->y[j];
-                  waves->canopy[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
-                }
-              }/*ground recording if needed*/
-            }/*bin bound check*/
-          }/*pulse bin loop*/
-          if(gediIO->ground){
-            if(data[numb]->class[i]==2){
-              waves->gElevSimp+=rScale*data[numb]->z[i];
-              totGround+=rScale;
-            }
-          }
-          waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
-          totAng+=rScale*fracHit;
-
-          /*full-waveform*/
-          if(gediRat->readWave&&data[numb]->hasWave){
-            if(data[numb]->packetDes[i]){  /*test for waveform*/
-              gediFromWaveform(data[numb],i,rScale,waves,gediRat,gediIO);
-            }
-          }/*waveform test*/
+      /*determine laser intensity at this point*/
+      dX=data[numb]->x[i]-gediRat->lobe[n].coord[0];
+      dY=data[numb]->y[i]-gediRat->lobe[n].coord[1];
+      if(gediRat->defWfront==0){    /*symmetric wavefront*/
+        sep=sqrt(dX*dX+dY*dY);
+        if(gediRat->topHat==0)rScale=(float)gaussian(sep,(double)gediRat->lobe[n].fSigma,0.0);
+        else{
+          if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
+          else                             rScale=0.0;
         }
-      }/*point loop*/
-    }/*file loop*/
+      }else{     /*read assymmetric pulse*/
+        xInd=(int)((dX*cos(gediRat->lobeAng)+dY*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->x0;
+        yInd=(int)((dY*cos(gediRat->lobeAng)-dX*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->y0;
+        if((xInd>=0)&&(xInd<gediRat->wavefront->nX)&&(yInd>=0)&&(yInd<gediRat->wavefront->nY)){
+          if(gediRat->wavefront->front[xInd][yInd]>0.0)rScale=gediRat->wavefront->front[xInd][yInd];
+          else rScale=0.0;
+        }else rScale=0.0;
+      }/*determine laser intensity at this point*/
+
+      if(rScale>gediRat->iThresh){  /*if bright enough to matter*/
+        /*scale by sampling density*/
+        if(gediRat->normCover){
+          gX=(int)((data[numb]->x[i]-gediRat->g0[0])/(double)gediRat->gridRes);
+          gY=(int)((data[numb]->y[i]-gediRat->g0[1])/(double)gediRat->gridRes);
+          if((gX>=0)&&(gX<gediRat->gX)&&(gY>=0)&&(gY<gediRat->gY)){
+            if(gediRat->nGrid[gY*gediRat->gX+gX]>0)rScale/=(float)gediRat->nGrid[gY*gediRat->gX+gX];
+          }
+        }/*scale by sampling density*/
+
+
+        /*discrete return*/
+        refl=(float)data[numb]->refl[i]*rScale;
+        if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
+        else                     fracHit=1.0;
+        for(j=0;j<gediIO->pulse->nBins;j++){
+          bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
+          if((bin>=0)&&(bin<waves->nBins)){
+            waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
+            waves->wave[1][bin]+=rScale*gediIO->pulse->y[j];
+            waves->wave[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+            if(gediIO->ground){
+              if(data[numb]->class[i]==2){
+                waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
+                waves->ground[1][bin]+=rScale*gediIO->pulse->y[j];
+                waves->ground[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+              }else{
+                waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
+                waves->canopy[1][bin]+=rScale*gediIO->pulse->y[j];
+                waves->canopy[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+              }
+            }/*ground recording if needed*/
+          }/*bin bound check*/
+        }/*pulse bin loop*/
+        if(gediIO->ground){
+          if(data[numb]->class[i]==2){
+            waves->gElevSimp+=rScale*data[numb]->z[i];
+            totGround+=rScale;
+          }
+        }
+        waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
+        totAng+=rScale*fracHit;
+
+        /*full-waveform*/
+        if(gediRat->readWave&&data[numb]->hasWave){
+          if(data[numb]->packetDes[i]){  /*test for waveform*/
+            gediFromWaveform(data[numb],i,rScale,waves,gediRat,gediIO);
+          }
+        }/*waveform test*/
+      }
+    }/*point loop*/
   }/*lobe loop*/
 
   /*normalise mean scan angle*/
@@ -2123,7 +2169,7 @@ void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,wa
 /*################################################################################*/
 /*make waveforms accounting for shadowing*/
 
-void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
 {
   int i=0;
   float **tempWave=NULL;
@@ -2133,6 +2179,8 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   lidVoxPar lidPar;
 
+  fprintf(stderr,"Silouhette images do not currently wqork with octrees\n");
+  exit(1);
 
   /*iRes=0.02;*/
   grad[0]=grad[1]=0.0;
@@ -2277,18 +2325,23 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   int j=0,k=0;
   float tot=0;
   waveStruct *waves=NULL;
-  waveStruct *allocateGEDIwaves(gediIOstruct *,gediRatStruct *,pCloudStruct **);
+  waveStruct *allocateGEDIwaves(gediIOstruct *,gediRatStruct *,pCloudStruct **,pointMapStruct *);
   void processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
   void checkFootCovered(gediIOstruct *,gediRatStruct *);
   void cleanOutliers(waveStruct *,gediIOstruct *);
-  void waveFromPointCloud(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
-  void waveFromShadows(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
-  void determineALScoverage(gediIOstruct *,gediRatStruct *,pCloudStruct **);
+  void waveFromPointCloud(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
+  void waveFromShadows(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
+  void determineALScoverage(gediIOstruct *,gediRatStruct *,pCloudStruct **,pointMapStruct *);
   denPar *setDeconForGEDI(gediRatStruct *);
+  pointMapStruct *findIntersectingMap(gediRatStruct *,gediIOstruct *,pCloudStruct **);
+  pointMapStruct *pointmap=NULL;
 
+
+  /*determine list of opints to use*/
+  pointmap=findIntersectingMap(gediRat,gediIO,data);
 
   /*determine ALS coverage*/
-  determineALScoverage(gediIO,gediRat,data);
+  determineALScoverage(gediIO,gediRat,data,pointmap);
 
   /*check that whole footprint is covered*/
   if(gediRat->checkCover)checkFootCovered(gediIO,gediRat);
@@ -2297,14 +2350,14 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   /*only if it contains data*/
   if(gediRat->useFootprint){
     /*allocate*/
-    waves=allocateGEDIwaves(gediIO,gediRat,data);
+    waves=allocateGEDIwaves(gediIO,gediRat,data,pointmap);
 
     /*set up denoising if using*/
     if(gediRat->doDecon)gediRat->decon=setDeconForGEDI(gediRat);
 
     /*make waves*/
-    if(gediRat->useShadow==0)waveFromPointCloud(gediRat,gediIO,data,waves);
-    else                    waveFromShadows(gediRat,gediIO,data,waves);
+    if(gediRat->useShadow==0)waveFromPointCloud(gediRat,gediIO,data,waves,pointmap);
+    else                    waveFromShadows(gediRat,gediIO,data,waves,pointmap);
 
     /*clean outliers if needed*/
     if(gediRat->cleanOut)cleanOutliers(waves,gediIO);
@@ -2340,9 +2393,58 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   tot=0.0;
   for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*gediIO->res;
   if((tot<TOL)||(waves->nBins==0))gediRat->useFootprint=0;
+  if(pointmap){
+    TIDY(pointmap->fList);
+    TIDY(pointmap->pList);
+    TIDY(pointmap);
+  }
 
   return(waves);
 }/*makeGediWaves*/
+
+
+/*####################################################*/
+/*map points and file indices to use*/
+
+pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data)
+{
+  int i=0;
+  uint32_t j=0,ind=0;
+  pointMapStruct *pointmap=NULL;
+
+  /*search octree or copy all points*/
+  if(gediRat->useOctree){
+    pointmap=mapFromOctree(gediRat->octList,gediRat->nOct,gediRat->octree);
+  }else{   /*use all points*/
+    /*allocate space*/
+    if(!(pointmap=(pointMapStruct *)calloc(1,sizeof(pointMapStruct)))){
+      fprintf(stderr,"error pointMapStruct allocation.\n");
+      exit(1);
+    }
+    pointmap->nPoints=0;
+    pointmap->fList=NULL;
+    pointmap->pList=NULL;
+
+    for(i=0;i<gediIO->nFiles;i++){
+      if(data[i]->nPoints==0)continue;
+      if(!(pointmap->fList=(int *)realloc(pointmap->fList,(pointmap->nPoints+data[i]->nPoints)*sizeof(int)))){
+        fprintf(stderr,"Error allocating memory\n");
+        exit(1);
+      }
+      if(!(pointmap->pList=(uint32_t *)realloc(pointmap->pList,(pointmap->nPoints+data[i]->nPoints)*sizeof(uint32_t)))){
+        fprintf(stderr,"Error allocating memory\n");
+        exit(1);
+      }
+      for(j=0;j<+data[i]->nPoints;j++){
+        ind=pointmap->nPoints+j;
+        pointmap->fList[ind]=i;
+        pointmap->pList[ind]=j;
+      }
+      pointmap->nPoints+=data[i]->nPoints;
+    }
+  }
+  return(pointmap);
+}/*findIntersectingMap*/
 
 
 /*####################################################*/
