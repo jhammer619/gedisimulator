@@ -1132,7 +1132,7 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediRat->globMaxY=gediRat->gMaxY+gediRat->maxSep;
   }else if(gediRat->readALSonce){ /*it is a batch*/
     /*read list of coords*/
-    readFeetList(gediRat);
+    if(gediRat->coords==NULL)readFeetList(gediRat);
     setRatBounds(gediRat);
   }else{   /*single footprint*/
     gediRat->gNx=gediRat->gNy=1;
