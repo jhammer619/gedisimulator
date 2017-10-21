@@ -9,6 +9,7 @@
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
+#include "libOctree.h"
 #include "gediIO.h"
 #include "ogr_srs_api.h"
 
@@ -137,6 +138,7 @@ int main(int argc,char **argv)
     TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
     TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
     TIDY(dimage->gediRat.nGrid);
+    dimage->gediRat.octree=tidyOctree(dimage->gediRat.octree);
     TIDY(dimage);
   }
   return(0);
@@ -827,6 +829,12 @@ control *readCommands(int argc,char **argv)
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->filtOutli=1;    /*filter outliers*/
 
+  /*octree*/
+  dimage->gediRat.useOctree=1;
+  dimage->gediRat.octLevels=7;
+  dimage->gediRat.nOctTop=10;
+  dimage->gediRat.octree=NULL;
+
   /*LVIS params for sim*/
   dimage->simIO.fSigma=4.31;
   dimage->simIO.pSigma=0.6893;
@@ -947,8 +955,16 @@ control *readCommands(int argc,char **argv)
         dimage->gediRat.normCover=0;
       }else if(!strncasecmp(argv[i],"-noFilt",7)){
         dimage->filtOutli=0;
+      }else if(!strncasecmp(argv[i],"-noOctree",9)){
+        dimage->gediRat.useOctree=0;
+      }else if(!strncasecmp(argv[i],"-octLevels",9)){
+        checkArguments(1,i,argc,"-octLevels");
+        dimage->gediRat.octLevels=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-nOctPix",8)){
+        checkArguments(1,i,argc,"-nOctPix");
+        dimage->gediRat.nOctTop=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

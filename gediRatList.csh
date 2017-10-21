@@ -30,6 +30,9 @@ set hdf=" "
 @ maxPer=40000
 set ending="wave"
 set wavefront=" "
+set octree=" "
+set octLevels=" "
+set nOctPix=" "
 
 
 # read options
@@ -142,6 +145,22 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -noOctree
+    set octree="-noOctree"
+  shift argv
+  breaksw
+
+  case -octLevels
+    set octLevels="-octLevels $argv[2]"
+  shift argv;shift argv
+  breaksw
+
+  case -nOctPix
+    set nOctPix="-nOctPix $argv[2]"
+  shift argv;shift argv
+  breaksw
+
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -165,6 +184,10 @@ while ($#argv>0)
     echo "-polyGround;       find the ground by fitting polynomial"
     echo "-hdf;              output in HDF5"
     echo "-maxPer n;         maximum number of runs per processor"
+    echo "# octree"
+    echo "-noOctree;         do not use an octree"
+    echo "-octLevels n;      number of octree levels to use"
+    echo "-nOctPix n;        number of octree pixels along a side for the top level"
     echo " "
     exit
 
@@ -202,7 +225,8 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix
+
   endif
 
   # delete zero sized files
