@@ -1121,7 +1121,6 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
   }/*footprint width setting*/
 
   if(gediRat->doGrid){  /*it is a grid*/
-fprintf(stderr,"Doing grid\n");
     /*number of footprints*/
     gediRat->gNx=(int)((gediRat->gMaxX-gediRat->gMinX)/gediRat->gRes+1);
     gediRat->gNy=(int)((gediRat->gMaxY-gediRat->gMinY)/gediRat->gRes+1);
