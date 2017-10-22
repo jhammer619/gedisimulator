@@ -1830,6 +1830,11 @@ void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStru
   double dx=0,dy=0;
   double sepSq=0;
   float area=0.0;
+  char hasPoints=0;
+
+
+  /*reset counter*/
+  for(i=gediRat->gX*gediRat->gX-1;i>=0;i--)gediRat->nGrid[i]=0;
 
   /*loop over points needed*/
   for(k=0;k<pointmap->nPoints;k++){
@@ -1855,6 +1860,7 @@ void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStru
 
       /*point and beam density*/
       if(sepSq<=gediRat->denseRadSq){
+        hasPoints=1;
         gediRat->pointDense+=1.0;
         if(data[i]->retNumb[j]==data[i]->nRet[j])gediRat->beamDense+=1.0;
       }
@@ -1864,6 +1870,10 @@ void determineALScoverage(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloudStru
   area=M_PI*gediRat->denseRadSq;
   gediRat->pointDense/=area;
   gediRat->beamDense/=area;
+
+  if(hasPoints==0){
+    for(i=gediRat->gX*gediRat->gX-1;i>=0;i--)gediRat->nGrid[i]=0;
+  }
 
   return;
 }/*determineALScoverage*/
