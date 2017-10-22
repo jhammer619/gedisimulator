@@ -138,7 +138,6 @@ int main(int argc,char **argv)
     /*loop over waveforms*/
     for(i=0;i<dimage->gediRat.gNx;i++){
       for(j=0;j<dimage->gediRat.gNy;j++){
-        if(dimage->writeHDF)fprintf(stdout,"Wave %d of %d\n",i*dimage->gediRat.gNy+j,dimage->gediRat.gNx*dimage->gediRat.gNy);
         /*update centre coord*/
         updateGediCoord(&dimage->gediRat,i,j);
 
@@ -156,6 +155,12 @@ int main(int argc,char **argv)
 
         /*if it is usable*/
         if(dimage->gediRat.useFootprint){
+          /*progress report*/
+          if(dimage->writeHDF){
+            if((dimage->hdfCount%dimage->gediIO.nMessages)==0){
+              fprintf(stdout,"Wave %d of %d\n",i*dimage->gediRat.gNy+j,dimage->gediRat.gNx*dimage->gediRat.gNy);
+            }
+          }
           /*find the ground if needed*/
           if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
   

@@ -2353,8 +2353,9 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   determineALScoverage(gediIO,gediRat,data,pointmap);
 
   /*check that whole footprint is covered*/
-  if(gediRat->checkCover)checkFootCovered(gediIO,gediRat);
-  else                  gediRat->useFootprint=1;
+  if(pointmap->nPoints==0)gediRat->useFootprint=0;
+  else if(gediRat->checkCover)checkFootCovered(gediIO,gediRat);
+  else                   gediRat->useFootprint=1;
 
   /*only if it contains data*/
   if(gediRat->useFootprint){
