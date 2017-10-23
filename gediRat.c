@@ -181,8 +181,8 @@ int main(int argc,char **argv)
       }/*grid y loop*/
     }/*grid x loop*/
 
-    /*write HDF if needed*/
-    if(dimage->writeHDF){
+    /*write HDF if needed and not blank*/
+    if(dimage->writeHDF&&(dimage->hdfCount>0)){
       hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
       writeGEDIhdf(hdfData,dimage->outNamen);
     }
