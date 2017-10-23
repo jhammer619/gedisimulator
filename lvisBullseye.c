@@ -838,7 +838,7 @@ control *readCommands(int argc,char **argv)
   /*LVIS params for sim*/
   dimage->simIO.fSigma=4.31;
   dimage->simIO.pSigma=0.6893;
-  dimage->gediRat.iThresh=0.0006;
+  dimage->gediRat.iThresh=0.002;
 
   /*LVIS denoising*/
   setDenoiseDefault(dimage->lvisIO.den);
