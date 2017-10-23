@@ -75,23 +75,28 @@ while ($#argv>0)
   endsw
 end
 
-if( $useCircle )then
-  set minX=`echo $x $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set minY=`echo $y $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set maxX=`echo $x $rad|gawk '{printf("%.4f",$1+$2)}'`
-  set maxY=`echo $y $rad|gawk '{printf("%.4f",$1+$2)}'`
-else if( $multiFeet )then
-  set bounds=`gawk -v rad=$rad -f $bin/multiBound.awk` < $listFile
-  set minX=$bounds[1]
-  set minY=$bounds[2]
-  set maxX=$bounds[3]
-  set maxY=$bounds[4]
+
+if( $multiFeet )then
+  set temp="/tmp/alsOverlap.$$.dat"
+  cat $listFile > $temp
+  echo "###"   >> $temp
+  cat $input   >> $temp
+
+  gawk -f $bin/overlapMultiFiles.awk -v rad=$rad < $temp > $output
+  rm $temp
+else if( $useCircle )then
+  set minX=`echo $x $rad|gawk '{printf("%.10f",$1-$2)}'`
+  set minY=`echo $y $rad|gawk '{printf("%.10f",$1-$2)}'`
+  set maxX=`echo $x $rad|gawk '{printf("%.10f",$1+$2)}'`
+  set maxY=`echo $y $rad|gawk '{printf("%.10f",$1+$2)}'`
 else
-  set minX=`echo $minX $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set minY=`echo $minY $rad|gawk '{printf("%.4f",$1-$2)}'`
-  set maxX=`echo $maxX $rad|gawk '{printf("%.4f",$1+$2)}'`
-  set maxY=`echo $maxY $rad|gawk '{printf("%.4f",$1+$2)}'`
+  set minX=`echo $minX $rad|gawk '{printf("%.10f",$1-$2)}'`
+  set minY=`echo $minY $rad|gawk '{printf("%.10f",$1-$2)}'`
+  set maxX=`echo $maxX $rad|gawk '{printf("%.10f",$1+$2)}'`
+  set maxY=`echo $maxY $rad|gawk '{printf("%.10f",$1+$2)}'`
 endif
 
-gawk -f $bin/overlapLasFiles.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY < $input > $output
+if( ! $multiFeet )then
+  gawk -f $bin/overlapLasFiles.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY < $input > $output
+endif
 
