@@ -831,8 +831,8 @@ control *readCommands(int argc,char **argv)
 
   /*octree*/
   dimage->gediRat.useOctree=1;
-  dimage->gediRat.octLevels=5;
-  dimage->gediRat.nOctTop=10;
+  dimage->gediRat.octLevels=6;
+  dimage->gediRat.nOctTop=20;
   dimage->gediRat.octree=NULL;
 
   /*LVIS params for sim*/
