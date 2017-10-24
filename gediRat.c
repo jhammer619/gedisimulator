@@ -639,9 +639,9 @@ gediHDF *setUpHDF(control *dimage)
 
   if(dimage->gediIO.readPulse){
     hdfData->pRes=dimage->gediIO.pRes;
-    hdfData->nBins=dimage->gediIO.pulse->nBins;
-    hdfData->pulse=falloc(hdfData->nBins,"hdf pulse",0);
-    memcpy(hdfData->pulse,dimage->gediIO.pulse->y,sizeof(float)*hdfData->nBins);
+    hdfData->nPbins=dimage->gediIO.pulse->nBins;
+    hdfData->pulse=falloc(hdfData->nPbins,"hdf pulse",0);
+    memcpy(hdfData->pulse,dimage->gediIO.pulse->y,sizeof(float)*hdfData->nPbins);
   }else{
     hdfData->pulse=NULL;
     hdfData->nPbins=0;
@@ -734,7 +734,7 @@ control *readCommands(int argc,char **argv)
   /*batch*/
   dimage->gediRat.coords=NULL;       /*list of coordinates*/
   dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
-  dimage->maxBins=2000;
+  dimage->maxBins=1600;
   dimage->gediIO.nMessages=200;
 
   dimage->gediRat.iThresh=0.0006;
