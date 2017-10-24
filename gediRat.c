@@ -734,7 +734,7 @@ control *readCommands(int argc,char **argv)
   /*batch*/
   dimage->gediRat.coords=NULL;       /*list of coordinates*/
   dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
-  dimage->maxBins=1600;
+  dimage->maxBins=1024;
   dimage->gediIO.nMessages=200;
 
   dimage->gediRat.iThresh=0.0006;
