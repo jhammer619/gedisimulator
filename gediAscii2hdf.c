@@ -9,6 +9,7 @@
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
+#include "libOctree.h"
 #include "gediIO.h"
 
 /*tolerances*/
