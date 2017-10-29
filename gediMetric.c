@@ -269,7 +269,7 @@ int main(int argc,char **argv)
 
       /*write results*/
       if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
-      else                                        writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
+      else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
     }/*is the data usable*/
 
 
@@ -970,7 +970,8 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
     fprintf(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
     for(i=0;i<data->nBins;i++){
-      fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[data->useType][i]);
+      if(dimage->noRHgauss==0)fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[data->useType][i]);
+      else                    fprintf(opoo,"%f %f %f ? %f",data->z[i],data->noised[i],denoised[i],data->wave[data->useType][i]);
       if(dimage->gediIO.ground)fprintf(opoo," %f %f",data->ground[data->useType][i],data->wave[data->useType][i]-data->ground[data->useType][i]);
       else              fprintf(opoo," 0 0");
       for(j=0;j<dimage->gediIO.gFit->nGauss;j++)fprintf(opoo," %f",dimage->gediIO.gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gediIO.gFit->gPar[3*j+2],dimage->gediIO.gFit->gPar[3*j]));
