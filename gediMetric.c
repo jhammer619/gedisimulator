@@ -1614,6 +1614,7 @@ double maxGround(float *smoothed,double *z,int nBins)
 dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
 {
   int i=0;
+  float zTop=0;
   dataStruct *data=NULL;
 
   /*read data if needed*/
@@ -1662,10 +1663,12 @@ dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
   data->totE[data->useType]=0.0;
   for(i=0;i<dimage->hdfGedi->nBins;i++)data->totE[data->useType]+=data->wave[0][i];
 
-  /*elevation needs making*/
+  /*elevation needs making amnd resolution passing to structures*/
   data->res=fabs(dimage->hdfGedi->z0[numb]-dimage->hdfGedi->zN[numb])/(float)dimage->hdfGedi->nBins;
+  dimage->gediIO.res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=data->res;
   data->z=dalloc(data->nBins,"z",0);
-  for(i=0;i<dimage->hdfGedi->nBins;i++)data->z[i]=(double)(dimage->hdfGedi->z0[numb]-(float)i*data->res);
+  zTop=(dimage->hdfGedi->zN[numb]>dimage->hdfGedi->z0[numb])?dimage->hdfGedi->zN[numb]:dimage->hdfGedi->z0[numb];
+  for(i=0;i<dimage->hdfGedi->nBins;i++)data->z[i]=(double)(zTop-(float)i*data->res);
 
   /*set up number of messages*/
   if(dimage->hdfGedi->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdfGedi->nWaves/dimage->gediIO.nMessages);
