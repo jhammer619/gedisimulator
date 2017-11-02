@@ -88,12 +88,14 @@ END{
         xS[nUse]=xBot;
         yS[nUse]=yBot;
         zen[nUse]=atan2(xTop-xBot,yTop-yBot);
+        beamType[nUse]=beamid[i,j];
         nUse++;
       }else if(i==start){   # accept left edge
         #if((xBot-minLon)<tol){
           xS[nUse]=xBot;
           yS[nUse]=yBot;
           zen[nUse]=atan2(xTop-xBot,yTop-yBot);
+          beamType[nUse]=beamid[i,j];
           nUse++;
         #}
       }else if(i==ending){  # accept right edge
@@ -120,7 +122,7 @@ END{
         y=yS[i]+d*cos(zen[i])+minY-minLat;
 
         if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
-          waveID=sprintf("%d.%d.%d\n",beamType[i],i,j);
+          waveID=sprintf("%s.%d.%d",beamType[i],i,j);
           print x,y,waveID;
         }
         d+=alongTrack;

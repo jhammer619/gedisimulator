@@ -156,7 +156,13 @@ set minY=$min[2]
 set maxY=$max[2]
 
 # choose footprints
-gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle < $trackFile|gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg > $tempTrack
+gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle < $trackFile > $workSpace
+gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg < $workSpace|gawk '{print $1,$2}' > $workSpace.1
+gawk '{print $3}' < $workSpace > $workSpace.2
+paste $workSpace.1 $workSpace.2 > $tempTrack
+if( -e $workSpace )rm $workSpace
+if( -e $workSpace.1 )rm $workSpace.1
+if( -e $workSpace.2 )rm $workSpace.2
 
 # alter minsep if in degrees
 if( $epsg == 4326 )then
