@@ -139,8 +139,6 @@ set trackAngle=`echo $meanLat $orbitAng|gawk 'BEGIN{pi=4*atan2(1,1);scale=pi/180
 set minLat=`echo $meanLat|gawk -v res=$latRes '{lat=(int($1/res+0.5+100)-100)*res;printf("%f",lat)}'`
 set trackRoot=`echo $minLat|gawk '{if($1>=0)printf("_lat%dN",$1);else printf("_lat%dS",-1*$1)}'`
 set trackFile=`ls $orbitDir/*$trackRoot.txt`
-#gawk -F, -v cFrac=$cloudFrac -v seed=$seed -f $bin/gediTrackStats.awk < $trackFile > $workSpace
-
 
 # find bounds if needed
 if( $readBounds && $readMetric )then # read from metric file
@@ -173,27 +171,10 @@ if( $epsg == 4326 )then
 endif
 
 # output results
-if( $readMetric )then
+if( $readMetric )then    # extract tracks from metric file
   $bin/chooseMetricPrints -minSep $minSep -metric $metricFile -tracks $tempTrack -output $output -gridRes $gridRes
-
-  # OLD gawk bases
-  # split up metric file into manageable chunks
-  #@ nLines=`wc -l` < $metricFile
-  #@ nSplit=`echo "$nLines $maxLines"|gawk '{print int(($1/$2)+1)}'`
-  # write header to output
-  #gawk '($1=="#"){print $0;exit}' < $metricFile > $output
-
-  ## loop over lines
-  #@ j=0
-  #while( $j < $nSplit )
-  #  cat $tempTrack   > $workSpace
-  #  echo "###"      >> $workSpace
-  #  gawk -v j=$j -v max=$maxLines 'BEGIN{s=j*max;e=(j+1)*max}($0&&($1!="#")){if((NR>=s)&&(NR<e))print $0}' < $metricFile >> $workSpace
-  #  gawk -f $bin/chooseMetricPrints.awk -v minSep=$minSep < $workSpace >> $output
-  #  @ j++
-  #end  # line loop
-else if( $readALS )then
-  gawk '{printf("%.10f %.10f %d.%d\n",$1,$2,$1,$2)}' < $tempTrack > $output
+else if( $readALS )then  # generate list of footprints to simulate
+  gawk '{printf("%.10f %.10f %s\n",$1,$2,$3)}' < $tempTrack > $output
 else
   echo "Then why did you run this?"
   exit(1)

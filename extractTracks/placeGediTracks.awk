@@ -71,11 +71,6 @@ END{
   for(i=start;i<=ending;i++){
 
     for(j=0;j<nIn[i];j++){
-      #x=x0[i,j]+minX-(minLon+buffX);
-      #if((x>=minX)&&(x<=maxX))print x0[i,j]+minX-(minLon+buffX),y0[i,j]+minY-minLat,buffBins,minX,maxX,minLon,maxLon;
-      #x=x1[i,j]+minX-(minLon+buffX);
-      #if((x>=minX)&&(x<=maxX))print x1[i,j]+minX-(minLon+buffX),y1[i,j]+minY-minLat;
-
       # sort orders
       if(y0[i,j]<y1[i,j]){
         xBot=x0[i,j];
@@ -88,7 +83,6 @@ END{
         xTop=x0[i,j];
         yTop=y0[i,j];
       }
-
 
       if((yBot-minLat)<tol){  # accept bottom only
         xS[nUse]=xBot;
@@ -119,12 +113,17 @@ END{
     if(rand()>=cloudFrac){
       y=minY;
       d=0.0;
+      j=0;
       while((y<=(maxY+tol))&&(y>=(minY-tol))){
         x=xS[i]+d*sin(zen[i])+minX-(minLon+buffX);
         y=yS[i]+d*cos(zen[i])+minY-minLat;
 
-        if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY))print x,y;
+        if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
+          waveID=sprintf("%d.%d\n",i,j);
+          print x,y,waveID;
+        }
         d+=alongTrack;
+        j++;
       }
     }# cloud test
   }
