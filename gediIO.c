@@ -2424,7 +2424,7 @@ pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,
 
   /*search octree or copy all points*/
   if(gediRat->useOctree){
-    pointmap=mapFromOctree(gediRat->octList,gediRat->nOct,gediRat->octree);
+    pointmap=mapFromOctree(gediRat->octList,gediRat->nOct,gediRat->octree,gediRat->minX,gediRat->maxX,gediRat->minY,gediRat->maxY);
   }else{   /*use all points*/
     /*allocate space*/
     if(!(pointmap=(pointMapStruct *)calloc(1,sizeof(pointMapStruct)))){
