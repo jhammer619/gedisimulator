@@ -101,6 +101,7 @@ END{
           xS[nUse]=xBot;
           yS[nUse]=yBot;
           zen[nUse]=atan2(xTop-xBot,yTop-yBot);
+          beamType[nUse]=beamid[i,j];
           nUse++;
         }
       }
@@ -119,7 +120,7 @@ END{
         y=yS[i]+d*cos(zen[i])+minY-minLat;
 
         if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
-          waveID=sprintf("%d.%d\n",i,j);
+          waveID=sprintf("%d.%d.%d\n",beamType[i],i,j);
           print x,y,waveID;
         }
         d+=alongTrack;
