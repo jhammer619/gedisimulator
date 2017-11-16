@@ -723,8 +723,8 @@ control *readCommands(int argc,char **argv)
 
   /*octree*/
   dimage->gediRat.useOctree=1;
-  dimage->gediRat.octLevels=4;
-  dimage->gediRat.nOctTop=20;   
+  dimage->gediRat.octLevels=0;
+  dimage->gediRat.nOctTop=40;   
   dimage->gediRat.octree=NULL;
 
   /*gridding options*/
