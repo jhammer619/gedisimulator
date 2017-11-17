@@ -397,7 +397,7 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
   /*open new file*/
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 
-  /*write header*/
+ /*write header*/
   write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1);
   write1dIntHDF5(file,"NBINS",&hdfData->nBins,1);
   write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1);
@@ -738,7 +738,7 @@ float pulseLenFromTX(float *pulse,int nBins)
     CofG/=tot;
 
     pSigma=0.0;
-    for(i=0;i<nBins;i++)pSigma+=((float)i*den.res*denoised[i]-CofG)*((float)i*den.res*denoised[i]-CofG);
+    for(i=0;i<nBins;i++)pSigma+=((float)i*den.res*-CofG)*((float)i*den.res-CofG)*denoised[i];
     pSigma=sqrt(pSigma/tot);
 
   }else pSigma=-1.0;
