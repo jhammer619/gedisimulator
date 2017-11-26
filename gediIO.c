@@ -1938,7 +1938,7 @@ denPar *setDeconForGEDI(gediRatStruct *gediRat)
   decon->meanN=13.0;
   strcpy(decon->pNamen,"/Users/stevenhancock/data/bess/leica_shape/leicaPulse.dat");  /*pulse filename*/
   decon->deconMeth=0;     /*Gold's method*/
-  decon->pScale=1.2;
+  decon->pScale=1.0;
   decon->noiseTrack=0;
 
   /*read system pulse*/
