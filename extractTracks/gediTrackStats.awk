@@ -44,10 +44,12 @@ END{
   total=0;
   for(i=0;i<numb;i++){
     # apply cloud fraction
-    aInd=int(n[i,0]*cFrac+rand());
-    dInd=int(n[i,1]*cFrac+rand());
 
-    hist[aInd,dInd]++;
+    nA=nD=0;
+    for(j=0;j<n[i,0];j++)if(rand()>=cFrac)nA++;
+    for(j=0;j<n[i,1];j++)if(rand()>=cFrac)nD++;
+
+    hist[nA,nD]++;
     total++;
   }
 

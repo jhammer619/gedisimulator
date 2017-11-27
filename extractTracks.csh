@@ -184,7 +184,7 @@ endif
 # output results
 if( $readMetric )then    # extract tracks from metric file
   $bin/chooseMetricPrints -minSep $minSep -metric $metricFile -tracks $tempTrack -output $output -gridRes $gridRes
-else if( $readALS )then  # generate list of footprints to simulate
+else if( $readALS || $definedBounds )then  # generate list of footprints to simulate
   gawk '{printf("%.10f %.10f %s\n",$1,$2,$3)}' < $tempTrack > $output
 else
   echo "Then why did you run this?"

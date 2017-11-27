@@ -47,7 +47,7 @@ END{
   # pick a random start point
   start=int(rand()*numb)-buffBins;
   if(start<0)start=0;
-  else if((start+nX)>=numb)start-=nX;  # make sure there's enough to the right
+  else if((start+nX)>=numb)start=numb-nX;  # make sure there's enough to the right
   ending=start+nX;
 
   # determine bounds
@@ -124,7 +124,7 @@ END{
         if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
           waveID=sprintf("%s.%d.%d",beamType[i],i,j);
           print x,y,waveID;
-        }
+        }#else print "out",x,y,minX,maxX,minY,maxY,"buff",(minLon+buffX),"min",minX;
         d+=alongTrack;
         j++;
       }
