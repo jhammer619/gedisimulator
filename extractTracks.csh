@@ -107,6 +107,7 @@ while ($#argv>0)
     echo "-cloud frac;       cloud fraction"
     echo "-seed n;           random number seed"
     echo "-gridRes r;        search grid resolution, metres"
+    echo "-bound minX minY maxX maxY;   define bounds"
     echo " "
     exit
 
