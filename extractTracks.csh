@@ -16,6 +16,7 @@ set res=1000
 @ readBounds=1
 @ readALS=0
 @ readMetric=0
+@ definedBounds=0
 set minSep=30
 set output="teast.dat"
 @ maxLines=2000    # reduces swap space needed
@@ -87,10 +88,8 @@ while ($#argv>0)
   breaksw
 
   case -bound
-    set minX=$argv[1]
-    set minY=$argv[2]
-    set maxX=$argv[3]
-    set maxY=$argv[4]
+    set bounds=`echo "$argv[2] $argv[3] $argv[4] $argv[5]"|gawk '{for(i=1;i<=NF;i++)print $i}'`
+    @ definedBounds=1
     @ readBounds=0
   shift argv;shift argv;shift argv;shift argv;shift argv
   breaksw
@@ -107,7 +106,7 @@ while ($#argv>0)
     echo "-cloud frac;       cloud fraction"
     echo "-seed n;           random number seed"
     echo "-gridRes r;        search grid resolution, metres"
-    echo "-bound minX minY maxX maxY;   define bounds"
+    echo "-bound minX maxX minY maxY;   define bounds"
     echo " "
     exit
 
@@ -123,11 +122,16 @@ end
 
 
 # do we need to find the mean latitude
-if( $findLat && $readMetric)then   # from metric fle
+if( $definedBounds )then
+  set meanLon=`echo "$bounds[1] $bounds[2]"|gawk '{print ($1+$2)/2}'`
+  set meanLat=`echo "$bounds[3] $bounds[4]"|gawk '{print ($1+$2)/2}'`
+  set meanLat=`echo $meanLon $meanLat|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
+else if( $findLat && $readMetric)then   # from metric fle
   set meanLat=`gawk -f $bin/meanCoord.awk < $metricFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 else if( $findLat )then            # from ALS bounds file
   set meanLat=`gawk 'BEGIN{x=y=0;n=0}($0&&($1!="#")){x+=$2+$5;y+=$3+$6;n+=2}END{print x/n,y/n}' < $alsFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 endif
+
 
 # convert along and across track to angles
 set resAng=`echo $res $meanLat|gawk '{pi=4*atan2(1,1);lat=$2*pi/180;print ($1/(cos(lat)*6371000))*180/pi}'`
