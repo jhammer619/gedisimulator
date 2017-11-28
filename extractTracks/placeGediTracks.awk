@@ -125,7 +125,7 @@ END{
         if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
           if(sunZen[i]>=0.0)tim="day"
           else              tim="night"
-          waveID=sprintf("%s.%d.%d.%s",beamType[i],i,j,tim);
+          waveID=sprintf("%s.%d.%d.%s.%d",beamType[i],i,j,tim,int(sunZen[i]));
           print x,y,waveID;
         }#else print "out",x,y,minX,maxX,minY,maxY,"buff",(minLon+buffX),"min",minX;
         d+=alongTrack;
