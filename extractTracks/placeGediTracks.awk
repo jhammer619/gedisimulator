@@ -22,6 +22,7 @@ BEGIN{
     else if($1=="beamid")beamid[numb,nIn[numb]]=$3;
     else if($1=="lon")pixX[numb]=$3;     
     else if($1=="lat")pixY[numb]=$3;
+    else if($1=="sunel")sunZen[numb]=$3;
   }
 }
 
@@ -122,7 +123,9 @@ END{
         y=yS[i]+d*cos(zen[i])+minY-minLat;
 
         if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
-          waveID=sprintf("%s.%d.%d",beamType[i],i,j);
+          if(sunZen[i]>=0.0)tim="day"
+          else              tim="night"
+          waveID=sprintf("%s.%d.%d.%s",beamType[i],i,j,tim);
           print x,y,waveID;
         }#else print "out",x,y,minX,maxX,minY,maxY,"buff",(minLon+buffX),"min",minX;
         d+=alongTrack;
