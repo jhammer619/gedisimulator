@@ -22,7 +22,7 @@ BEGIN{
     else if($1=="beamid")beamid[numb,nIn[numb]]=$3;
     else if($1=="lon")pixX[numb]=$3;     
     else if($1=="lat")pixY[numb]=$3;
-    else if($1=="sunel")sunZen[numb]=$3;
+    else if($1=="sunel")sunel[numb,nIn[numb]]=$3;
   }
 }
 
@@ -90,6 +90,7 @@ END{
         yS[nUse]=yBot;
         zen[nUse]=atan2(xTop-xBot,yTop-yBot);
         beamType[nUse]=beamid[i,j];
+        sunZen[nUse]=sunel[i,j];
         nUse++;
       }else if(i==start){   # accept left edge
         #if((xBot-minLon)<tol){
