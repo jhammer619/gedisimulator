@@ -147,7 +147,7 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
 
   /*allocate structure*/
   if(!(hdf=(lvisHDF *)calloc(1,sizeof(lvisHDF)))){
-    fprintf(stderr,"error control allocation.\n");
+    fprintf(stderr,"error in HDF structure allocation.\n");
     exit(1);
   }
   hdf->nWaves=lgw->nWaves;
@@ -161,28 +161,28 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
   hdf->lon1023=dalloc(hdf->nWaves,"lon0",0);
   hdf->lat1023=dalloc(hdf->nWaves,"lat0",0);
   if(!(hdf->lfid=(uint32_t *)calloc(hdf->nWaves,sizeof(uint32_t)))){
-    fprintf(stderr,"error control allocation.\n");
+    fprintf(stderr,"error in lfid allocation, allocating %ld.\n",hdf->nWaves*sizeof(uint32_t));
     exit(1);
   }
   if(!(hdf->shotN=(uint32_t *)calloc(hdf->nWaves,sizeof(uint32_t)))){
-    fprintf(stderr,"error control allocation.\n");
+    fprintf(stderr,"error in shotN allocation, allocating %ld\n",hdf->nWaves*sizeof(uint32_t));
     exit(1);
   }
   if(!(hdf->wave=(uint16_t **)calloc(1,sizeof(uint16_t *)))){
-    fprintf(stderr,"error control allocation.\n");
+    fprintf(stderr,"error in wave array allocation, allocating 1.\n");
     exit(1);
   }
-  if(!(hdf->wave[0]=(uint16_t *)calloc(hdf->nWaves*hdf->nBins,sizeof(uint16_t)))){
-    fprintf(stderr,"error control allocation.\n");
+  if(!(hdf->wave[0]=(uint16_t *)calloc((uint64_t)hdf->nWaves*(uint64_t)hdf->nBins,(uint64_t)sizeof(uint16_t)))){
+    fprintf(stderr,"error in wave array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->nBins*(uint64_t)sizeof(uint16_t));
     exit(1);
   }
   if(usePulse){
     if(!(hdf->pulse=(uint16_t **)calloc(1,sizeof(uint16_t *)))){
-      fprintf(stderr,"error control allocation.\n");
+      fprintf(stderr,"error pulse array allocation, allocating 1.\n");
       exit(1);
     }
-    if(!(hdf->pulse[0]=(uint16_t *)calloc(hdf->nWaves*hdf->nBins,sizeof(uint16_t)))){
-      fprintf(stderr,"error control allocation.\n");
+    if(!(hdf->pulse[0]=(uint16_t *)calloc((uint64_t)hdf->nWaves*(uint64_t)hdf->pBins,(uint64_t)sizeof(uint16_t)))){
+      fprintf(stderr,"error pulse array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->pBins*(uint64_t)sizeof(uint16_t));
       exit(1);
     }
   }
