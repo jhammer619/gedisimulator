@@ -279,8 +279,8 @@ control *readCommands(int argc,char **argv)
       if(!strncasecmp(argv[i],"-input",6)){
         checkArguments(1,i,argc,"-input");
         strcpy(dimage->inNamen,argv[++i]);
-      }else if(!strncasecmp(argv[i],"-outRoot",8)){
-        checkArguments(1,i,argc,"-outRoot");
+      }else if(!strncasecmp(argv[i],"-output",7)){
+        checkArguments(1,i,argc,"-output");
         strcpy(dimage->outNamen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
         fprintf(stdout,"\n#####\nProgram to convert LVIS lgw files to HDF5\n#####\n\n-input name;     input LGW filename\n-output name;   output HDF5 filename\n\n");
