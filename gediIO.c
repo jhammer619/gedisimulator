@@ -635,6 +635,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
   dataStruct *data=NULL;
   float *tempPulse=NULL;
   float pulseLenFromTX(float *,int);
+  double dx=0,dy=0,scale=0;  /*for padded LVIS files*/
 
   /*read data if needed*/
   if(*hdfLvis==NULL){
@@ -681,8 +682,17 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
     data->gMinimum=-1.0;
     data->gInfl=-1.0;
   }
-  data->lon=(hdfLvis[0]->lon0[numb]+hdfLvis[0]->lon1023[numb])/2.0;
-  data->lat=(hdfLvis[0]->lat0[numb]+hdfLvis[0]->lat1023[numb])/2.0;
+
+  if(gediIO->bin431==0){
+    data->lon=(hdfLvis[0]->lon0[numb]+hdfLvis[0]->lon1023[numb])/2.0;
+    data->lat=(hdfLvis[0]->lat0[numb]+hdfLvis[0]->lat1023[numb])/2.0;
+  }else{
+    dx=hdfLvis[0]->lon0[numb]-hdfLvis[0]->lon1023[numb];
+    dy=hdfLvis[0]->lat0[numb]-hdfLvis[0]->lat1023[numb];
+    scale=432.0/1024.0;
+    data->lon=hdfLvis[0]->lon0[numb]+scale*dx/2.0;
+    data->lat=hdfLvis[0]->lat0[numb]+scale*dy/2.0;
+  }
   data->lfid=hdfLvis[0]->lfid[numb];
   data->shotN=hdfLvis[0]->shotN[numb];
   sprintf(data->waveID,"%d.%d",hdfLvis[0]->lfid[numb],hdfLvis[0]->shotN[numb]);
