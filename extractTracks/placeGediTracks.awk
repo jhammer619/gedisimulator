@@ -11,7 +11,7 @@ BEGIN{
       numb++;
       nIn[numb]=-1;
     }else if(n==4){  # new track within cell
-      nIn[numb]++;
+      if((usePhen==0)||(leafon[numb,nIn[numb]]>0.01))nIn[numb]++;
     }
   }else{  # read a track
     if($1=="latenter")y0[numb,nIn[numb]]=$3;

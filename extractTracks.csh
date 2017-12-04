@@ -21,6 +21,7 @@ set minSep=30
 set output="teast.dat"
 @ maxLines=2000    # reduces swap space needed
 set gridRes=2000
+@ leafOn=0         # ignore phenology
 
 
 # temporary workspace files
@@ -87,6 +88,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -leafOn
+    @ leafOn=1
+  shift argv
+  breaksw
+
   case -bound
     set bounds=`echo "$argv[2] $argv[3] $argv[4] $argv[5]"|gawk '{for(i=1;i<=NF;i++)print $i}'`
     @ definedBounds=1
@@ -106,6 +112,7 @@ while ($#argv>0)
     echo "-cloud frac;       cloud fraction"
     echo "-seed n;           random number seed"
     echo "-gridRes r;        search grid resolution, metres"
+    echo "-leafOn;           only include leaf on tracks"
     echo "-bound minX maxX minY maxY;   define bounds"
     echo " "
     exit
@@ -161,7 +168,7 @@ set minY=$min[2]
 set maxY=$max[2]
 
 # choose footprints
-gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle < $trackFile > $workSpace
+gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $trackFile > $workSpace
 gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg < $workSpace|gawk '{print $1,$2}' > $workSpace.1
 gawk '{print $3}' < $workSpace > $workSpace.2
 paste $workSpace.1 $workSpace.2 > $tempTrack
