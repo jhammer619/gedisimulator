@@ -140,7 +140,6 @@ typedef struct{
 
   /*others*/
   int nMessages;  /*number of progress messages*/
-  char bin431;    /*if the original LVIS data has 431 bins for lat/lon*/
 }gediIOstruct;
 
 

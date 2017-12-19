@@ -64,6 +64,7 @@ typedef struct{
   float offset;        /*vertical datum offset*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
+  float maxZen;        /*maximum LVIS zenith angle to use*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum distance to shift*/
@@ -151,7 +152,7 @@ int main(int argc,char **argv)
 void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 {
   int i=0,j=0,k=0;
-  int nX=0;
+  int nX=0,contN=0;
   double xOff=0,yOff=0;
   double **coords=NULL;
   double **shiftPrints(double **,double,double,int);
@@ -194,7 +195,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
       correl=fFalloc(dimage->gediRat.gNx,"correl",0);
 
       /*loop over footprints*/
+      contN=0;
       for(k=0;k<dimage->gediRat.gNx;k++){
+        if(lvis[k]->zen>dimage->maxZen)continue;
         /*set one coordinate*/
         updateGediCoord(&dimage->gediRat,k,0);
 
@@ -204,8 +207,8 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
         /*calculate correlation*/
         if(dimage->gediRat.useFootprint){
-          correl[k]=waveCorrel(waves,denoised[k],lvis[k],&dimage->simIO);
-        }else correl[k]=NULL;
+          correl[contN]=waveCorrel(waves,denoised[k],lvis[k],&dimage->simIO);
+        }else correl[contN]=NULL;
      
         /*tidy up*/
         if(waves){
@@ -216,10 +219,11 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
         }
         TIDY(dimage->gediRat.lobe);
         TIDY(dimage->gediRat.nGrid);
+        contN++;
       }/*footprint loop*/
 
       /*output results*/
-      writeCorrelStats(correl,dimage->gediRat.gNx,3,opoo,xOff,yOff,dimage);
+      writeCorrelStats(correl,contN,3,opoo,xOff,yOff,dimage);
 
       /*tidy up*/
       TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
@@ -563,7 +567,7 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
   TIDY(y);
   TIDY(z);
   return;
-}/*setGediGrid*/
+}/*copyLvisCoords*/
 
 
 /*####################################################*/
@@ -828,6 +832,7 @@ control *readCommands(int argc,char **argv)
   dimage->offset=0.0;
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->filtOutli=1;    /*filter outliers*/
+  dimage->maxZen=100000.0;
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -963,8 +968,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-nOctPix",8)){
         checkArguments(1,i,argc,"-nOctPix");
         dimage->gediRat.nOctTop=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-maxZen",7)){
+        checkArguments(1,i,argc,"-maxZen");
+        dimage->maxZen=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

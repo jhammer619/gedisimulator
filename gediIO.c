@@ -631,7 +631,8 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 
 dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int numb)
 {
-  int i=0;
+  int i=0,botBin=0;
+  int findLvisBottom(float *wave,int nBins);
   dataStruct *data=NULL;
   float *tempPulse=NULL;
   float pulseLenFromTX(float *,int);
@@ -683,16 +684,14 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
     data->gInfl=-1.0;
   }
 
-  if(gediIO->bin431==0){
-    data->lon=(hdfLvis[0]->lon0[numb]+hdfLvis[0]->lon1023[numb])/2.0;
-    data->lat=(hdfLvis[0]->lat0[numb]+hdfLvis[0]->lat1023[numb])/2.0;
-  }else{
-    dx=hdfLvis[0]->lon0[numb]-hdfLvis[0]->lon1023[numb];
-    dy=hdfLvis[0]->lat0[numb]-hdfLvis[0]->lat1023[numb];
-    scale=432.0/1024.0;
-    data->lon=hdfLvis[0]->lon0[numb]+scale*dx/2.0;
-    data->lat=hdfLvis[0]->lat0[numb]+scale*dy/2.0;
-  }
+  /*for setting coordinate, use range of lowest ground return*/
+  botBin=findLvisBottom(data->wave[data->useType],data->nBins);
+
+  dx=hdfLvis[0]->lon1023[numb]-hdfLvis[0]->lon0[numb];
+  dy=hdfLvis[0]->lat1023[numb]-hdfLvis[0]->lat0[numb];
+  scale=(double)botBin/1024.0;
+  data->lon=hdfLvis[0]->lon0[numb]+scale*dx;
+  data->lat=hdfLvis[0]->lat0[numb]+scale*dy;
   data->lfid=hdfLvis[0]->lfid[numb];
   data->shotN=hdfLvis[0]->shotN[numb];
   sprintf(data->waveID,"%d.%d",hdfLvis[0]->lfid[numb],hdfLvis[0]->shotN[numb]);
@@ -714,6 +713,40 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
 
   return(data);
 }/*unpackHDFlvis*/
+
+
+/*####################################################*/
+/*find bottom bin for determing coordinate*/
+
+int findLvisBottom(float *wave,int nBins)
+{
+  int i=0;
+  float *tempWave=NULL;
+  denPar den;
+  char found=0;
+  void setDenoiseDefault(denPar *);
+
+  /*set denoising parameters*/
+  setDenoiseDefault(&den);
+  den.varNoise=1;
+  den.statsLen=10.0;
+  den.noiseTrack=0;
+  den.threshScale=4.0;
+
+  /*find point to calcuklate coordinate from*/
+  tempWave=processFloWave(wave,nBins,&den,1.0);
+  found=0;
+  for(i=nBins-1;i>=0;i--){
+    if(tempWave[i]>TOL){
+      found=1;
+      break;
+    }
+  }
+  TIDY(tempWave);
+  if(found==0)i=nBins/2;
+
+  return(i);
+}/*findLvisBottom*/
 
 
 /*####################################################*/
@@ -763,10 +796,12 @@ float pulseLenFromTX(float *pulse,int nBins)
 
 dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct *gediIO)
 {
-  int i=0;
+  int i=0,botBin=0;
+  int findLvisBottom(float *,int);
   dataStruct *data=NULL;
   float *tempPulse=NULL;
   float pulseLenFromTX(float *,int);
+  double dx=0,dy=0,scale=0;
 
   /*do we need to read all the data*/
   if(lvis->data==NULL){
@@ -814,8 +849,14 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
     data->gMinimum=-1.0;
     data->gInfl=-1.0;
   }
-  data->lon=(lvis->data[numb].lon0+lvis->data[numb].lon431)/2.0;
-  data->lat=(lvis->data[numb].lat0+lvis->data[numb].lat431)/2.0;
+
+  /*find point to calculate coordinate from*/
+  botBin=findLvisBottom(data->wave[data->useType],data->nBins);
+  dx=lvis->data[numb].lon431-lvis->data[numb].lon0;
+  dy=lvis->data[numb].lat431-lvis->data[numb].lat0;
+  scale=(double)botBin/432.0;
+  data->lon=lvis->data[numb].lon0+dx*scale;
+  data->lat=lvis->data[numb].lat0+dy*scale;
   sprintf(data->waveID,"%d.%d",lvis->data[numb].lfid,lvis->data[numb].shotN);
 
   /*analyse pulse*/
