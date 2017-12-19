@@ -322,6 +322,7 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
 float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *simIO)
 {
   int i=0,j=0,k=0,bin=0;
+  int numb=0;
   float *correl=NULL;
   float totS=0,totL=0;
   float CofGl=0,CofGs=0;
@@ -380,32 +381,41 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     /*find sim bounds*/
     for(i=0;i<sim->nBins;i++){
       if(smooSim[i]>thresh){
-        eSx=(float)lvis->z[i];
+        z=(float)sim->maxZ-(float)i*simIO->res;
+        eSx=z;
         break;
       } 
     }
     for(i=sim->nBins-1;i>=0;i--){
       if(smooSim[i]>thresh){
-        sSx=(float)lvis->z[i];
+        z=(float)sim->maxZ-(float)i*simIO->res;
+        sSx=z;
         break;
       }
     }
 
     startX=(sSx<sLx)?sSx:sLx;
     endX=(eSx>eLx)?eSx:eLx;
+    numb=(int)(fabs(endX-startX)/simIO->res);
 
     /*means*/
     meanS=meanL=0.0;
-    for(i=0;i<lvis->nBins;i++)meanL+=truth[i];
-    for(i=0;i<sim->nBins;i++)meanS+=smooSim[i];
-    meanL/=(float)lvis->nBins;
-    meanS/=(float)sim->nBins;
+    for(i=0;i<lvis->nBins;i++)if((lvis->z[i]>=startX)&&(lvis->z[i]<=endX))meanL+=truth[i];
+    for(i=0;i<sim->nBins;i++){
+      z=(float)sim->maxZ-(float)i*simIO->res;
+      if((z>=startX)&&(z<=endX))meanS+=smooSim[i];
+    }
+    meanL/=(float)numb;
+    meanS/=(float)numb;
     /*stdev*/
     stdevS=stdevL=0.0;
-    for(i=0;i<lvis->nBins;i++)stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
-    for(i=0;i<sim->nBins;i++)stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
-    stdevL=sqrt(stdevL/(float)lvis->nBins);
-    stdevS=sqrt(stdevS/(float)sim->nBins);
+    for(i=0;i<lvis->nBins;i++)if((lvis->z[i]>=startX)&&(lvis->z[i]<=endX))stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
+    for(i=0;i<sim->nBins;i++){
+      z=(float)sim->maxZ-(float)i*simIO->res;
+      if((z>=startX)&&(z<=endX))stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
+    }
+    stdevL=sqrt(stdevL/(float)numb);
+    stdevS=sqrt(stdevS/(float)numb);
 
     /*shared variance*/
     sumProd=0.0;
@@ -423,7 +433,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
       }
       sumProd+=(truth[i]-meanL)*(smooSim[bin]-meanS);
     }
-    correl[2*k]=(sumProd/((endX-startX)/simIO->res))/(stdevL*stdevS);
+    correl[2*k]=(sumProd/(float)numb)/(stdevL*stdevS);
     TIDY(smooSim);
   }/*wave type loop*/
 
