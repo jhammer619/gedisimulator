@@ -330,10 +330,11 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   float sLx=0,eLx=0;
   float sSx=0,eSx=0;
   float startX=0,endX=0;
-  float varL=0,varS=0;
   float sumProd=0,minSepSq=0;
   float sepSq=0;
   float *smooSim=NULL;
+  float meanL=0,meanS=0;
+  float stdevL=0,stdevS=0;
 
   /*allocate space fgor correlation and CofG shift*/
   correl=falloc(2*sim->nWaves,"correlation",0);
@@ -342,7 +343,6 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   totL=lSumSq=CofGl=0.0;
   for(i=0;i<lvis->nBins;i++){
     totL+=truth[i];
-    lSumSq+=truth[i]*truth[i];
     CofGl+=truth[i]*(float)lvis->z[i];
   }
   CofGl/=totL;
@@ -370,7 +370,6 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     totS=sSumSq=CofGs=0.0;
     for(i=0;i<sim->nBins;i++){
       totS+=smooSim[i];
-      sSumSq+=smooSim[i]*smooSim[i];
       z=(float)sim->maxZ-(float)i*simIO->res;
       CofGs+=smooSim[i]*z;
     }
@@ -396,9 +395,16 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     startX=(sSx<sLx)?sSx:sLx;
     endX=(eSx>eLx)?eSx:eLx;
 
-    /*variances*/
-    varL=((float)(int)((endX-startX)/lvis->res))*lSumSq+totL*totL;
-    varS=((float)(int)((endX-startX)/simIO->res))*sSumSq+totS*totS;
+    /*means*/
+    meanS=meanL=0.0;
+    for(i=0;i<lvis->nBins;i++)meanL+=truth[i];
+    for(i=0;i<sim->nBins;i++)meanS+=smooSim[i];
+    meanL/=(float)lvis->nBins;
+    meanS/=(float)sim->nBins;
+    /*stdev*/
+    stdevS=stdevL=0.0;
+    for(i=0;i<lvis->nBins;i++)stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
+    for(i=0;i<sim->nBins;i++)stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
 
     /*shared variance*/
     sumProd=0.0;
@@ -414,9 +420,9 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
           bin=j;
         }
       }
-      sumProd+=truth[i]*smooSim[bin];
+      sumProd+=(truth[i]-meanL)*(smooSim[bin]-meanS);
     }
-    correl[2*k]=((float)(int)((endX-startX)/lvis->res)*sumProd-totL*totS)/sqrt(varS*varL);
+    correl[2*k]=(sumProd/((endX-startX)/simIO->res))/(stdevL*stdevS);
     TIDY(smooSim);
   }/*wave type loop*/
 
