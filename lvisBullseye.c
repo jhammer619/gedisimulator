@@ -404,6 +404,8 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     stdevS=stdevL=0.0;
     for(i=0;i<lvis->nBins;i++)stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
     for(i=0;i<sim->nBins;i++)stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
+    stdevL=sqrt(stdevL/(float)lvis->nBins);
+    stdevS=sqrt(stdevS/(float)sim->nBins);
 
     /*shared variance*/
     sumProd=0.0;
