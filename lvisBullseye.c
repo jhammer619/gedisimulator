@@ -324,7 +324,6 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   int i=0,j=0,k=0,bin=0;
   float *correl=NULL;
   float totS=0,totL=0;
-  float sSumSq=0,lSumSq=0;
   float CofGl=0,CofGs=0;
   float z=0,thresh=0;
   float sLx=0,eLx=0;
@@ -340,7 +339,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   correl=falloc(2*sim->nWaves,"correlation",0);
 
   /*total energies*/
-  totL=lSumSq=CofGl=0.0;
+  totL=CofGl=0.0;
   for(i=0;i<lvis->nBins;i++){
     totL+=truth[i];
     CofGl+=truth[i]*(float)lvis->z[i];
@@ -367,7 +366,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     smooSim=processFloWave(sim->wave[k],sim->nBins,simIO->den,1.0);
 
 
-    totS=sSumSq=CofGs=0.0;
+    totS=CofGs=0.0;
     for(i=0;i<sim->nBins;i++){
       totS+=smooSim[i];
       z=(float)sim->maxZ-(float)i*simIO->res;
