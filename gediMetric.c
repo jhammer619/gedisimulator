@@ -400,9 +400,9 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   float step=0;
   float err=0,minErr=0;
   float thisLink=0;
-  float nNsig=0,nSsig=0;
+  double nNsig=0,nSsig=0;
   float threshS=0,threshN=0;
-  void gaussThresholds(float,float,float,float,float *,float *);
+  void gaussThresholds(double,double,double,double,double *,double *);
   char direction=0;
 
   /*initial guess*/
@@ -410,14 +410,14 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   step=groundAmp/10.0;
 
   /*determine threshold in terms of standard deviations*/
-  gaussThresholds(1.0,XRES,probNoise,probMiss,&nNsig,&nSsig);
+  gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
 
   direction=0;
   minErr=0.00015;
   do{
     /*scale thresholds by sigma*/
-    threshN=nNsig*sig;
-    threshS=nSsig*sig;
+    threshN=(float)nNsig*sig;
+    threshS=(float)nSsig*sig;
 
     thisLink=10.0*log((groundAmp-threshS)/threshN)/log(10.0);
     if(thisLink<linkM){
@@ -1149,10 +1149,10 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
   float blairSense=0;
   float meanN=0,stdev=0;
   float notNeeded=0;
-  float nNsig=0,nSsig=0;
+  double nNsig=0,nSsig=0;
   float probNoise=0,probMiss=0;
   void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
-  void gaussThresholds(float,float,float,float,float *,float *);
+  void gaussThresholds(double,double,double,double,double *,double *);
 
   /*determine noise stats for sensitivity metric*/
   meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->gediIO.den->statsLen/dimage->gediIO.res));
@@ -1161,11 +1161,11 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
   if(stdev>0.0){
     probNoise=0.05;
     probMiss=0.1;
-    gaussThresholds(1.0,XRES,probNoise,probMiss,&nNsig,&nSsig);
+    gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
 
     slope=2.0*M_PI/180.0;
     tanSlope=sin(slope)/cos(slope);
-    gAmp=(nNsig+nSsig)*stdev;
+    gAmp=(float)(nNsig+nSsig)*stdev;
     sigEff=sqrt(dimage->linkPsig*dimage->linkPsig+dimage->linkFsig*dimage->linkFsig*tanSlope*tanSlope);
     gArea=gAmp*sigEff*sqrt(2.0*M_PI)/metric->totE;
 
@@ -1180,12 +1180,12 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
 /*####################################################################################################*/
 /*calculate Gaussian thresholds for normaly distributed noise*/
 
-void gaussThresholds(float sig,float res,float probNoise,float probMiss,float *threshN,float *threshS)
+void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS)
 {
-  float x=0,y=0;
-  float cumul=0;
+  double x=0,y=0;
+  double cumul=0;
   char foundS=0,foundN=0;
-  float probN=0,probS=0;
+  double probN=0,probS=0;
 
   probN=1.0-probNoise/(30.0/0.15);
   probS=1.0-probMiss;
@@ -1193,12 +1193,12 @@ void gaussThresholds(float sig,float res,float probNoise,float probMiss,float *t
   /*determine start*/
   x=0.0;
   do{
-    y=(float)gaussian((double)x,(double)sig,0.0);
+    y=gaussian(x,sig,0.0);
     x-=res;
   }while(y>=YTOL);
 
   do{
-    y=(float)gaussian((double)x,(double)sig,0.0);
+    y=gaussian(x,sig,0.0);
     cumul+=y*res;
 
     if(foundS==0){
