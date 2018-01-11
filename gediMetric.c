@@ -1183,7 +1183,7 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
 void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS)
 {
   double x=0,y=0;
-  double cumul=0;
+  double cumul=0,tot=0;
   char foundS=0,foundN=0;
   double probN=0,probS=0;
 
@@ -1192,14 +1192,18 @@ void gaussThresholds(double sig,double res,double probNoise,double probMiss,doub
 
   /*determine start*/
   x=0.0;
+  tot=0.0;
   do{
     y=gaussian(x,sig,0.0);
+    if(fabs(x)>res)tot+=2.0*y;
+    else           tot+=y;
     x-=res;
   }while(y>=YTOL);
+  tot*=res;
 
   do{
     y=gaussian(x,sig,0.0);
-    cumul+=y*res;
+    cumul+=y*res/tot;
 
     if(foundS==0){
       if(cumul>=probS){
