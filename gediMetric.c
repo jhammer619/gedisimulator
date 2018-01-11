@@ -48,8 +48,8 @@
 
 /*tolerances*/
 #define TOL 0.00001
-#define YTOL 0.0000001   /*for determining Gaussian thresholds*/
-#define XRES 0.00005
+#define YTOL 0.000000001   /*for determining Gaussian thresholds*/
+#define XRES 0.0000025
 #define MINERR 0.0000001
 
 /*element reflectance*/
