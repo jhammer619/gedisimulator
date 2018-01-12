@@ -207,9 +207,9 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
     hdf->sigmean[i]=lgw->data[i].sigmean;
 
     /*to match new LVIS bin numbers, extrapolate to 1024 bins*/
-    dx=lgw->data[i].lon0-lgw->data[i].lon431;
-    dy=lgw->data[i].lat0-lgw->data[i].lat431;
-    dz=lgw->data[i].z0-lgw->data[i].z431;
+    dx=lgw->data[i].lon431-lgw->data[i].lon0;
+    dy=lgw->data[i].lat431-lgw->data[i].lat0;
+    dz=lgw->data[i].z431-lgw->data[i].z0;
     scale=(float)hdf->nBins/(float)lgw->nBins;
 
     hdf->lon1023[i]=lgw->data[i].lon0+(double)scale*dx;
