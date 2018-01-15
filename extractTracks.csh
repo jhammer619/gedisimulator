@@ -142,7 +142,6 @@ endif
 
 # convert along and across track to angles
 set resAng=`echo $res $meanLat|gawk '{pi=4*atan2(1,1);lat=$2*pi/180;print ($1/(cos(lat)*6371000))*180/pi}'`
-set stepAng=`echo $alongTrack|gawk '{pi=4*atan2(1,1);print ($1/6371000)*180/pi}'`
 
 # GEDI track angle at this point
 set trackAngle=`echo $meanLat $orbitAng|gawk 'BEGIN{pi=4*atan2(1,1);scale=pi/180}{lat=$1*scale;a=$2*scale;print a*cos(lat*pi/(2*a))}'`
@@ -167,14 +166,16 @@ set maxX=$max[1]
 set minY=$min[2]
 set maxY=$max[2]
 
-# choose footprints
-gawk -f $bin/placeGediTracks.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$stepAng -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $trackFile > $workSpace
-gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg < $workSpace|gawk '{print $1,$2}' > $workSpace.1
-gawk '{print $3}' < $workSpace > $workSpace.2
-paste $workSpace.1 $workSpace.2 > $tempTrack
-if( -e $workSpace )rm $workSpace
+# determine track start locations
+gawk -f $bin/trackStart.awk -v seed=$seed -v cloudFrac=$cloudFrac -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $trackFile > $workSpace
+gawk '{print $1,$2}' < $workSpace|gdaltransform -s_srs EPSG:4326 -t_srs EPSG:$epsg|gawk '{print $1,$2}' > $workSpace.1
+gawk '{print $3,$4}' < $workSpace> $workSpace.2
+paste  $workSpace.1 $workSpace.2 > $workSpace
 if( -e $workSpace.1 )rm $workSpace.1
 if( -e $workSpace.2 )rm $workSpace.2
+# place  footprints
+gawk -f $bin/placeGediTracks.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$alongTrack -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $workSpace > $tempTrack
+if( -e $workSpace )rm $workSpace
 
 # alter minsep if in degrees
 if( $epsg == 4326 )then
