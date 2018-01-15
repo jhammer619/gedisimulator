@@ -4,7 +4,6 @@ BEGIN{
 }
 
 {
-  numb=0;
   xS[numb]=$1;
   yS[numb]=$2;
   zen[numb]=$3;

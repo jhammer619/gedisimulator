@@ -174,7 +174,7 @@ paste  $workSpace.1 $workSpace.2 > $workSpace
 if( -e $workSpace.1 )rm $workSpace.1
 if( -e $workSpace.2 )rm $workSpace.2
 # place  footprints
-gawk -f $bin/placeGediTracks.awk -v minX=$minX -v maxX=$maxX -v minY=$minY -v maxY=$maxY -v alongTrack=$alongTrack -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $workSpace > $tempTrack
+gawk -f $bin/placeGediTracks.awk -v minX=$bounds[1] -v maxX=$bounds[2] -v minY=$bounds[3] -v maxY=$bounds[4] -v alongTrack=$alongTrack -v res=$resAng -v ang=$trackAngle -v usePhen=$leafOn < $workSpace > $tempTrack
 if( -e $workSpace )rm $workSpace
 
 # alter minsep if in degrees
