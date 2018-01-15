@@ -13,7 +13,7 @@ BEGIN{
 
 END{
   # write them out
-  for(i=0;i<nnumb;i++){
+  for(i=0;i<numb;i++){
     y=yS[i];
     d=0.0;
     j=0;
@@ -22,7 +22,7 @@ END{
       y=yS[i]+d*cos(zen[i]);
 
       if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
-        print x,y,waveID[i];
+        printf("%.2f %.2f %s\n",x,y,waveID[i]);
       }
       d+=alongTrack;
       j++;
