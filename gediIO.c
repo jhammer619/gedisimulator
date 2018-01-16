@@ -1536,11 +1536,9 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
 void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
-  int i=0,maxBin=0;
+  int i=0;
   float CofG=0,tot=0,centre=0;
   float minSep=0,max=0;
-  float wThresh=0;
-  float p0=0,p1=0;
   char line[400];
   char temp1[100],temp2[100];
   FILE *ipoo=NULL;
@@ -1586,11 +1584,11 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
     if(gediIO->pulse->y[i]>max){
       max=gediIO->pulse->y[i];
       centre=gediIO->pulse->x[i];
-      maxBin=i;
     }
     tot+=gediIO->pulse->y[i];
   }
   CofG/=tot;
+  CofG-=centre;
 
   /*align pulse*/
   minSep=1000.0;
@@ -1605,24 +1603,11 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   }
 
   /*pulse width*/
-  wThresh=max*exp(-0.5);
-  minSep=1000000.0;
+  gediIO->pSigma=0.0;
   for(i=0;i<gediIO->pulse->nBins;i++){
-    if(i<maxBin){
-      if(fabs(gediIO->pulse->y[i]-wThresh)<minSep){
-        minSep=fabs(gediIO->pulse->y[i]-wThresh);
-        p0=gediIO->pulse->x[i];
-      }
-    }else if(i==maxBin){
-      minSep=1000000.0;
-    }else{
-      if(fabs(gediIO->pulse->y[i]-wThresh)<minSep){
-        minSep=fabs(gediIO->pulse->y[i]-wThresh);
-        p1=gediIO->pulse->x[i];
-      }
-    }
+    gediIO->pSigma+=(gediIO->pulse->x[i]-CofG)*(gediIO->pulse->x[i]-CofG)*gediIO->pulse->y[i];
   }
-  gediIO->pSigma=fabs(p1-p0)/2.0;
+  gediIO->pSigma=sqrt(gediIO->pSigma/tot);
 
   /*now normalise*/
   for(i=0;i<gediIO->pulse->nBins;i++)gediIO->pulse->y[i]/=tot;
