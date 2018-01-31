@@ -58,7 +58,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   float *smooNoise=NULL;
   float *digitiseWave(float *,int,char,float,float);
   float reflScale=0;
-  void deleteGround(float *,float *,float *,int,float,float,float,float,float);
+  void deleteGround(float *,float *,float *,int,float,float,float,float,float,float,float);
   void scaleNoiseDN(float *,int,float,float,float);
 
   /*allocate*/
@@ -69,7 +69,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
       fprintf(stderr,"Cannot delete ground without a defined minimum gap\n");
       exit(1);
     }
-    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov);
+    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
   }else if(gNoise->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
     tempNoise=falloc(data->nBins,"temp noised",0);
@@ -297,6 +297,118 @@ float GaussNoise()
 
   return(noise);
 }/*GaussNoise*/
+
+
+/*####################################################*/
+/*Remove noise on truth. Conservative*/
+
+float *denoiseTruth(float *wave,int nBins)
+{
+  float *tempWave=NULL;
+  void setDenoiseDefault(denPar *);
+  denPar den;
+
+  /*pick some denoising parameters, very conservative*/
+  setDenoiseDefault(&den);
+  den.varNoise=1;
+  den.statsLen=15.0;
+  den.noiseTrack=1;
+  den.threshScale=4.0;
+
+  /*denoise*/
+  tempWave=processFloWave(wave,nBins,&den,1.0);
+
+  return(tempWave);
+}/*denoiseTruth*/
+
+
+/*####################################################*/
+/*modify the truth in terms of noise and pulse width*/
+
+void modifyTruth(dataStruct *data,noisePar *gNoise)
+{
+  float *tempWave=NULL;
+  float *denoiseTruth(float *,int);
+  float sigDiff=0;
+  char doNothing=0;
+
+  /*remove noise*/
+  tempWave=denoiseTruth(data->wave[data->useType],data->nBins);
+
+  /*change pulse width*/
+  if(gNoise->newPsig>0.0){
+    if(gNoise->newPsig<data->pSigma){   /*reduce pulse width*/
+      fprintf(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
+      exit(1);
+    }else if(gNoise->newPsig>data->pSigma){  /*increase pulse width*/
+      sigDiff=sqrt(gNoise->newPsig*gNoise->newPsig-data->pSigma*data->pSigma);
+      TIDY(data->wave[data->useType]);
+      data->wave[data->useType]=smooth(sigDiff,data->nBins,tempWave,data->res);
+    }else{  /*do not change*/
+      doNothing=1;
+    }
+  }else doNothing=1;
+
+
+  if(doNothing==1){
+    TIDY(data->wave[data->useType]);
+    data->wave[data->useType]=tempWave;
+    tempWave=NULL;
+  }
+
+  TIDY(tempWave);
+  return;
+}/*modifyTruth*/
+
+
+/*####################################################*/
+/*delete all signal beneath ground*/
+
+void deleteGround(float *noised,float *wave,float *ground,int nBins,float minGap,float pSigma,float fSigma,float res,float trueCov,float rhoc,float rhog)
+{
+  int i=0;
+  float maxGr=0;
+  float tot=0,thresh=0;
+  float rhoTot=0;
+  float groundAmp=0,gRefl=0;
+  float slope=0,tanSlope=0;
+  float sigEff=0;
+
+
+  if(minGap>0.0){  /*delete min detectable ground intensity*/
+    tot=0.0;
+    for(i=0;i<nBins;i++)tot+=wave[i];
+    tot*=res;
+
+    slope=2.0*M_PI/180.0;
+    gRefl=minGap*rhog;
+    tanSlope=sin(slope)/cos(slope);
+    sigEff=sqrt(pSigma*pSigma+fSigma*fSigma*tanSlope*tanSlope);
+    groundAmp=gRefl/(sigEff*sqrt(2.0*M_PI));
+
+    if(trueCov<=0.0)rhoTot=rhog*minGap+rhoc*(1.0-minGap);
+    else            rhoTot=rhog*(1.0-trueCov)+rhoc*trueCov;
+    thresh=groundAmp*tot/rhoTot;
+
+    for(i=0;i<nBins;i++){
+      noised[i]=wave[i]-thresh;
+      if(noised[i]<0.0)noised[i]=0.0;
+    }
+  }else{   /*delete based on ground intensity*/
+    /*determine max ground intensity*/
+    maxGr=-100.0;
+    for(i=0;i<nBins;i++)if(ground[i]>maxGr)maxGr=ground[i];
+    if(maxGr<0.0)maxGr=0.0;
+    /*delete that from waveform*/
+    for(i=0;i<nBins;i++){
+      noised[i]=wave[i]-maxGr;
+      if(noised[i]<0.0)noised[i]=0.0;
+    }
+  }
+
+  return;
+}/*deleteGround*/
+
 
 /*the end*/
 /*####################################################*/

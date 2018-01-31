@@ -101,9 +101,6 @@ typedef struct{
   float linkFsig;  /*footprint sigma used for link margin*/
   float linkPsig;  /*pulse sigma used for link margin*/
 
-  /*pulse parameters*/
-  float newPsig;   /*new pulse sigma*/
-
   /*LVIS or HDF data*/
   lvisLGWstruct lvis;   /*LVIS lgw structure*/
   lvisHDF *hdfLvis;     /*LVIS HDF5 structure*/
@@ -189,7 +186,7 @@ int main(int argc,char **argv)
   void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
   void addNoise(dataStruct *,noisePar *,float,float,float,float,float);
   void determineTruth(dataStruct *,control *);
-  void modifyTruth(dataStruct *,control *);
+  void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
   float *processed=NULL,*denoised=NULL;;
   float setNoiseSigma(float,float,float,float,float,float);
@@ -232,7 +229,7 @@ int main(int argc,char **argv)
       }
 
       /*denoise and change pulse if needed*/
-      if(dimage->renoiseWave)modifyTruth(data,dimage);
+      if(dimage->renoiseWave)modifyTruth(data,&dimage->noise);
 
       /*determine truths before noising*/
       determineTruth(data,dimage);
@@ -518,118 +515,6 @@ float groundOverlap(float *wave,float *ground,int nBins)
   if(gTot>0.0)gLap/=gTot;
   return(gLap);
 }/*groundOverlap*/
-
-
-/*####################################################*/
-/*modify the truth in terms of noise and pulse width*/
-
-void modifyTruth(dataStruct *data,control *dimage)
-{
-  float *tempWave=NULL;
-  float *denoiseTruth(float *,int,control *);
-  float sigDiff=0;
-  char doNothing=0;
-
-  /*remove noise*/
-  tempWave=denoiseTruth(data->wave[data->useType],data->nBins,dimage);
-
-  /*change pulse width*/
-  if(dimage->newPsig>0.0){
-    if(dimage->newPsig<data->pSigma){   /*reduce pulse width*/
-      fprintf(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,dimage->newPsig);
-      exit(1);
-    }else if(dimage->newPsig>data->pSigma){  /*increase pulse width*/
-      sigDiff=sqrt(dimage->newPsig*dimage->newPsig-data->pSigma*data->pSigma);
-      TIDY(data->wave[data->useType]);
-      data->wave[data->useType]=smooth(sigDiff,data->nBins,tempWave,data->res);
-    }else{  /*do not change*/
-      doNothing=1;
-    }
-  }else doNothing=1;
-
-
-  if(doNothing==1){
-    TIDY(data->wave[data->useType]);
-    data->wave[data->useType]=tempWave;
-    tempWave=NULL;
-  }
-
-  TIDY(tempWave);
-  return;
-}/*modifyTruth*/
-
-
-/*####################################################*/
-/*Remove noise on truth. Conservative*/
-
-float *denoiseTruth(float *wave,int nBins,control *dimage)
-{
-  float *tempWave=NULL;
-  void setDenoiseDefault(denPar *);
-  denPar den;
-
-  /*pick some denoising parameters, very conservative*/
-  setDenoiseDefault(&den);
-  den.varNoise=1;
-  den.statsLen=15.0;
-  den.noiseTrack=1;
-  den.threshScale=4.0;
-
-  /*denoise*/
-  tempWave=processFloWave(wave,nBins,&den,1.0);
-
-  return(tempWave);
-}/*denoiseTruth*/
-
-
-/*####################################################*/
-/*delete all signal beneath ground*/
-
-void deleteGround(float *noised,float *wave,float *ground,int nBins,float minGap,float pSigma,float fSigma,float res,float trueCov)
-{
-  int i=0;
-  float maxGr=0;
-  float tot=0,thresh=0;
-  float rhoTot=0;
-  float groundAmp=0,gRefl=0;
-  float slope=0,tanSlope=0;
-  float sigEff=0;
-
-
-  if(minGap>0.0){  /*delete min detectable ground intensity*/
-    tot=0.0;
-    for(i=0;i<nBins;i++)tot+=wave[i];
-    tot*=res;
-
-    slope=2.0*M_PI/180.0;
-    gRefl=minGap*rhoG;
-    tanSlope=sin(slope)/cos(slope);
-    sigEff=sqrt(pSigma*pSigma+fSigma*fSigma*tanSlope*tanSlope);
-    groundAmp=gRefl/(sigEff*sqrt(2.0*M_PI));
-
-    if(trueCov<=0.0)rhoTot=rhoG*minGap+rhoC*(1.0-minGap);
-    else            rhoTot=rhoG*(1.0-trueCov)+rhoC*trueCov;
-    thresh=groundAmp*tot/rhoTot;
-
-    for(i=0;i<nBins;i++){
-      noised[i]=wave[i]-thresh;
-      if(noised[i]<0.0)noised[i]=0.0;
-    }
-  }else{   /*delete based on ground intensity*/
-    /*determine max ground intensity*/
-    maxGr=-100.0;
-    for(i=0;i<nBins;i++)if(ground[i]>maxGr)maxGr=ground[i];
-    if(maxGr<0.0)maxGr=0.0;
-
-    /*delete that from waveform*/
-    for(i=0;i<nBins;i++){
-      noised[i]=wave[i]-maxGr;
-      if(noised[i]<0.0)noised[i]=0.0;
-    }
-  }
-
-  return;
-}/*deleteGround*/
 
 
 /*####################################################*/
@@ -930,6 +815,9 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
   float probNoise=0,probMiss=0;
   void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
   void gaussThresholds(double,double,double,double,double *,double *);
+
+  /*set sigma*/
+  if(data->fSigma>0.0)dimage->linkFsig=data->fSigma;
 
   /*determine noise stats for sensitivity metric*/
   meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->gediIO.den->statsLen/dimage->gediIO.res));
@@ -1581,7 +1469,7 @@ control *readCommands(int argc,char **argv)
   dimage->noise.minGap=0.0;
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
-  dimage->newPsig=-1.0;   /*leave blank*/
+  dimage->noise.newPsig=-1.0;   /*leave blank*/
   dimage->gediIO.dontTrustGround=0;  /*do trust ground in waveforms, if there*/
   dimage->readBinLVIS=0;      /*read ASCII rather than binary LVIS*/
   dimage->readHDFlvis=0;      /*read ASCII rather than HDF5 LVIS*/
@@ -1768,7 +1656,7 @@ control *readCommands(int argc,char **argv)
        dimage->renoiseWave=1;
       }else if(!strncasecmp(argv[i],"-newPsig",8)){
         checkArguments(1,i,argc,"-newPsig");
-        dimage->newPsig=atof(argv[++i]);
+        dimage->noise.newPsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-oldPsig",8)){
         checkArguments(1,i,argc,"-oldPsig");
         dimage->gediIO.pSigma=atof(argv[++i]);
@@ -1792,8 +1680,14 @@ control *readCommands(int argc,char **argv)
         dimage->minY=atof(argv[++i]);
         dimage->maxX=atof(argv[++i]);
         dimage->maxY=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-linkPsig",9)){
+        checkArguments(1,i,argc,"-linkPsig");
+        dimage->linkPsig=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-linkFsig",9)){
+        checkArguments(1,i,argc,"-linkFsig");
+        dimage->linkFsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;      pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;      pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

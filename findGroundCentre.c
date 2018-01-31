@@ -57,9 +57,9 @@ int main(int argc,char **argv)
   int nBins=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
-  float **data=NULL;
+  float **data=NULL,sigma=0;
   float **readData(char *,int *,int);
-  float findGround(float **,int,control *);
+  float findGround(float **,int,control *,float *);
   float ground=0;
 
   /*read command line*/
@@ -69,10 +69,10 @@ int main(int argc,char **argv)
   data=readData(dimage->inNamen,&nBins,dimage->useCol);
 
   /*find ground*/
-  ground=findGround(data,nBins,dimage);
+  ground=findGround(data,nBins,dimage,&sigma);
 
   /*print results*/
-  fprintf(stdout,"%.4f\n",ground);
+  fprintf(stdout,"%.4f sigma %f\n",ground,sigma);
 
   /*tidy up*/
   TTIDY((void **)data,2);
@@ -86,7 +86,7 @@ int main(int argc,char **argv)
 /*############################################*/
 /*fit single gaussian for ground*/
 
-float findGround(float **data,int nBins,control *dimage)
+float findGround(float **data,int nBins,control *dimage,float *sigma)
 {
   int nGauss=0;
   float ground=0;
@@ -102,6 +102,7 @@ float findGround(float **data,int nBins,control *dimage)
 
   /*copy result and tidy up*/
   ground=gaussPar[0];
+  *sigma=gaussPar[2];
   TIDY(gaussPar);
   TIDY(fitWave);
   return(ground);

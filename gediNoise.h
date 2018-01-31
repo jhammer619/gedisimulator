@@ -54,6 +54,8 @@ typedef struct{
   float offset;   /*waveform DN offset*/
   char bitRate;   /*digitiser bit rate*/
   float maxDN;    /*maximum DN we need to digitise*/
+  /*renoising already noised data*/
+  float newPsig;   /*new pulse sigma*/
   /*others*/
   char missGround; /*force to miss ground to get RH errors*/
   float minGap;    /*minimum detectable gap fraction for missGround*/
