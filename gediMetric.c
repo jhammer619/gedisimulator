@@ -11,6 +11,7 @@
 #include "libLidarHDF.h"
 #include "libOctree.h"
 #include "gediIO.h"
+#include "gediNoise.h"
 
 
 /*##############################*/
@@ -48,8 +49,6 @@
 
 /*tolerances*/
 #define TOL 0.00001
-#define YTOL 0.000000001   /*for determining Gaussian thresholds*/
-#define XRES 0.0000025
 #define MINERR 0.0000001
 
 /*element reflectance*/
@@ -97,23 +96,12 @@ typedef struct{
   char writeGauss;   /*write Gaussian parameters*/
 
   /*noise parameters*/
-  float meanN;
-  float nSig;
+  noisePar noise;  /*noise adding structure*/
   float bThresh;   /*bounds threshold*/
   float hNoise;    /*hard threshold noise as a fraction of integral*/
-  char missGround; /*force to miss ground to get RH errors*/
   float minGap;    /*minimum detectavle gap fraction*/
-  char linkNoise;  /*use link noise or not*/
-  float linkM;     /*link margin*/
-  float linkCov;   /*cover at which link margin is defined*/
-  float linkSig;   /*link noise sigma*/
   float linkFsig;  /*footprint sigma used for link margin*/
   float linkPsig;  /*pulse sigma used for link margin*/
-  float trueSig;   /*true noise sigma in DN*/
-  float deSig;     /*detector sigma*/
-  char bitRate;   /*digitiser bit rate*/
-  float maxDN;    /*maximum DN we need to digitise*/
-  float offset;   /*waveform DN offset*/
 
   /*pulse parameters*/
   float newPsig;   /*new pulse sigma*/
@@ -201,19 +189,19 @@ int main(int argc,char **argv)
   void tidySMoothPulse();
   void alignElevation(double,double,float *,int);
   void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
-  void addNoise(dataStruct *,control *);
+  void addNoise(dataStruct *,control *,noisePar *,float,float,float);
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,control *);
   void checkWaveformBounds(dataStruct *,control *);
   float *processed=NULL,*denoised=NULL;;
-  float setNoiseSigma(float,float,float,float);
+  float setNoiseSigma(float,float,float,float,float,float);
 
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
 
   /*set link noise if needed*/
-  dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->gediIO.pSigma,dimage->gediIO.fSigma);
+  dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->gediIO.pSigma,dimage->gediIO.fSigma,rhoC,rhoG);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -239,8 +227,8 @@ int main(int argc,char **argv)
     /*is the data usable*/
     if(data->usable){
       /*adjust link noise if needed*/
-      if(dimage->linkNoise&&((dimage->gediIO.pSigma!=data->pSigma)||(dimage->gediIO.fSigma!=data->fSigma))){
-        dimage->linkSig=setNoiseSigma(dimage->linkM,dimage->linkCov,dimage->linkPsig,dimage->linkFsig);
+      if(dimage->noise.linkNoise&&((dimage->gediIO.pSigma!=data->pSigma)||(dimage->gediIO.fSigma!=data->fSigma))){
+        dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->linkPsig,dimage->linkFsig,rhoC,rhoG);
         dimage->gediIO.pSigma=data->pSigma;
         dimage->gediIO.fSigma=data->fSigma;
       }
@@ -252,7 +240,7 @@ int main(int argc,char **argv)
       determineTruth(data,dimage);
 
       /*add noise if needed*/
-      addNoise(data,dimage);
+      addNoise(data,dimage,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res);
 
       /*process waveform*/
       /*denoise*/
@@ -359,86 +347,6 @@ void checkWaveformBounds(dataStruct *data,control *dimage)
 
   return;
 }/*checkWaveformBounds*/
-
-
-/*####################################################*/
-/*calculate sigma for link noise*/
-
-float setNoiseSigma(float linkM,float cov,float pSigma,float fSigma)
-{
-  float sig=0;
-  float groundAmp=0;
-  float slope=0;
-  float gRefl=0;
-  float tanSlope=0;
-  float sigEff=0;          /*effective ground return width*/
-  float probNoise=0,probMiss=0;
-  float findSigma(float,float,float,float);
-
-  slope=2.0*M_PI/180.0;
-
-  gRefl=(1.0-cov)*rhoG;
-
-  tanSlope=sin(slope)/cos(slope);
-  sigEff=sqrt(pSigma*pSigma+fSigma*fSigma*tanSlope*tanSlope);
-  groundAmp=(gRefl/(gRefl+rhoC*cov))/(sigEff*sqrt(2.0*M_PI));  /*normalise by total waveform reflectance*/
-
-  probNoise=0.05;
-  probMiss=0.1;
-  sig=findSigma(probNoise,probMiss,groundAmp,linkM);
-
-  return(sig);
-}/*setNoiseSigma*/
-
-
-/*####################################################*/
-/*find sigma for this combination, from Xioali's notes*/
-
-float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
-{
-  float sig=0;
-  float step=0;
-  float err=0,minErr=0;
-  float thisLink=0;
-  double nNsig=0,nSsig=0;
-  float threshS=0,threshN=0;
-  void gaussThresholds(double,double,double,double,double *,double *);
-  char direction=0;
-
-  /*initial guess*/
-  sig=groundAmp/2.0;
-  step=groundAmp/10.0;
-
-  /*determine threshold in terms of standard deviations*/
-  gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
-
-  direction=0;
-  minErr=0.00015;
-  do{
-    /*scale thresholds by sigma*/
-    threshN=(float)nNsig*sig;
-    threshS=(float)nSsig*sig;
-
-    thisLink=10.0*log((groundAmp-threshS)/threshN)/log(10.0);
-    if(thisLink<linkM){
-      if(direction==1)step/=2.0;
-      sig-=step;
-      direction=-1;
-      if(sig<=0.0){
-        step/=2.0;
-        sig+=step;
-        direction=0;
-      }
-    }else if(thisLink>linkM){
-      if(direction==-1)step/=2.0;
-      sig+=step;
-      direction=1;
-    }
-    err=fabs(thisLink-linkM);
-  }while(err>minErr);
-
-  return(sig);
-}/*findSigma*/
 
 
 /*####################################################*/
@@ -617,7 +525,7 @@ float groundOverlap(float *wave,float *ground,int nBins)
 /*####################################################*/
 /*add noise to waveform*/
 
-void addNoise(dataStruct *data,control *dimage)
+void addNoise(dataStruct *data,control *dimage,noisePar *gNoise,float fSigma,float pSigma,float res)
 {
   int i=0;
   float noise=0;
@@ -633,34 +541,34 @@ void addNoise(dataStruct *data,control *dimage)
   /*allocate*/
   data->noised=falloc(data->nBins,"noised wave",0);
 
-  if(dimage->missGround){        /*Delete all signal beneath ground peak*/
+  if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if((dimage->gediIO.ground==0)&&(dimage->minGap==0.0)){
       fprintf(stderr,"Cannot delete ground when we do not know it\n");
       exit(1);
     }
-    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,dimage->minGap,dimage->gediIO.pSigma,dimage->gediIO.fSigma,dimage->gediIO.res,data->cov);
-  }else if(dimage->linkNoise){   /*link margin based noise*/
+    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,dimage->minGap,pSigma,fSigma,res,data->cov);
+  }else if(gNoise->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
     tempNoise=falloc(data->nBins,"temp noised",0);
     tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*dimage->gediIO.res;  
-    reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(dimage->linkCov*rhoC+(1.0-dimage->linkCov)*rhoG);
-    for(i=0;i<data->nBins;i++)tempNoise[i]=dimage->linkSig*GaussNoise()*reflScale;
+    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*res;  
+    reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(gNoise->linkCov*rhoC+(1.0-gNoise->linkCov)*rhoG);
+    for(i=0;i<data->nBins;i++)tempNoise[i]=dimage->noise.linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
-    smooNoise=smooth(dimage->deSig,data->nBins,tempNoise,dimage->gediIO.res);
+    smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
     for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[data->useType][i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
-    scaleNoiseDN(tempNoise,data->nBins,dimage->linkSig*reflScale,dimage->trueSig,dimage->offset);
+    scaleNoiseDN(tempNoise,data->nBins,gNoise->linkSig*reflScale,gNoise->trueSig,gNoise->offset);
     /*digitise*/
     TIDY(data->noised);
-    data->noised=digitiseWave(tempNoise,data->nBins,dimage->bitRate,dimage->maxDN,tot);
+    data->noised=digitiseWave(tempNoise,data->nBins,gNoise->bitRate,dimage->noise.maxDN,tot);
     TIDY(tempNoise);
-  }else if((dimage->nSig>0.0)||(dimage->meanN>0.0)){   /*mean and stdev based noise*/
+  }else if((dimage->noise.nSig>0.0)||(dimage->noise.meanN>0.0)){   /*mean and stdev based noise*/
     for(i=0;i<data->nBins;i++){
-      noise=dimage->nSig*GaussNoise();
+      noise=dimage->noise.nSig*GaussNoise();
       if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
-      data->noised[i]=data->wave[data->useType][i]+dimage->meanN+noise;
+      data->noised[i]=data->wave[data->useType][i]+dimage->noise.meanN+noise;
     }/*bin loop*/
   }else if(dimage->hNoise>0.0){  /*hard threshold noise*/
     tot=0.0;
@@ -791,71 +699,6 @@ void deleteGround(float *noised,float *wave,float *ground,int nBins,float minGap
 
 
 /*####################################################*/
-/*digitse*/
-
-float *digitiseWave(float *wave,int nBins,char bitRate,float maxDN,float tot)
-{
-  int i=0;
-  int nDN=0;
-  float *sampled=NULL;
-  float resDN=0;
-
-  sampled=falloc(nBins,"sampled wave",0);
-
-  /*number of bins*/
-  nDN=1;
-  for(i=0;i<bitRate;i++)nDN*=2;
-
-  resDN=maxDN/(float)nDN;
-  for(i=0;i<nBins;i++)sampled[i]=floor(wave[i]/resDN)*resDN;
-
-  return(sampled);
-}/*digitiseWave*/
-
-
-/*####################################################*/
-/*scale noise to match Bryan's numbers*/
-
-void scaleNoiseDN(float *noised,int nBins,float noiseSig,float trueSig,float offset)
-{
-  int i=0;
-  float sigScale=0;
-
-  sigScale=trueSig/noiseSig;
-
-  for(i=0;i<nBins;i++)noised[i]=noised[i]*sigScale+offset;
-
-  return;
-}/*scaleNoiseDN*/
-
-
-/*####################################################*/
-/*noise from a Gaussian*/
-
-float GaussNoise()
-{
-  float noise=0,max=0;
-  float x1=0,x2=0,w=0;
-
-  if(RAND_MAX>0)max=(float)RAND_MAX;
-  else          max=-1.0*(float)RAND_MAX;
-
-  /*Box approximation to Gaussian random number*/
-  w=0.0;
-  do{
-    x1=2.0*(float)rand()/max-1.0;
-    x2=2.0*(float)rand()/max-1.0;
-    w=x1*x1+x2*x2;
-  }while(w>=1.0);
-  w=sqrt((-2.0*log(w))/w);
-
-  noise=x1*w;
-
-  return(noise);
-}/*GaussNoise*/
-
-
-/*####################################################*/
 /*write results*/
 
 void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,float *denoised,float *processed,char *inNamen)
@@ -936,7 +779,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   if(dimage->bayesGround)fprintf(dimage->opooMet," %.2f",metric->bayGround);
   fprintf(dimage->opooMet," %.3f %.3f %.3f %.3f",metric->covHalfG,metric->covHalfM,metric->covHalfI,metric->covHalfB);
   fprintf(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
-  if(dimage->linkNoise)fprintf(dimage->opooMet," %f %f",dimage->linkM,dimage->linkCov);
+  if(dimage->noise.linkNoise)fprintf(dimage->opooMet," %f %f",dimage->noise.linkM,dimage->noise.linkCov);
   else                 fprintf(dimage->opooMet," ? ?");
   if(dimage->coord2dp)fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
   else                fprintf(dimage->opooMet," %.10f %.10f",data->lon,data->lat);
@@ -1089,7 +932,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*rh metrics with real ground, if we have the ground*/
   if(dimage->gediIO.ground||data->demGround){
-    if(dimage->linkNoise)metric->rhReal=findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
+    if(dimage->noise.linkNoise)metric->rhReal=findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
     else                 metric->rhReal=findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
   }else{
     metric->rhReal=falloc(metric->nRH,"rhReal",0);
@@ -1175,55 +1018,6 @@ float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
 
   return(blairSense);
 }/*findBlairSense*/
-
-
-/*####################################################################################################*/
-/*calculate Gaussian thresholds for normaly distributed noise*/
-
-void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS)
-{
-  double x=0,y=0;
-  double cumul=0,tot=0;
-  char foundS=0,foundN=0;
-  double probN=0,probS=0;
-
-  probN=1.0-probNoise/(30.0/0.15);
-  probS=1.0-probMiss;
-
-  /*determine start*/
-  x=0.0;
-  tot=0.0;
-  do{
-    y=gaussian(x,sig,0.0);
-    if(fabs(x)>res)tot+=2.0*y;
-    else           tot+=y;
-    x-=res;
-  }while(y>=YTOL);
-  tot*=res;
-
-  do{
-    y=gaussian(x,sig,0.0);
-    cumul+=y*res/tot;
-
-    if(foundS==0){
-      if(cumul>=probS){
-        foundS=1;
-        *threshS=x;
-      }
-    }
-
-    if(foundN==0){
-      if(cumul>=probN){
-        foundN=1;
-        *threshN=x;
-      }
-    }
-
-    x+=res;
-  }while((foundS==0)||(foundN==0));
-
-  return;
-}/*gaussThresholds*/
 
 
 /*####################################################*/
@@ -1842,14 +1636,14 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.useFrac=0;
   dimage->rhRes=10.0;
   dimage->bayesGround=0;
-  dimage->missGround=0;
-  dimage->linkNoise=0;
+  dimage->noise.missGround=0;
+  dimage->noise.linkNoise=0;
   dimage->linkPsig=0.764331; /*pulse length*/
   dimage->linkFsig=5.5;      /*footprint width*/
-  dimage->trueSig=5.0;
-  dimage->deSig=0.0; //0.1; //4.0*0.15/2.355;
-  dimage->bitRate=12;
-  dimage->maxDN=4096.0; //1.0/(dimage->pSigma*sqrt(2.0*M_PI));
+  dimage->noise.trueSig=5.0;
+  dimage->noise.deSig=0.0; //0.1; //4.0*0.15/2.355;
+  dimage->noise.bitRate=12;
+  dimage->noise.maxDN=4096.0; //1.0/(dimage->pSigma*sqrt(2.0*M_PI));
   dimage->minGap=0.0;
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
@@ -1886,11 +1680,11 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.gFit->fitGauss=1;
   dimage->gediIO.gFit->minGsig=0.9;
   /*noise parameters*/
-  dimage->meanN=0.0;
-  dimage->nSig=0.0;
+  dimage->noise.meanN=0.0;
+  dimage->noise.nSig=0.0;
   dimage->bThresh=0.001;
   dimage->hNoise=0.0;
-  dimage->offset=94.0;
+  dimage->noise.offset=94.0;
   /*LVIS data*/
   dimage->lvis.data=NULL;
   dimage->hdfLvis=NULL;
@@ -1931,13 +1725,13 @@ control *readCommands(int argc,char **argv)
         dimage->writeGauss=1;
       }else if(!strncasecmp(argv[i],"-dcBias",7)){
         checkArguments(1,i,argc,"-dcBias");
-        dimage->meanN=dimage->offset=atof(argv[++i]);
+        dimage->noise.meanN=dimage->noise.offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-hNoise",7)){
         checkArguments(1,i,argc,"-hNoise");
         dimage->hNoise=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-nSig",5)){
         checkArguments(1,i,argc,"-nSig");
-        dimage->nSig=atof(argv[++i]);
+        dimage->noise.nSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-seed",5)){
         checkArguments(1,i,argc,"-seed");
         srand(atoi(argv[++i]));
@@ -2004,17 +1798,17 @@ control *readCommands(int argc,char **argv)
         dimage->rhRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-linkNoise",10)){
         checkArguments(2,i,argc,"-linkNoise");
-        dimage->linkNoise=1;
-        dimage->linkM=atof(argv[++i]);
-        dimage->linkCov=atof(argv[++i]);
+        dimage->noise.linkNoise=1;
+        dimage->noise.linkM=atof(argv[++i]);
+        dimage->noise.linkCov=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-trueSig",8)){
         checkArguments(1,i,argc,"-trueSig");
-        dimage->trueSig=atof(argv[++i]);
+        dimage->noise.trueSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-missGround",11)){
-        dimage->missGround=1;
+        dimage->noise.missGround=1;
       }else if(!strncasecmp(argv[i],"-minGap",7)){
         checkArguments(1,i,argc,"-minGap");
-        dimage->missGround=1;
+        dimage->noise.missGround=1;
         dimage->minGap=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-bayesGround",13)){
         dimage->bayesGround=1;
@@ -2024,15 +1818,13 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-rhoC",5)){
         checkArguments(1,i,argc,"-rhoC");
         rhoC=atof(argv[++i]);
-      }else if(!strncasecmp(argv[i],"-offset",7)){
-        checkArguments(1,i,argc,"-offset");
-        dimage->offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-maxDN",6)){
         checkArguments(1,i,argc,"-maxDN");
-        dimage->maxDN=atof(argv[++i]);
+        dimage->noise.maxDN=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-bitRate",8)){
         checkArguments(1,i,argc,"-bitRate");
-        dimage->bitRate=(char)atoi(argv[++i]);
+        dimage->noise.bitRate=(char)atoi(argv[++i]);
+        dimage->noise.maxDN=pow(2.0,(float)dimage->noise.bitRate);
       }else if(!strncasecmp(argv[i],"-gTol",5)){
         checkArguments(1,i,argc,"-gTol");
         dimage->gTol=atof(argv[++i]);
@@ -2067,7 +1859,7 @@ control *readCommands(int argc,char **argv)
         dimage->maxX=atof(argv[++i]);
         dimage->maxY=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-offset y;       waveform DN offset\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;      pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;      pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
