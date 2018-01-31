@@ -2,7 +2,7 @@
 
 
 /*##############################*/
-/*# Header for gediNoise.c    #*/
+/*# Adds noise to simulated    #*/
 /*# GEDI waveforms             #*/
 /*# 2018 svenhancock@gmail.com #*/
 /*##############################*/
@@ -32,36 +32,4 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
-
-/*tolerances*/
-#define XRES 0.0000025
-#define YTOL 0.000000001   /*for determining Gaussian thresholds*/
-
-
-/*#######################################*/
-/*noise structure*/
-
-typedef struct{
-  /*link margin defined noise*/
-  char linkNoise;  /*use link noise or not*/
-  float linkCov;   /*cover at which link margin is defined*/
-  float linkM;     /*link margin*/
-  float linkSig;   /*link noise sigma*/
-  /*general noise statistics*/
-  float meanN;     /*mean noise offset*/
-  float trueSig;   /*true noise sigma in DN*/
-  float nSig;      /*noise sigma*/
-  float offset;   /*waveform DN offset*/
-  char bitRate;   /*digitiser bit rate*/
-  float maxDN;    /*maximum DN we need to digitise*/
-  /*others*/
-  char missGround; /*force to miss ground to get RH errors*/
-  float minGap;    /*minimum detectable gap fraction for missGround*/
-  float deSig;     /*detector sigma*/
-  float hNoise;    /*hard threshold noise as a fraction of integral*/
-}noisePar;
-
-
-/*the end*/
-/*#######################################*/
 

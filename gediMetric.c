@@ -98,8 +98,6 @@ typedef struct{
   /*noise parameters*/
   noisePar noise;  /*noise adding structure*/
   float bThresh;   /*bounds threshold*/
-  float hNoise;    /*hard threshold noise as a fraction of integral*/
-  float minGap;    /*minimum detectavle gap fraction*/
   float linkFsig;  /*footprint sigma used for link margin*/
   float linkPsig;  /*pulse sigma used for link margin*/
 
@@ -189,7 +187,7 @@ int main(int argc,char **argv)
   void tidySMoothPulse();
   void alignElevation(double,double,float *,int);
   void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
-  void addNoise(dataStruct *,control *,noisePar *,float,float,float);
+  void addNoise(dataStruct *,noisePar *,float,float,float,float,float);
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,control *);
   void checkWaveformBounds(dataStruct *,control *);
@@ -240,7 +238,7 @@ int main(int argc,char **argv)
       determineTruth(data,dimage);
 
       /*add noise if needed*/
-      addNoise(data,dimage,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res);
+      addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
 
       /*process waveform*/
       /*denoise*/
@@ -520,70 +518,6 @@ float groundOverlap(float *wave,float *ground,int nBins)
   if(gTot>0.0)gLap/=gTot;
   return(gLap);
 }/*groundOverlap*/
-
-
-/*####################################################*/
-/*add noise to waveform*/
-
-void addNoise(dataStruct *data,control *dimage,noisePar *gNoise,float fSigma,float pSigma,float res)
-{
-  int i=0;
-  float noise=0;
-  float tot=0.0,thresh=0;
-  float *tempNoise=NULL;
-  float GaussNoise();
-  float *smooNoise=NULL;
-  float *digitiseWave(float *,int,char,float,float);
-  float reflScale=0;
-  void deleteGround(float *,float *,float *,int,float,float,float,float,float);
-  void scaleNoiseDN(float *,int,float,float,float);
-
-  /*allocate*/
-  data->noised=falloc(data->nBins,"noised wave",0);
-
-  if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
-    if((dimage->gediIO.ground==0)&&(dimage->minGap==0.0)){
-      fprintf(stderr,"Cannot delete ground when we do not know it\n");
-      exit(1);
-    }
-    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,dimage->minGap,pSigma,fSigma,res,data->cov);
-  }else if(gNoise->linkNoise){   /*link margin based noise*/
-    /*Gaussian noise*/
-    tempNoise=falloc(data->nBins,"temp noised",0);
-    tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*res;  
-    reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(gNoise->linkCov*rhoC+(1.0-gNoise->linkCov)*rhoG);
-    for(i=0;i<data->nBins;i++)tempNoise[i]=dimage->noise.linkSig*GaussNoise()*reflScale;
-    /*smooth noise by detector response*/
-    smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
-    for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[data->useType][i]+smooNoise[i];
-    TIDY(smooNoise);
-    /*scale to match sigma*/
-    scaleNoiseDN(tempNoise,data->nBins,gNoise->linkSig*reflScale,gNoise->trueSig,gNoise->offset);
-    /*digitise*/
-    TIDY(data->noised);
-    data->noised=digitiseWave(tempNoise,data->nBins,gNoise->bitRate,dimage->noise.maxDN,tot);
-    TIDY(tempNoise);
-  }else if((dimage->noise.nSig>0.0)||(dimage->noise.meanN>0.0)){   /*mean and stdev based noise*/
-    for(i=0;i<data->nBins;i++){
-      noise=dimage->noise.nSig*GaussNoise();
-      if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
-      data->noised[i]=data->wave[data->useType][i]+dimage->noise.meanN+noise;
-    }/*bin loop*/
-  }else if(dimage->hNoise>0.0){  /*hard threshold noise*/
-    tot=0.0;
-    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i];
-    thresh=dimage->hNoise*tot;
-    for(i=0;i<data->nBins;i++){
-      data->noised[i]=data->wave[data->useType][i]-thresh;
-      if(data->noised[i]<0.0)data->noised[i]=0.0;
-    }
-  }else{  /*no noise*/
-    for(i=0;i<data->nBins;i++)data->noised[i]=data->wave[data->useType][i];
-  }
-
-  return;
-}/*addNoise*/
 
 
 /*####################################################*/
@@ -1644,7 +1578,7 @@ control *readCommands(int argc,char **argv)
   dimage->noise.deSig=0.0; //0.1; //4.0*0.15/2.355;
   dimage->noise.bitRate=12;
   dimage->noise.maxDN=4096.0; //1.0/(dimage->pSigma*sqrt(2.0*M_PI));
-  dimage->minGap=0.0;
+  dimage->noise.minGap=0.0;
   dimage->noRHgauss=0;    /*do find RH metrics by Gaussian fitting*/
   dimage->renoiseWave=0;  /*do not denoise "truth"*/
   dimage->newPsig=-1.0;   /*leave blank*/
@@ -1683,7 +1617,7 @@ control *readCommands(int argc,char **argv)
   dimage->noise.meanN=0.0;
   dimage->noise.nSig=0.0;
   dimage->bThresh=0.001;
-  dimage->hNoise=0.0;
+  dimage->noise.hNoise=0.0;
   dimage->noise.offset=94.0;
   /*LVIS data*/
   dimage->lvis.data=NULL;
@@ -1728,7 +1662,7 @@ control *readCommands(int argc,char **argv)
         dimage->noise.meanN=dimage->noise.offset=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-hNoise",7)){
         checkArguments(1,i,argc,"-hNoise");
-        dimage->hNoise=atof(argv[++i]);
+        dimage->noise.hNoise=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-nSig",5)){
         checkArguments(1,i,argc,"-nSig");
         dimage->noise.nSig=atof(argv[++i]);
@@ -1809,7 +1743,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-minGap",7)){
         checkArguments(1,i,argc,"-minGap");
         dimage->noise.missGround=1;
-        dimage->minGap=atof(argv[++i]);
+        dimage->noise.minGap=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-bayesGround",13)){
         dimage->bayesGround=1;
       }else if(!strncasecmp(argv[i],"-rhoG",5)){
@@ -1870,6 +1804,10 @@ control *readCommands(int argc,char **argv)
 
   /*read deconvolution pulse if needed*/
   if(dimage->gediIO.den->preMatchF||dimage->gediIO.den->preMatchF||dimage->gediIO.den->deconMeth>=0)readPulse(dimage->gediIO.den); 
+  if((!dimage->gediIO.ground)&&(dimage->noise.missGround)){
+    fprintf(stderr,"Noise option conflict. Cannot use missGround without ground\n");
+    exit(1);
+  }
 
   return(dimage);
 }/*readCommands*/

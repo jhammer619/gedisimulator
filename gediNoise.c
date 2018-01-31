@@ -2,7 +2,13 @@
 #include "stdlib.h"
 #include "math.h"
 #include "stdint.h"
+#include "hdf5.h"
 #include "tools.h"
+#include "libLasRead.h"
+#include "libLasProcess.h"
+#include "libLidarHDF.h"
+#include "libOctree.h"
+#include "gediIO.h"
 #include "gediNoise.h"
 
 
@@ -37,6 +43,70 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
+
+
+/*####################################################*/
+/*add noise to waveform*/
+
+void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float res,float rhoc,float rhog)
+{
+  int i=0;
+  float noise=0;
+  float tot=0.0,thresh=0;
+  float *tempNoise=NULL;
+  float GaussNoise();
+  float *smooNoise=NULL;
+  float *digitiseWave(float *,int,char,float,float);
+  float reflScale=0;
+  void deleteGround(float *,float *,float *,int,float,float,float,float,float);
+  void scaleNoiseDN(float *,int,float,float,float);
+
+  /*allocate*/
+  data->noised=falloc(data->nBins,"noised wave",0);
+
+  if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
+    if(gNoise->minGap==0.0){
+      fprintf(stderr,"Cannot delete ground without a defined minimum gap\n");
+      exit(1);
+    }
+    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov);
+  }else if(gNoise->linkNoise){   /*link margin based noise*/
+    /*Gaussian noise*/
+    tempNoise=falloc(data->nBins,"temp noised",0);
+    tot=0.0;
+    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*res;
+    reflScale=(data->cov*rhoc+(1.0-data->cov)*rhog)*tot/(gNoise->linkCov*rhoc+(1.0-gNoise->linkCov)*rhog);
+    for(i=0;i<data->nBins;i++)tempNoise[i]=gNoise->linkSig*GaussNoise()*reflScale;
+    /*smooth noise by detector response*/
+    smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
+    for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[data->useType][i]+smooNoise[i];
+    TIDY(smooNoise);
+    /*scale to match sigma*/
+    scaleNoiseDN(tempNoise,data->nBins,gNoise->linkSig*reflScale,gNoise->trueSig,gNoise->offset);
+    /*digitise*/
+    TIDY(data->noised);
+    data->noised=digitiseWave(tempNoise,data->nBins,gNoise->bitRate,gNoise->maxDN,tot);
+    TIDY(tempNoise);
+  }else if((gNoise->nSig>0.0)||(gNoise->meanN>0.0)){   /*mean and stdev based noise*/
+    for(i=0;i<data->nBins;i++){
+      noise=gNoise->nSig*GaussNoise();
+      if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
+      data->noised[i]=data->wave[data->useType][i]+gNoise->meanN+noise;
+    }/*bin loop*/
+  }else if(gNoise->hNoise>0.0){  /*hard threshold noise*/
+    tot=0.0;
+    for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i];
+    thresh=gNoise->hNoise*tot;
+    for(i=0;i<data->nBins;i++){
+      data->noised[i]=data->wave[data->useType][i]-thresh;
+      if(data->noised[i]<0.0)data->noised[i]=0.0;
+    }
+  }else{  /*no noise*/
+    for(i=0;i<data->nBins;i++)data->noised[i]=data->wave[data->useType][i];
+  }
+
+  return;
+}/*addNoise*/
 
 /*####################################################*/
 /*calculate sigma for link noise*/
