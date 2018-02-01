@@ -63,6 +63,11 @@ typedef struct{
   float hNoise;    /*hard threshold noise as a fraction of integral*/
 }noisePar;
 
+/*#######################################*/
+/*function definitions*/
+
+void addNoise(dataStruct *,noisePar *,float,float,float,float,float);
+float setNoiseSigma(float,float,float,float,float,float);
 
 /*the end*/
 /*#######################################*/

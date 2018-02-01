@@ -177,33 +177,28 @@ int main(int argc,char **argv)
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
-  dataStruct *unpackHDFgedi(char *,control *,int);
   metStruct *metric=NULL;
   void setL2ground(dataStruct *,int,control *);
   void findMetrics(metStruct *,float *,int,float *,float *,int,double *,control *,dataStruct *);
   void tidySMoothPulse();
   void alignElevation(double,double,float *,int);
   void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
-  void addNoise(dataStruct *,noisePar *,float,float,float,float,float);
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
   float *processed=NULL,*denoised=NULL;;
-  float setNoiseSigma(float,float,float,float,float,float);
-
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
 
   /*set link noise if needed*/
-  dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->gediIO.pSigma,dimage->gediIO.fSigma,rhoC,rhoG);
+  dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->linkPsig,dimage->linkFsig,rhoC,rhoG);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
     fprintf(stderr,"error metric structure allocation.\n");
     exit(1);
   }
-
 
   /*loop over files*/
   for(i=0;i<dimage->gediIO.nFiles;i++){
@@ -212,7 +207,7 @@ int main(int argc,char **argv)
     /*read waveform*/
     if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,&dimage->gediIO);
     else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],&dimage->hdfLvis,&dimage->gediIO,i);
-    else if(dimage->readHDFgedi)data=unpackHDFgedi(dimage->gediIO.inList[0],dimage,i);
+    else if(dimage->readHDFgedi)data=unpackHDFgedi(dimage->gediIO.inList[0],&dimage->gediIO,&dimage->hdfGedi,i);
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);
 
@@ -221,13 +216,6 @@ int main(int argc,char **argv)
 
     /*is the data usable*/
     if(data->usable){
-      /*adjust link noise if needed*/
-      if(dimage->noise.linkNoise&&((dimage->gediIO.pSigma!=data->pSigma)||(dimage->gediIO.fSigma!=data->fSigma))){
-        dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->linkPsig,dimage->linkFsig,rhoC,rhoG);
-        dimage->gediIO.pSigma=data->pSigma;
-        dimage->gediIO.fSigma=data->fSigma;
-      }
-
       /*denoise and change pulse if needed*/
       if(dimage->renoiseWave)modifyTruth(data,&dimage->noise);
 
@@ -351,7 +339,6 @@ void determineTruth(dataStruct *data,control *dimage)
 {
   int i=0;
   float totE=0,cumul=0;
-  float totC=0,totG=0;
   float groundOverlap(float *,float *,int);
   float groundMinAmp(float *,float *,int);
   float groundInflection(float *,float *,int);
@@ -399,17 +386,7 @@ void determineTruth(dataStruct *data,control *dimage)
   }/*top finding*/
 
   /*canopy cover*/
-  if(dimage->gediIO.ground){
-    totG=totC=0.0;
-    for(i=0;i<data->nBins;i++){
-     totG+=data->ground[data->useType][i];
-     totC+=data->wave[data->useType][i]-data->ground[data->useType][i];
-    }
-    if((totG+totC)>0.0)data->cov=totC/(totC+totG*dimage->rhoRatio);
-    else               data->cov=-1.0;
-  }else{
-    data->cov=-1.0;
-  }
+  data->cov=waveformTrueCover(data,&dimage->gediIO,dimage->rhoRatio);
 
   /*understorey metrics*/
   if(dimage->gediIO.ground){
@@ -1229,76 +1206,6 @@ double maxGround(float *smoothed,double *z,int nBins)
 
 
 /*####################################################*/
-/*read GEDI HDF file*/
-
-dataStruct *unpackHDFgedi(char *namen,control *dimage,int numb)
-{
-  int i=0;
-  float zTop=0;
-  dataStruct *data=NULL;
-
-  /*read data if needed*/
-  if(dimage->hdfGedi==NULL){
-    dimage->hdfGedi=readGediHDF(namen,&dimage->gediIO);
-    dimage->gediIO.nFiles=dimage->hdfGedi->nWaves;
-  }/*read data if needed*/
-
-  /*allocate space*/
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error control allocation.\n");
-    exit(1);
-  }
-
-  /*copy header*/
-  data->useID=1;
-  data->nBins=dimage->hdfGedi->nBins;
-  data->nWaveTypes=dimage->hdfGedi->nTypeWaves;
-  data->useType=0;
-  data->demGround=0;
-  data->pSigma=dimage->hdfGedi->pSigma;
-  data->fSigma=dimage->hdfGedi->fSigma;
-  data->beamDense=dimage->hdfGedi->beamDense[numb];
-  data->pointDense=dimage->hdfGedi->pointDense[numb];
-  data->lon=dimage->hdfGedi->lon[numb];
-  data->lat=dimage->hdfGedi->lat[numb];
-  data->zen=dimage->hdfGedi->zen[numb];
-  strcpy(data->waveID,&dimage->hdfGedi->waveID[numb*dimage->hdfGedi->idLength]);
-
-  if(dimage->gediIO.ground){
-    data->slope=dimage->hdfGedi->slope[numb];
-    data->gElev=dimage->hdfGedi->slope[numb];
-  }
-  data->usable=1;
-
-  /*point to arrays rather than copy*/
-  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[0]=&dimage->hdfGedi->wave[data->useType][numb*dimage->hdfGedi->nBins];
-  if(dimage->gediIO.ground){
-    data->ground=fFalloc(data->nWaveTypes,"ground waveform",0);
-    data->ground[0]=&dimage->hdfGedi->ground[data->useType][numb*dimage->hdfGedi->nBins];
-  }else data->ground=NULL;
-
-  /*count energy*/
-  data->totE=falloc(data->nWaveTypes,"totE",0);
-  data->totE[data->useType]=0.0;
-  for(i=0;i<dimage->hdfGedi->nBins;i++)data->totE[data->useType]+=data->wave[0][i];
-
-  /*elevation needs making amnd resolution passing to structures*/
-  data->res=fabs(dimage->hdfGedi->z0[numb]-dimage->hdfGedi->zN[numb])/(float)dimage->hdfGedi->nBins;
-  dimage->gediIO.res=dimage->gediIO.den->res=dimage->gediIO.gFit->res=data->res;
-  data->z=dalloc(data->nBins,"z",0);
-  zTop=(dimage->hdfGedi->zN[numb]>dimage->hdfGedi->z0[numb])?dimage->hdfGedi->zN[numb]:dimage->hdfGedi->z0[numb];
-  for(i=0;i<dimage->hdfGedi->nBins;i++)data->z[i]=(double)(zTop-(float)i*data->res);
-
-  /*set up number of messages*/
-  if(dimage->hdfGedi->nWaves>dimage->gediIO.nMessages)dimage->gediIO.nMessages=(int)(dimage->hdfGedi->nWaves/dimage->gediIO.nMessages);
-  else                                                dimage->gediIO.nMessages=1;
-
-  return(data);
-}/*unpackHDFgedi*/
-
-
-/*####################################################*/
 /*read or copy LVIS L2 data*/
 
 void setL2ground(dataStruct *data,int numb,control *dimage)
@@ -1513,9 +1420,9 @@ control *readCommands(int argc,char **argv)
   /*LVIS level2 data*/
   dimage->readL2=0;   /*do not read L2*/
   /*others*/
-  dimage->rhoRatio=0.57/0.4;
   rhoG=0.4;
   rhoC=0.57;
+  dimage->rhoRatio=rhoC/rhoG;
   dimage->gTol=0.0;
   dimage->gediIO.nMessages=200;
 

@@ -626,6 +626,78 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 }/*tidyHDFdata*/
 
 
+/*###################################################*/
+/*read GEDI HDF file*/
+
+dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int numb)
+{
+  int i=0;
+  float zTop=0;
+  dataStruct *data=NULL;
+
+  /*read data if needed*/
+  if(*hdfGedi==NULL){
+    *hdfGedi=readGediHDF(namen,gediIO);
+    gediIO->nFiles=hdfGedi[0]->nWaves;
+  }/*read data if needed*/
+
+  /*allocate space*/
+  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+
+  /*copy header*/
+  data->useID=1;
+  data->nBins=hdfGedi[0]->nBins;
+  data->nWaveTypes=hdfGedi[0]->nTypeWaves;
+  data->useType=0;
+  data->demGround=0;
+  data->pSigma=hdfGedi[0]->pSigma;
+  data->fSigma=hdfGedi[0]->fSigma;
+  data->beamDense=hdfGedi[0]->beamDense[numb];
+  data->pointDense=hdfGedi[0]->pointDense[numb];
+  data->lon=hdfGedi[0]->lon[numb];
+  data->lat=hdfGedi[0]->lat[numb];
+  data->zen=hdfGedi[0]->zen[numb];
+  strcpy(data->waveID,&(hdfGedi[0]->waveID[numb*hdfGedi[0]->idLength]));
+
+  if(gediIO->ground){
+    data->slope=hdfGedi[0]->slope[numb];
+    data->gElev=hdfGedi[0]->slope[numb];
+  }
+  data->usable=1;
+
+  /*point to arrays rather than copy*/
+  data->wave=fFalloc(data->nWaveTypes,"waveform",0);
+  data->wave[0]=&(hdfGedi[0]->wave[data->useType][numb*hdfGedi[0]->nBins]);
+  if(gediIO->ground){
+    data->ground=fFalloc(data->nWaveTypes,"ground waveform",0);
+    data->ground[0]=&(hdfGedi[0]->ground[data->useType][numb*hdfGedi[0]->nBins]);
+  }else data->ground=NULL;
+
+  /*count energy*/
+  data->totE=falloc(data->nWaveTypes,"totE",0);
+  data->totE[data->useType]=0.0;
+  for(i=0;i<hdfGedi[0]->nBins;i++)data->totE[data->useType]+=data->wave[0][i];
+
+  /*elevation needs making amnd resolution passing to structures*/
+  data->res=fabs(hdfGedi[0]->z0[numb]-hdfGedi[0]->zN[numb])/(float)hdfGedi[0]->nBins;
+  gediIO->res=data->res;
+  if(gediIO->gFit)gediIO->gFit->res=data->res;
+  if(gediIO->den)gediIO->den->res=data->res;
+  data->z=dalloc(data->nBins,"z",0);
+  zTop=(hdfGedi[0]->zN[numb]>hdfGedi[0]->z0[numb])?hdfGedi[0]->zN[numb]:hdfGedi[0]->z0[numb];
+  for(i=0;i<hdfGedi[0]->nBins;i++)data->z[i]=(double)(zTop-(float)i*data->res);
+
+  /*set up number of messages*/
+  if(hdfGedi[0]->nWaves>gediIO->nMessages)gediIO->nMessages=(int)(hdfGedi[0]->nWaves/gediIO->nMessages);
+  else                                    gediIO->nMessages=1;
+
+  return(data);
+}/*unpackHDFgedi*/
+
+
 /*####################################################*/
 /*read LVIS HDF file*/
 
@@ -2510,6 +2582,30 @@ wFrontStruct *copyFrontFilename(char *namen)
 
   return(wavefront);
 }/*copyFrontFilename*/
+
+
+/*####################################################*/
+/*determine true canopy cover*/
+
+float waveformTrueCover(dataStruct *data,gediIOstruct *gediIO,float rhoRatio)
+{
+  int i=0;
+  float totC=0,totG=0;
+  float cov=0;
+
+  if(gediIO->ground){
+    totG=totC=0.0;
+    for(i=0;i<data->nBins;i++){
+     totG+=data->ground[data->useType][i];
+     totC+=data->wave[data->useType][i]-data->ground[data->useType][i];
+    }
+    if((totG+totC)>0.0)cov=totC/(totC+totG*rhoRatio);
+    else               cov=-1.0;
+  }else{
+    cov=-1.0;
+  }
+  return(cov);
+}/*waveformTrueCover*/
 
 
 /*the end*/

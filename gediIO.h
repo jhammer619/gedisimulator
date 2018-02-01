@@ -288,6 +288,7 @@ typedef struct{
 dataStruct **tidyAsciiStruct(dataStruct **,int);
 dataStruct *readASCIIdata(char *,gediIOstruct *);
 dataStruct *unpackHDFlvis(char *,lvisHDF **,gediIOstruct *,int);
+dataStruct *unpackHDFgedi(char *,gediIOstruct *,gediHDF **,int);
 dataStruct *readBinaryLVIS(char *,lvisLGWstruct *,int,gediIOstruct *);
 gediHDF *arrangeGEDIhdf(dataStruct **,gediIOstruct *);
 gediHDF *readGediHDF(char *,gediIOstruct *);
@@ -300,6 +301,7 @@ void writeGEDIhdf(gediHDF *,char *);
 void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 wFrontStruct *copyFrontFilename(char *);
+float waveformTrueCover(dataStruct *,gediIOstruct *,float);
 
 /*# the end*/
 /*###########################################################*/
