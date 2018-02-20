@@ -989,7 +989,10 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->class=uchalloc((uint64_t)las->nPoints,"class",0);
     data->nRet=challoc((uint64_t)las->nPoints,"nRet",0);
     data->retNumb=challoc((uint64_t)las->nPoints,"nRet",0);
-    data->scanAng=challoc((uint64_t)las->nPoints,"scanAng",0);
+    if(!(data->scanAng=(uint16_t *)calloc(las->nPoints,sizeof(uint16_t)))){
+      fprintf(stderr,"error in input filename structure.\n");
+      exit(1);
+    }
     data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
     data->grad=fFalloc(las->nPoints,"grad",0);
     for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
@@ -1026,8 +1029,8 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
         if(las->refl>0)data->refl[pUsed]=(int)las->refl;
         else           data->refl[pUsed]=1;
         data->class[pUsed]=las->classif;
-        data->nRet[pUsed]=(char)las->field.nRet;
-        data->retNumb[pUsed]=(char)las->field.retNumb;
+        data->nRet[pUsed]=(char)las->nRet;
+        data->retNumb[pUsed]=(char)las->retNumb;
         data->scanAng[pUsed]=las->scanAng;
 
         /*determine data bounds*/
@@ -1090,7 +1093,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
-      if(!(data->scanAng=(char *)realloc(data->scanAng,data->nPoints*sizeof(char)))){
+      if(!(data->scanAng=(uint16_t *)realloc(data->scanAng,data->nPoints*sizeof(uint16_t)))){
         fprintf(stderr,"Balls\n");
         exit(1);
       }

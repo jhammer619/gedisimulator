@@ -479,7 +479,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
 
         if(checkOneWave(las)){
           hasWave=1;
-          data->retNumb[pUsed]=(char)las->field.retNumb;
+          data->retNumb[pUsed]=(char)las->retNumb;
           data->packetDes[pUsed]=las->packetDes;
           for(j=0;j<3;j++)data->grad[j][pUsed]=las->grad[j];
           data->time[pUsed]=las->time;
@@ -489,7 +489,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
         pUsed++;
       }
 
-      if(las->field.retNumb==las->field.nRet){  /*only once per beam*/
+      if(las->retNumb==las->nRet){  /*only once per beam*/
         /*mark sampling desnity for normalisation*/
         gX=(int)((x-dimage->g0[0])/(double)dimage->gridRes);
         gY=(int)((y-dimage->g0[1])/(double)dimage->gridRes);

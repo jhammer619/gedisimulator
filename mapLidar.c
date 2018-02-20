@@ -235,7 +235,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
         place=yBin*image->nX+xBin;
         if(dimage->drawInt)image->jimlad[place]+=(float)las[i]->refl;
         else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
-        if(dimage->findDens&&(las[i]->field.retNumb==las[i]->field.nRet))image->nFoot[place]++;
+        if(dimage->findDens&&(las[i]->retNumb==las[i]->nRet))image->nFoot[place]++;
         image->nIn[place]++;
       }else{
         fprintf(stderr,"How can we be outside %d %d? x %f %f %f y %f %f %f\n",xBin,yBin,image->minX,x,image->maxX,image->minY,y,image->maxY);
