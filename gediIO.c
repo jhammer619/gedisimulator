@@ -989,7 +989,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->class=uchalloc((uint64_t)las->nPoints,"class",0);
     data->nRet=challoc((uint64_t)las->nPoints,"nRet",0);
     data->retNumb=challoc((uint64_t)las->nPoints,"nRet",0);
-    if(!(data->scanAng=(uint16_t *)calloc(las->nPoints,sizeof(uint16_t)))){
+    if(!(data->scanAng=(int16_t *)calloc(las->nPoints,sizeof(int16_t)))){
       fprintf(stderr,"error in input filename structure.\n");
       exit(1);
     }
@@ -1093,7 +1093,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
         fprintf(stderr,"Balls\n");
         exit(1);
       }
-      if(!(data->scanAng=(uint16_t *)realloc(data->scanAng,data->nPoints*sizeof(uint16_t)))){
+      if(!(data->scanAng=(int16_t *)realloc(data->scanAng,data->nPoints*sizeof(int16_t)))){
         fprintf(stderr,"Balls\n");
         exit(1);
       }
