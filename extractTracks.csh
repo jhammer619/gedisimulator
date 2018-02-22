@@ -133,7 +133,7 @@ if( $definedBounds )then
   set meanLon=`echo "$bounds[1] $bounds[2]"|gawk '{print ($1+$2)/2}'`
   set meanLat=`echo "$bounds[3] $bounds[4]"|gawk '{print ($1+$2)/2}'`
   set meanLat=`echo $meanLon $meanLat|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
-else if( $findLat && $readMetric)then   # from metric fle
+else if( $findLat && $readMetric )then   # from metric fle
   set meanLat=`gawk -f $bin/meanCoord.awk < $metricFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
 else if( $findLat )then            # from ALS bounds file
   set meanLat=`gawk 'BEGIN{x=y=0;n=0}($0&&($1!="#")){x+=$2+$5;y+=$3+$6;n+=2}END{print x/n,y/n}' < $alsFile|gdaltransform -s_srs EPSG:$epsg -t_srs EPSG:4326|gawk '{print $2}'`
