@@ -22,7 +22,7 @@ END{
       y=yS[i]+d*cos(zen[i]);
 
       if((x>=minX)&&(x<=maxX)&&(y>=minY)&&(y<=maxY)){
-        printf("%.2f %.2f %s\n",x,y,waveID[i]);
+        printf("%.2f %.2f %s.%d\n",x,y,waveID[i],j);
       }
       d+=alongTrack;
       j++;

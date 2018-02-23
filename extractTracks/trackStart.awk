@@ -23,6 +23,11 @@ BEGIN{
     else if($1=="lon")pixX[numb]=$3;     
     else if($1=="lat")pixY[numb]=$3;
     else if($1=="sunel")sunel[numb,nIn[numb]]=$3;
+    else if($1=="tenter"){
+      split($3,bits,"");
+      year[numb,nIn[numb]]=sprintf("%d%d",bits[1],bits[2]);
+      doy[numb,nIn[numb]]=sprintf("%d%d%d",bits[3],bits[4],bits[5]);
+    }
   }
 }
 
@@ -91,14 +96,18 @@ END{
         zen[nUse]=atan2(xTop-xBot,yTop-yBot);
         beamType[nUse]=beamid[i,j];
         sunZen[nUse]=sunel[i,j];
+        ye[nUse]=year[i,j];
+        d[nUse]=doy[i,j];
         nUse++;
       }else if(i==start){   # accept left edge
         #if((xBot-minLon)<tol){
-          xS[nUse]=xBot;
-          yS[nUse]=yBot;
-          zen[nUse]=atan2(xTop-xBot,yTop-yBot);
-          beamType[nUse]=beamid[i,j];
-          nUse++;
+        xS[nUse]=xBot;
+        yS[nUse]=yBot;
+        zen[nUse]=atan2(xTop-xBot,yTop-yBot);
+        beamType[nUse]=beamid[i,j];
+        ye[nUse]=year[i,j];
+        d[nUse]=doy[i,j];
+        nUse++;
         #}
       }else if(i==ending){  # accept right edge
         if((maxLon-xBot)<tol){
@@ -106,6 +115,8 @@ END{
           yS[nUse]=yBot;
           zen[nUse]=atan2(xTop-xBot,yTop-yBot);
           beamType[nUse]=beamid[i,j];
+          ye[nUse]=year[i,j];
+          d[nUse]=doy[i,j];
           nUse++;
         }
       }
@@ -120,7 +131,7 @@ END{
       x=xS[i]+minX-(minLon+buffX);
       if(sunZen[i]>=0.0)tim="day"
       else              tim="night"
-      waveID=sprintf("%s.%d.%d.%s.%d",beamType[i],i,j,tim,int(sunZen[i]));
+      waveID=sprintf("%s.%d.%d.%s.zen.%d.y.%d.doy.%d",beamType[i],i,j,tim,int(sunZen[i]),ye[i],d[i]);
       printf("%.10f %.10f %f %s\n",x,y,zen[i],waveID);
     }# cloud test
   }
