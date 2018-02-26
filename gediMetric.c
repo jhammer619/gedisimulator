@@ -744,11 +744,11 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   /*foliage height diversity*/
   metric->FHD=foliageHeightDiversity(denoised,nBins);
   metric->FHDhist=foliageHeightDiversityHist(denoised,nBins,dimage->fhdHistRes);
-  if(dimage->gediIO.ground){  /*subtract known ground*/
+  if(dimage->gediIO.ground&&(!dimage->noise.linkNoise)&&(dimage->noise.nSig<TOL)){  /*subtract known ground*/
     canWave=subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins);
-  }else{               /*subtract Gaussian and below as ground*/
-    canWave=NULL;
-  }
+  }else if(nGauss>0){               /*subtract Gaussian and below as ground*/
+    canWave=subtractGaussFromCan(denoised,nBins,mu[gInd],A[gInd],sig[gInd],z);
+  }else canWave=NULL;
   metric->FHDcan=foliageHeightDiversity(canWave,nBins);
   metric->FHDcanH=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
   TIDY(canWave);
@@ -1367,6 +1367,7 @@ control *readCommands(int argc,char **argv)
   dimage->maxGauss=20;
   dimage->opooMet=NULL;
   dimage->opooGauss=NULL;
+  dimage->hdfGedi=NULL;
   /*scan settings*/
   dimage->gediIO.pSigma=0.764331; /*pulse length*/
   dimage->gediIO.fSigma=5.5;      /*footprint width*/
