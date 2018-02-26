@@ -117,6 +117,7 @@ typedef struct{
   float rhoRatio; /*ration of canopy to ground reflectance*/
   float gTol;     /*toleranve used to label ALS ground finding*/
   float zen;      /*zenith angle*/
+  float fhdHistRes;/*resolution for FHD histogram method*/
 }control;
 
 
@@ -139,7 +140,10 @@ typedef struct{
   float *rhInfl;    /*rh metrics using inflection ground*/
   float *rhReal;    /*rh metric from real ground*/
   int nRH;          /*number of RH metrics*/
-  float FHD;        /*foliage height diversity*/
+  float FHD;        /*foliage height diversity, all waveform, wave*/
+  float FHDhist;    /*foliage height diversity, all waveform, hist*/
+  float FHDcan;     /*foliage height diversity, canopy, wave*/
+  float FHDcanH;    /*foliage height diversity, canopy, hist*/
   int nLm;          /*number of L-moments*/
   //float *LmomGau;   /*L-moments from Gaussian fit*/
   //float *LmomRea;   /*L-moments from ALS ground*/
@@ -541,6 +545,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
     fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
+    fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
@@ -585,6 +590,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
+  fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
@@ -660,7 +666,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   double inflGround(float *,double *,int);
   double bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
   float *blankRH(float,int *);
-  float *smoothed=NULL;
+  float *smoothed=NULL,*canWave=NULL;
   float halfCover(float *,double *,int,double,float);
   float findBlairSense(metStruct *,dataStruct *,control *);
   void findSignalBounds(float *,double *,int,double *,double *,control *);
@@ -737,6 +743,15 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*foliage height diversity*/
   metric->FHD=foliageHeightDiversity(denoised,nBins);
+  metric->FHDhist=foliageHeightDiversityHist(denoised,nBins,dimage->fhdHistRes);
+  if(dimage->gediIO.ground){  /*subtract known ground*/
+    canWave=subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins);
+  }else{               /*subtract Gaussian and below as ground*/
+    canWave=NULL;
+  }
+  metric->FHDcan=foliageHeightDiversity(canWave,nBins);
+  metric->FHDcanH=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
+  TIDY(canWave);
 
   /*signal start and end*/
   findSignalBounds(denoised,z,nBins,&metric->tElev,&metric->bElev,dimage);
@@ -1425,6 +1440,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=rhoC/rhoG;
   dimage->gTol=0.0;
   dimage->gediIO.nMessages=200;
+  dimage->fhdHistRes=0.0001;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
@@ -1593,6 +1609,9 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-linkFsig",9)){
         checkArguments(1,i,argc,"-linkFsig");
         dimage->linkFsig=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-fhdHistRes",11)){
+        checkArguments(1,i,argc,"-fhdHistRes");
+        dimage->fhdHistRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
         fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;      pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
