@@ -44,6 +44,7 @@
 /*########################################################################*/
 
 
+#define DRIFTTOL 0.000001
 
 /*####################################################*/
 /*add noise to waveform*/
@@ -55,21 +56,25 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   float tot=0.0,thresh=0;
   float *tempNoise=NULL;
   float GaussNoise();
-  float *smooNoise=NULL;
+  float *smooNoise=NULL,*tempWave=NULL;
   float *digitiseWave(float *,int,char,float,float);
   float reflScale=0;
   void deleteGround(float *,float *,float *,int,float,float,float,float,float,float,float);
   void scaleNoiseDN(float *,int,float,float,float);
+  float *detectorDrift(float *,int,float,float);
 
   /*allocate*/
   data->noised=falloc(data->nBins,"noised wave",0);
+
+  /*apply detecor drift if using*/
+  tempWave=detectorDrift(data->wave[data->useType],data->nBins,gNoise->driftFact,res);
 
   if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if(gNoise->minGap==0.0){
       fprintf(stderr,"Cannot delete ground without a defined minimum gap\n");
       exit(1);
     }
-    deleteGround(data->noised,data->wave[data->useType],data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
+    deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
   }else if(gNoise->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
     tempNoise=falloc(data->nBins,"temp noised",0);
@@ -79,7 +84,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
     for(i=0;i<data->nBins;i++)tempNoise[i]=gNoise->linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
     smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
-    for(i=0;i<data->nBins;i++)tempNoise[i]=data->wave[data->useType][i]+smooNoise[i];
+    for(i=0;i<data->nBins;i++)tempNoise[i]=tempWave[i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
     scaleNoiseDN(tempNoise,data->nBins,gNoise->linkSig*reflScale,gNoise->trueSig,gNoise->offset);
@@ -91,20 +96,21 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
     for(i=0;i<data->nBins;i++){
       noise=gNoise->nSig*GaussNoise();
       if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
-      data->noised[i]=data->wave[data->useType][i]+gNoise->meanN+noise;
+      data->noised[i]=tempWave[i]+gNoise->meanN+noise;
     }/*bin loop*/
   }else if(gNoise->hNoise>0.0){  /*hard threshold noise*/
     tot=0.0;
     for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i];
     thresh=gNoise->hNoise*tot;
     for(i=0;i<data->nBins;i++){
-      data->noised[i]=data->wave[data->useType][i]-thresh;
+      data->noised[i]=tempWave[i]-thresh;
       if(data->noised[i]<0.0)data->noised[i]=0.0;
     }
   }else{  /*no noise*/
-    for(i=0;i<data->nBins;i++)data->noised[i]=data->wave[data->useType][i];
+    for(i=0;i<data->nBins;i++)data->noised[i]=tempWave[i];
   }
 
+  TIDY(tempWave);
   return;
 }/*addNoise*/
 
@@ -408,6 +414,34 @@ void deleteGround(float *noised,float *wave,float *ground,int nBins,float minGap
 
   return;
 }/*deleteGround*/
+
+
+/*####################################################*/
+/*apply detector mean background drift*/
+
+float *detectorDrift(float *wave,int nBins,float driftFact,float res)
+{
+  int i=0;
+  float *tempWave=NULL;
+  float cumul=0.0;
+
+  /*allocate*/
+  tempWave=falloc(nBins,"drifted wave",0);
+
+  /*do we need to apply drift?*/
+  if(fabs(driftFact)>DRIFTTOL){
+    /*loop along wave*/
+    cumul=0.0;
+    for(i=0;i<nBins;i++){
+      cumul+=wave[i]*res;
+      tempWave[i]=wave[i]-cumul*driftFact;
+    }/*wave loop*/
+  }else{  /*if not, copy waveform*/
+    for(i=0;i<nBins;i++)tempWave[i]=wave[i];
+  }/*apply or not switch*/
+
+  return(tempWave);
+}/*detectorDrift*/
 
 
 /*the end*/

@@ -1,6 +1,3 @@
-
-
-
 /*##############################*/
 /*# Header for gediNoise.c    #*/
 /*# GEDI waveforms             #*/
@@ -61,6 +58,7 @@ typedef struct{
   float minGap;    /*minimum detectable gap fraction for missGround*/
   float deSig;     /*detector sigma*/
   float hNoise;    /*hard threshold noise as a fraction of integral*/
+  float driftFact; /*apply detector mean drift*/
 }noisePar;
 
 /*#######################################*/
