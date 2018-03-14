@@ -423,17 +423,20 @@ float *detectorDrift(float *wave,int nBins,float driftFact,float res)
 {
   int i=0;
   float *tempWave=NULL;
-  float cumul=0.0;
+  float cumul=0,tot=0;
 
   /*allocate*/
   tempWave=falloc(nBins,"drifted wave",0);
 
   /*do we need to apply drift?*/
   if(fabs(driftFact)>DRIFTTOL){
+    /*total energy*/
+    tot=0.0;
+    for(i=0;i<nBins;i++)tot+=wave[i]*res;
     /*loop along wave*/
     cumul=0.0;
     for(i=0;i<nBins;i++){
-      cumul+=wave[i]*res;
+      cumul+=wave[i]*res/tot;
       tempWave[i]=wave[i]-cumul*driftFact;
     }/*wave loop*/
   }else{  /*if not, copy waveform*/
