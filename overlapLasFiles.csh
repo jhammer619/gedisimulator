@@ -12,6 +12,7 @@ set maxX=100000000
 set minY=-100000000
 set maxY=100000000
 set output="test.list"
+set scratchDir="/tmp"
 
 
 while ($#argv>0)
@@ -54,6 +55,11 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -scratchDir
+    set scratchDir="$argv[2]"
+  shift argv;shift argv
+  breaksw
+
 
   case -help
     echo " "
@@ -63,6 +69,7 @@ while ($#argv>0)
     echo "-coord x y;                    point of interest if footprint"
     echo "-coordList file;               list of coordinate to check"
     echo "-rad r;                        radius of footprint"
+    echo "-scratchDir dir;               directory to write temporary files to"
     echo " "
     exit
 
@@ -77,7 +84,7 @@ end
 
 
 if( $multiFeet )then
-  set temp="/tmp/alsOverlap.$$.dat"
+  set temp="$scratchDir/alsOverlap.$$.dat"
   cat $listFile > $temp
   echo "###"   >> $temp
   cat $input   >> $temp
