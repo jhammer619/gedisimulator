@@ -186,7 +186,7 @@ if __name__ == '__main__':
       if((delta_time[ind]/(24*60*60))>miss_len):
         break
  
-      # WHich MODIS pixels are intersected
+      # Which MODIS pixels are intersected
       crossing_lon,crossing_lat=intersectLines(x[ind],x[ind-1],y[ind],y[ind-1],xOrigin,yOrigin,pixelWidth,pixelHeight)
 
       # loop over intersected MODIS pixels
@@ -224,6 +224,11 @@ if __name__ == '__main__':
  
         # is the beam usable?
         if(((usePhen==0)|(condition_doy==True))&((useWeak==1)|((power==1)|(sim_sun_el[ind]>=83)|(vcf<70)))):
+          if(condition_doy==True):
+            phenLab=1
+          else:
+            phenLab=0
+
           # footprint labels
           if(sim_sun_el[ind]>=83):
             tim="night"
@@ -263,10 +268,8 @@ if __name__ == '__main__':
           for p in range(0,nIn+1):
             uX=np.append(uX,x00+dX*p*sRes)
             uY=np.append(uY,y00+dY*p*sRes)
-            waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d"%(power,j,numb,tim,int(sim_sun_el[ind]),ye,doy))
+            waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d.pow.%d.phen.%d.vcf.%d"%(beamid,j,numb,tim,int(sim_sun_el[ind]),ye,doy,power,phenLab,vcf))
             numb=numb+1  # increment footprint counter along
-        #else:  # otherwise not usable
-        #  print("Unusable",condition_doy,power,sim_sun_el[ind],vcf)
  
     # write data
     useCoord=np.where((uX>=bounds[0])&(uX<=bounds[1])&(uY>=bounds[2])&(uY<=bounds[3]))[0]
