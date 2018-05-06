@@ -104,7 +104,6 @@ def getCmdArgs():
     p.add_argument("-s","--skip_track",dest = "skip_track_list", type=int, nargs='*', default=[-1], help=("Track numbering to be dropped in order to assess its impact on mission level 1 requirement"))#added on Feb 23-2018
     p.add_argument("-p","--power_beams",dest = "pow_beam_list", type=int, nargs='*', default=[5,6], help=("Track numbers of power beams"))
     p.add_argument("--usePhen",dest = "usePhen", type=int,default=0, help=("Use phenology sqitch"))
-    p.add_argument("--useWeak",dest = "useWeak", type=int,default=0, help=("Use weak beam by day"))
     cmdargs = p.parse_args()
 
     return cmdargs
@@ -126,7 +125,6 @@ if __name__ == '__main__':
   outNamen=options.outNamen
   skip_track_list=options.skip_track_list
   usePhen=options.usePhen
-  useWeak=options.useWeak
 
   # mission 0 time in days
   t0=11*30.4375+1
@@ -139,7 +137,8 @@ if __name__ == '__main__':
   bX,bY=transform(outProj,inProj,bounds[0:2],bounds[2:4])
 
   # resolution in metres
-  sRes=60.0
+  #sRes=transform(outProj,inProj,0,60)[1]
+  sRes=60.0 #(60/6371007.181)*180/pi
 
   # read MODIS
   data_lc,data_vcf,data_leafon,data_leafoff,xOrigin,yOrigin,pixelWidth,pixelHeight,cols,rows=readMODIS(modNamen)
@@ -167,117 +166,21 @@ if __name__ == '__main__':
     buff_res=(0.066667 * np.sin(52 * np.pi /180.0))*4
     useInd=np.sort(np.where((y>=(bY[0]-buff_res))&(y<(bY[1]+buff_res))&(x>=(bX[0]-buff_res))&(x<(bX[1]+buff_res)))[0])
 
-    # blank arrays
-    uX=np.empty(shape=(0))
-    uY=np.empty(shape=(0))
-    waveID=[]
-    numb=0
- 
     # loop over usable tracks
     for i in range(1,len(useInd)):
       ind=useInd[i]
 
-      # only look at sections of lines. Reset counters as a line passes
-      if(useInd[i]!=(useInd[i-1]+1)):
-        numb=0
+      if(useInd[i-1]!=(useInd[i]-1)):
         continue
 
-      # if over mission length, skip
-      if((delta_time[ind]/(24*60*60))>miss_len):
-        break
- 
-      # WHich MODIS pixels are intersected
       crossing_lon,crossing_lat=intersectLines(x[ind],x[ind-1],y[ind],y[ind-1],xOrigin,yOrigin,pixelWidth,pixelHeight)
+      tX,tY=transform(inProj,outProj,crossing_lon,crossing_lat)
+      print("nIn",len(crossing_lon))
 
-      # loop over intersected MODIS pixels
-      for j in range(0,len(crossing_lon)-1):
- 
-        # cloud cover
-        if(random.random()<cFrac):
-          #print("Cloudy")
-          continue
+      for j in range(0,len(crossing_lon)):
+        line=str(tX[j])+" "+str(tY[j])+"\n"
+        fOut.write(line)
 
-        # determine modis properties
-        xInd=int((crossing_lon[j]-xOrigin)/pixelWidth)
-        yInd=int((crossing_lat[j]-yOrigin)/pixelHeight)
-        if((xInd<0)|(xInd>=cols)|(yInd<0)|(yInd>=rows)):
-          print("No modis")
-          continue
-
-        vcf=data_vcf[yInd][xInd]
-        lc=data_lc[yInd][xInd]
-        onDat=data_leafon[yInd][xInd]
-        offDat=data_leafoff[yInd][xInd]
-        power =1 if(beamid in pow_beam_list) else 0
- 
-
-        # check is leaf-on
-        c_doy=(delta_time[ind]/(24*60*60))+t0
-        while( c_doy > 365.25 ):
-          c_doy-=365.25
-        if(lc==1)|(lc==2):  # evergreen
-          condition_doy=True
-        elif onDat < offDat: #mostly nothern hemi
-          condition_doy=(c_doy>onDat)&(c_doy<offDat)
-        else: #growing period extending from year1 to the next year
-          condition_doy=(c_doy>onDat)|(c_doy<offDat)
- 
-        # is the beam usable?
-        if(((usePhen==0)|(condition_doy==True))&((useWeak==1)|((power==1)|(sim_sun_el[ind]>=83)|(vcf<70)))):
-          # footprint labels
-          if(sim_sun_el[ind]>=83):
-            tim="night"
-          else:
-            tim="day"
-
-          # date
-          ye=int(((delta_time[ind]/(24*60*60))+t0)/365.25)+18
-          doy=int(((delta_time[ind]/(24*60*60))+t0)%365.25)
- 
-          # how many footprints within this MODIS cell?
-          xS,yS=transform(inProj,outProj,crossing_lon[j],crossing_lat[j])
-          xE,yE=transform(inProj,outProj,crossing_lon[j+1],crossing_lat[j+1])
-          nIn=int(sqrt((xE-xS)**2+(yE-yS)**2)/sRes)
-
-          # direction of track for footprints
-          dX=xE-xS
-          dY=yE-yS
-          if((np.fabs(dX)>2000)|(np.fabs(dY)>2000)): # this step is longer than one MODIS pixel
-            print("A step too far",dX,dY,crossing_lon[j],crossing_lat[j],crossing_lon[j+1],crossing_lat[j+1])
-          totLen=sqrt(dX**2+dY**2)
-          dX=dX/totLen
-          dY=dY/totLen
-
-          # minimum 60 m spacing
-          if(numb>0):
-            diff=sqrt((xS-uX[len(uX)-1])**2+(yS-uY[len(uY)-1])**2)
-          else:
-            diff=sRes*4.0
-          if(diff<sRes):
-            x00=uX[len(uX)-1]+dX*sRes
-            y00=uY[len(uY)-1]+dY*sRes
-          else:
-            x00,y00=transform(inProj,outProj,crossing_lon[j],crossing_lat[j])
-
-          # loop over footprints within cell
-          for p in range(0,nIn+1):
-            uX=np.append(uX,x00+dX*p*sRes)
-            uY=np.append(uY,y00+dY*p*sRes)
-            waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d"%(power,j,numb,tim,int(sim_sun_el[ind]),ye,doy))
-            numb=numb+1  # increment footprint counter along
-        #else:  # otherwise not usable
-        #  print("Unusable",condition_doy,power,sim_sun_el[ind],vcf)
- 
-    # write data
-    useCoord=np.where((uX>=bounds[0])&(uX<=bounds[1])&(uY>=bounds[2])&(uY<=bounds[3]))[0]
-    for p in useCoord:
-      line=str(uX[p])+" "+str(uY[p])+" "+waveID[p]+"\n"
-      fOut.write(line)
-    # wipe arrays
-    uX=np.empty(shape=(0))
-    uY=np.empty(shape=(0))
-    waveID=[]
-    numb=0
 
   fOut.close()
 
