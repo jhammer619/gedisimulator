@@ -15,6 +15,7 @@ orbit_sim_dir="/gpfs/data1/vclgp/htang/GEDI/ISS/BaselineSIM"
 gridRes=1000
 usePhen="--usePhen 1"
 useWeak=" "   # do not use weak day by default
+pointErr=0
 
 # read command line
 while [[ $# -gt 0 ]]
@@ -70,6 +71,11 @@ key="$1"
       shift # past argument
       shift # past value
       ;;
+    -pointErr)
+      pointErr="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -help)
       echo " "
       echo "-output name;        output filename"
@@ -82,6 +88,7 @@ key="$1"
       echo "-bound minX maxX minY maxY;   define bounds"
       echo "-noPhen;             use leaf-off data"
       echo "-useWeak;            use daytime weak beam"
+      echo "-pointErr sig;       pointing error, 1 sigma in metres"
       echo " "
       exit
       ;;
@@ -100,7 +107,7 @@ fi
 
 # read data
 temp="/tmp/tempCoords.$$.dat"
-python $bin/orbitTracks.py --bounds $bounds --oEPSG $epsg --output $temp --seed $seed --mission_length $mission_length --skip_track $skipList --power_beams $powList --cloud $cloudFrac --orbit_sim_dir $orbit_sim_dir $usePhen $useWeak
+python $bin/orbitTracks.py --bounds $bounds --oEPSG $epsg --output $temp --seed $seed --mission_length $mission_length --skip_track $skipList --power_beams $powList --cloud $cloudFrac --orbit_sim_dir $orbit_sim_dir $usePhen $useWeak --pointErr $pointErr
 
 
 # collate into patches

@@ -3,13 +3,24 @@ import argparse
 import string
 import numpy as np
 from osgeo import gdal
-import random
 from pyproj import Proj, transform
 from scipy import pi
 from math import sqrt
 
 
+####################################################################
+# pointing uncertainty
+
+def pointingUncertainty(errSigma,dX,dY):
+  shift=np.random.normal(loc=0.0,scale=errSigma)
+  uncX=-1*dY*shift  # note that we rotate 90 degrees to be normal to track
+  uncY=dX*shift     # note that we rotate 90 degrees to be normal to track
+  return(uncX,uncY)
+
+
+####################################################################
 # read MODIS
+
 def readMODIS(modNamen):
   driver = gdal.GetDriverByName('GTiff')
   dataset_MOD = gdal.Open(modNamen)
@@ -32,7 +43,9 @@ def readMODIS(modNamen):
   return(data_lc,data_vcf,data_leafon,data_leafoff,xOrigin,yOrigin,pixelWidth,pixelHeight,cols,rows)
 
 
+####################################################################
 # intersect MODIS pixels
+
 def intersectLines(x1,x0,y1,y0,xOrigin,yOrigin,pixelWidth,pixelHeight):
   # set arrays with oprigin as first element
   xi=[]
@@ -84,7 +97,9 @@ def intersectLines(x1,x0,y1,y0,xOrigin,yOrigin,pixelWidth,pixelHeight):
   return(xi,yi)
 
 
+####################################################################
 # read command line
+
 def getCmdArgs():
     '''
     Get commdnaline arguments
@@ -105,12 +120,14 @@ def getCmdArgs():
     p.add_argument("-p","--power_beams",dest = "pow_beam_list", type=int, nargs='*', default=[5,6], help=("Track numbers of power beams"))
     p.add_argument("--usePhen",dest = "usePhen", type=int,default=0, help=("Use phenology sqitch"))
     p.add_argument("--useWeak",dest = "useWeak", type=int,default=0, help=("Use weak beam by day"))
+    p.add_argument("--pointErr",type=float,dest="errSigma",help="pointing uncetainty in metres, 1 sigma",default=0)
     cmdargs = p.parse_args()
-
     return cmdargs
 
 
+####################################################################
 ## Main ##
+
 if __name__ == '__main__':
   # read command line
   options=getCmdArgs()
@@ -121,12 +138,13 @@ if __name__ == '__main__':
   oEPSG=options.oEPSG
   pow_beam_list=options.pow_beam_list
   cFrac=options.cFrac
-  random.seed(options.seed)
+  np.random.seed(options.seed)
   miss_len=options.miss_len
   outNamen=options.outNamen
   skip_track_list=options.skip_track_list
   usePhen=options.usePhen
   useWeak=options.useWeak
+  errSigma=options.errSigma
 
   # mission 0 time in days
   t0=11*30.4375+1
@@ -146,6 +164,15 @@ if __name__ == '__main__':
 
   # open output
   fOut=open(outNamen, 'w')
+
+  # position shifts
+  if(errSigma>0.0):
+    errX=np.empty(shape=(0),dtype=float)
+    errY=np.empty(shape=(0),dtype=float)
+    dayList=np.empty(shape=(0),dtype=int)
+  else:
+    errX=[0.0]
+    errY=[0.0]
 
   # loop over GEDI tracks
   for beamid in range(1,11):
@@ -193,7 +220,7 @@ if __name__ == '__main__':
       for j in range(0,len(crossing_lon)-1):
  
         # cloud cover
-        if(random.random()<cFrac):
+        if(np.random.random()<cFrac):
           #print("Cloudy")
           continue
 
@@ -238,6 +265,7 @@ if __name__ == '__main__':
           # date
           ye=int(((delta_time[ind]/(24*60*60))+t0)/365.25)+18
           doy=int(((delta_time[ind]/(24*60*60))+t0)%365.25)
+
  
           # how many footprints within this MODIS cell?
           xS,yS=transform(inProj,outProj,crossing_lon[j],crossing_lat[j])
@@ -264,10 +292,24 @@ if __name__ == '__main__':
           else:
             x00,y00=transform(inProj,outProj,crossing_lon[j],crossing_lat[j])
 
+          # position uncertainty
+          if(errSigma>0.0):
+            dayStart=int(delta_time[ind]/(24*60*60))
+            if dayStart in dayList:  # exists
+              doyInd=np.where(dayStart==dayList)[0][0]
+            else: # new day, new uncertainty
+              dayList=np.append(dayList,dayStart)
+              uncX,uncY=pointingUncertainty(errSigma,dX,dY)
+              errX=np.append(errX,uncX)
+              errY=np.append(errY,uncY)
+              doyInd=len(dayList)-1
+          else:  # no uncertainty
+            doyInd=0
+
           # loop over footprints within cell
           for p in range(0,nIn+1):
-            uX=np.append(uX,x00+dX*p*sRes)
-            uY=np.append(uY,y00+dY*p*sRes)
+            uX=np.append(uX,x00+dX*p*sRes+errX[doyInd])
+            uY=np.append(uY,y00+dY*p*sRes+errY[doyInd])
             waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d.pow.%d.phen.%d.vcf.%d"%(beamid,j,numb,tim,int(sim_sun_el[ind]),ye,doy,power,phenLab,vcf))
             numb=numb+1  # increment footprint counter along
  
