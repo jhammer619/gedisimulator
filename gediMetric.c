@@ -55,6 +55,12 @@
 float rhoG;
 float rhoC;
 
+/*###########################################################*/
+/*function definition used here only*/
+
+float *findLAIprofile(float *,float,int,float,int *,double,float,double *,float);
+
+
 
 /*###########################################################*/
 /*LVIS level2 data*/
@@ -94,6 +100,8 @@ typedef struct{
   char coord2dp;     /*round up coords to 2dp when writing*/
   char useBounds;    /*when we will process only a subset of bounds*/
   char writeGauss;   /*write Gaussian parameters*/
+  float laiRes;      /*LAI profile resolution*/
+  float maxLAIh;     /*maximum height bin of LAI profile. Put all above this in top bin*/
 
   /*noise parameters*/
   noisePar noise;  /*noise adding structure*/
@@ -165,6 +173,12 @@ typedef struct{
   float blairSense; /*Blair sensitivity metric*/
   float niM2;       /*Ni metric with c=2*/
   float niM21;      /*Ni metric with c=2.1*/
+  float *tLAI;      /*true LAI profile*/
+  float *gLAI;      /*LAI profile with Gaussian ground removal*/
+  float *hgLAI;     /*LAI profile with halp width ground removal, Gaussian elevation*/
+  float *hiLAI;     /*LAI profile with halp width ground removal, inflection elevation*/
+  float *hmLAI;     /*LAI profile with halp width ground removal, maximum elevation*/
+  int laiBins;      /*number of LAI bins*/
 
   int nBgr;         /*number of ground estimates*/
   bGround *bGr;     /*Bayesian ground structure*/
@@ -272,6 +286,11 @@ int main(int argc,char **argv)
     TIDY(metric->rhReal);
     TIDY(metric->rh);
     TIDY(metric->bGr);
+    TIDY(metric->tLAI);
+    TIDY(metric->gLAI);
+    TIDY(metric->hgLAI);
+    TIDY(metric->hiLAI);
+    TIDY(metric->hmLAI);
     //TIDY(metric->LmomGau);
     //TIDY(metric->LmomRea);
     //TIDY(metric->LmomInf);
@@ -545,12 +564,17 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
     fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
-    fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
+    fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist,",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+2*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+3*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+4*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomReal%d",14+4*metric->nRH+1+dimage->bayesGround+21+3*metric->nLm+i,i+1);
-    fprintf(dimage->opooMet,",\n");
+    fprintf(dimage->opooMet,"\n");
   }
 
   if(dimage->gediIO.gFit->nGauss>dimage->maxGauss)fprintf(stderr,"More Gaussians than header entries %d\n",dimage->gediIO.gFit->nGauss);
@@ -591,6 +615,11 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
   fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
+  for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->tLAI[i]);
+  for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->gLAI[i]);
+  for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hgLAI[i]);
+  for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hiLAI[i]);
+  for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hmLAI[i]);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
@@ -672,6 +701,9 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   void findSignalBounds(float *,double *,int,double *,double *,control *);
   void findWaveExtents(float *,double *,int,double,double,float *,float *);
   void setDenoiseDefault(denPar *);
+  float *trueLAIprofile(float *,float *,double *,int,float,float,double,float,int *);
+  float *gaussLAIprofile(float *,double *,int,float,float,double,float,int *,float,float,float,float);
+  float *halfEnergyLAIprofile(float *,double *,int,float,float,double,float,int *);
   denPar den;
 
 
@@ -697,7 +729,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->totE=0.0;
   for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
-  /*BLair sensitivity*/
+  /*Blair sensitivity*/
   metric->blairSense=findBlairSense(metric,data,dimage);
 
   /*smooth waveform for fonding ground by max and inflection*/
@@ -753,6 +785,13 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->FHDcanH=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
   TIDY(canWave);
 
+  /*lai profiles*/
+  metric->tLAI=trueLAIprofile(data->wave[data->useType],data->ground[data->useType],z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
+  metric->gLAI=gaussLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins,mu[gInd],A[gInd],sig[gInd],dimage->gediIO.res);
+  metric->hgLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins);
+  metric->hiLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->inflGround,dimage->maxLAIh,&metric->laiBins);
+  metric->hmLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->maxGround,dimage->maxLAIh,&metric->laiBins);
+
   /*signal start and end*/
   findSignalBounds(denoised,z,nBins,&metric->tElev,&metric->bElev,dimage);
 
@@ -790,6 +829,174 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   TIDY(smoothed);
   return;
 }/*findMetrics*/
+
+
+/*####################################################*/
+/*LAI profile using reflected half energy*/
+
+float *halfEnergyLAIprofile(float *denoised,double *z,int nBins,float laiRes,float rhoRatio,double gElev,float maxLAIh,int *laiBins)
+{
+  int i=0,gBin=0,mBin=0;
+  float *LAI=NULL;
+  float *canopy=NULL;
+  float totG=0;
+  double sep=0,minSep=0;
+
+  /*Ground energy and bin*/
+  minSep=1000000.0;
+  totG=0.0;
+  for(i=0;i<nBins;i++){
+    if(z[i]<gElev)totG+=denoised[i];
+    sep=fabs(z[i]-gElev);
+    if(sep<=minSep){
+      minSep=sep;
+      gBin=i;
+    }
+  }
+  totG*=2.0;
+
+  /*canopy wave*/
+  canopy=falloc(nBins,"canopy waveform",0);
+  for(i=0;i<nBins;i++)canopy[i]=0.0;
+  for(i=gBin;i>=0;i--){
+    canopy[i]=denoised[i];
+    /*subtract mirrored ground*/
+    mBin=2*gBin-i;
+    if((mBin>=0)&&(mBin<nBins)){
+      canopy[i]-=denoised[mBin];
+      if(canopy[i]<0.0)canopy[i]=0.0;
+    }
+  }
+
+  /*lai profile*/
+  LAI=findLAIprofile(canopy,totG,nBins,laiRes,laiBins,gElev,rhoRatio,z,maxLAIh);
+
+  /*tidy up*/
+  TIDY(canopy);
+  return(LAI);
+}/*halfEnergyLAIprofile*/
+
+
+/*####################################################*/
+/*LAI profile subtracting fitted Gaussian*/
+
+float *gaussLAIprofile(float *denoised,double *z,int nBins,float laiRes,float rhoRatio,double gHeight,float maxLAIh,int *laiBins,float mu,float A,float sig,float res)
+{
+  int i=0;
+  float *LAI=NULL,totG=0;
+  float *canopy=NULL;
+
+  /*canopy waveform*/
+  canopy=falloc(nBins,"canopy only wave",0);
+  for(i=0;i<nBins;i++){
+    if(z[i]>=gHeight){
+      canopy[i]=denoised[i]-A*(float)gaussian(z[i],(double)sig,(double)mu);
+      if(canopy[i]<0.0)canopy[i]=0.0;
+    }else canopy[i]=0.0;
+  }
+
+  /*ground energy*/
+  totG=A*sig*sqrt(2.0*M_PI)/res;
+
+  /*lai profile*/
+  LAI=findLAIprofile(canopy,totG,nBins,laiRes,laiBins,gHeight,rhoRatio,z,maxLAIh);
+
+  /*tidy up*/
+  TIDY(canopy);
+  return(LAI);
+}/*gaussLAIprofile*/
+
+
+/*####################################################*/
+/*true LAI profile*/
+
+float *trueLAIprofile(float *wave,float *ground,double *z,int nBins,float laiRes,float rhoRatio,double gElev,float maxLAIh,int *laiBins)
+{
+  int i=0;
+  float *tLAI=NULL;
+  float *canopy=NULL,totG=0;
+
+  /*is there a ground to do this with?*/
+  if(ground){
+    /*Calculate canopy part*/
+    canopy=falloc(nBins,"canopy part",0);
+    totG=0.0;
+    for(i=0;i<nBins;i++){
+      totG+=ground[i];
+      canopy[i]=wave[i]-ground[i];
+    }
+
+    /*lai profile*/
+    tLAI=findLAIprofile(canopy,totG,nBins,laiRes,laiBins,gElev,rhoRatio,z,maxLAIh);
+  }else{  /*no ground, leave blank*/
+    *laiBins=(int)(maxLAIh/laiRes+0.5);
+    tLAI=falloc(*laiBins,"True LAI profile",0);
+    for(i=0;i<*laiBins;i++)tLAI[i]=-1.0;
+  }
+
+  /*tidy up*/
+  TIDY(canopy);
+  return(tLAI);
+}/*trueLAIprofile*/
+
+
+/*####################################################*/
+/*LAI profile from canopy waveform*/
+
+float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBins,double gElev,float rhoRatio,double *z,float maxLAIh)
+{
+  int i=0,bin=0;
+  float *tLAI=NULL;
+  float gap=0,cumul=0;
+  float *lngap=NULL;
+  float *laiProf=NULL;
+  float totC=0;
+  float G=0;           /*Ross-G function*/
+
+  /*leaf angle distribution*/
+  G=0.6;   /*spherical distribution*/
+
+  /*total energies*/
+  totC=0.0;
+  for(i=0;i<nBins;i++)totC+=canopy[i];
+
+  /*make gap profile*/
+  lngap=falloc(nBins,"apparent foliage profile",0);
+  cumul=0.0;
+  for(i=0;i<nBins;i++){
+    cumul+=canopy[i];
+    gap=1.0-(cumul/(totC+rhoRatio*totG));
+    lngap[i]=log(gap);
+  }
+
+  /*lai profile*/
+  laiProf=falloc(nBins,"apparent foliage profile",0);
+  for(i=0;i<nBins;i++){
+    if((i>0)&&(i<(nBins-1)))laiProf[i]=-2.0*(lngap[i+1]-lngap[i-1])/2.0;
+    else                    laiProf[i]=0.0;
+  }
+  TIDY(lngap);
+
+  /*allocate and set blank*/
+  *laiBins=(int)(maxLAIh/laiRes+0.5)+1;
+  tLAI=falloc(*laiBins,"True LAI profile",0);
+  for(i=0;i<(*laiBins);i++)tLAI[i]=0.0;
+
+  /*bin up*/
+  for(i=0;i<nBins;i++){
+    bin=(int)((float)(z[i]-gElev)/laiRes);
+    if(bin>=*laiBins)bin=(*laiBins)-1;
+    else if(bin<0)bin=0;
+    tLAI[bin]+=laiProf[i];
+  }
+
+  /*normalise*/
+  for(i=0;i<(*laiBins);i++)tLAI[i]/=laiRes;
+
+  /*tidy up*/
+  TIDY(laiProf);
+  return(tLAI);
+}/*findLAIprofile*/
 
 
 /*####################################################*/
@@ -1380,6 +1587,8 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.useCount=1;
   dimage->gediIO.useFrac=0;
   dimage->rhRes=10.0;
+  dimage->laiRes=10.0;
+  dimage->maxLAIh=30.0;
   dimage->bayesGround=0;
   dimage->noise.missGround=0;
   dimage->noise.linkNoise=0;
@@ -1543,6 +1752,9 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-rhRes",6)){
         checkArguments(1,i,argc,"-rhRes");
         dimage->rhRes=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-laiRes",7)){
+        checkArguments(1,i,argc,"-laiRes");
+        dimage->laiRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-linkNoise",10)){
         checkArguments(2,i,argc,"-linkNoise");
         dimage->noise.linkNoise=1;
@@ -1626,7 +1838,7 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->varDrift=0;
         dimage->gediIO.den->fixedDrift=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-laiRes res;     lai profile resolution in metres\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
