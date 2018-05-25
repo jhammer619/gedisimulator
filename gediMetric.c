@@ -990,9 +990,6 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
     tLAI[bin]+=laiProf[i];
   }
 
-  /*normalise*/
-  for(i=0;i<(*laiBins);i++)tLAI[i]/=laiRes;
-
   /*tidy up*/
   TIDY(laiProf);
   return(tLAI);

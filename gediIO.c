@@ -472,7 +472,6 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   }
 
   /*open file*/
-  fprintf(stdout,"Reading %s\n",namen);
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*read the header*/
@@ -497,6 +496,7 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   tempI=read1dIntHDF5(file,"IDLENGTH",&nWaves);
   hdfData->idLength=*tempI;
   TIDY(tempI);
+
 
   /*read ancillary data*/
   hdfData->z0=read1dFloatHDF5(file,"Z0",&nWaves);
