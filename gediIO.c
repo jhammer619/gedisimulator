@@ -472,6 +472,7 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   }
 
   /*open file*/
+  fprintf(stdout,"Reading %s\n",namen);
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*read the header*/
