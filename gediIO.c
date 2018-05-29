@@ -418,13 +418,13 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
   write1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
   write1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
-  if(gediIO->useCount){
-    write2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
-  }
   if(gediIO->useInt){
-    write2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[(int)gediIO->useCount],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[(int)gediIO->useCount],hdfData->nWaves,hdfData->nBins);
+    write2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
+    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
+  }
+  if(gediIO->useCount){
+    write2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins);
+    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins);
   }
   if(gediIO->useFrac){
     write2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins);
@@ -531,7 +531,8 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
 
   /*determine how many waveforms we want to read*/
   if((int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac)>hdfData->nTypeWaves){
-    fprintf(stderr,"Not enough waveform types for that option set. %d %d",hdfData->nTypeWaves,gediIO->useInt+gediIO->useCount+gediIO->useFrac);
+    fprintf(stderr,"Not enough waveform types for that option set. %d %d from %d %d %d\n",hdfData->nTypeWaves,\
+               gediIO->useInt+gediIO->useCount+gediIO->useFrac,gediIO->useCount,gediIO->useInt,gediIO->useFrac);
     exit(1);
   }else hdfData->nTypeWaves=(int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac);
 
@@ -2189,17 +2190,17 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
         for(j=0;j<gediIO->pulse->nBins;j++){
           bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
           if((bin>=0)&&(bin<waves->nBins)){
-            if(gediIO->useCount)waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
-            if(gediIO->useInt)waves->wave[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+            if(gediIO->useInt)waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
+            if(gediIO->useCount)waves->wave[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
             if(gediIO->useFrac)waves->wave[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
             if(gediIO->ground){
               if(data[numb]->class[i]==2){
-                if(gediIO->useCount)waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
-                if(gediIO->useInt)waves->ground[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
+                if(gediIO->useCount)waves->ground[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
                 if(gediIO->useFrac)waves->ground[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
               }else{
-                if(gediIO->useCount)waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
-                if(gediIO->useInt)waves->canopy[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
+                if(gediIO->useCount)waves->canopy[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
                 if(gediIO->useFrac)waves->canopy[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
               }
             }/*ground recording if needed*/
