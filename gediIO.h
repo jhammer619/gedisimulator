@@ -116,9 +116,6 @@ typedef struct{
 
   /*switches*/
   char ground;      /*read separateground wave or not*/
-  char useInt;      /*use discrete intensity for weighting*/
-  char useCount;    /*use no weighting*/
-  char useFrac;     /*use fraction of hits per beam for weighting*/
   char dontTrustGround; /*don't trust ground included with waveforms*/
   char readPsigma;   /*read psigma from files or not*/
 
@@ -137,6 +134,12 @@ typedef struct{
   char pulseFile[200];
   pulseStruct *pulse;
   float pRes;
+
+  /*number of waves to simulate*/
+  int nTypeWaves;    /*number of waves simulated*/
+  char useInt;      /*use discrete intensity for weighting*/
+  char useCount;    /*use no weighting*/
+  char useFrac;     /*use fraction of hits per beam for weighting*/
 
   /*others*/
   int nMessages;  /*number of progress messages*/
@@ -297,7 +300,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int);
 waveStruct *makeGediWaves(gediRatStruct *,gediIOstruct *,pCloudStruct **);
 void setGediGrid(gediIOstruct *,gediRatStruct *);
 void setGediPulse(gediIOstruct *,gediRatStruct *);
-void writeGEDIhdf(gediHDF *,char *);
+void writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
 void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 wFrontStruct *copyFrontFilename(char *);

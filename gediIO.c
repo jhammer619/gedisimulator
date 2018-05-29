@@ -392,7 +392,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
 /*####################################################*/
 /*write data to HDF5*/
 
-void writeGEDIhdf(gediHDF *hdfData,char *namen)
+void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
   hid_t file;         /* Handles */
 
@@ -418,21 +418,17 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen)
   write1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
   write1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
   write1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
-  if(hdfData->nTypeWaves==3){
-    write2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
-    write2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[1],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[1],hdfData->nWaves,hdfData->nBins);
-    write2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[2],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[2],hdfData->nWaves,hdfData->nBins);
-  }else if(hdfData->nTypeWaves==1){
-    fprintf(stderr,"We are not set up for wrinting only one HDF5 wave yet");
-    exit(1);
-    write2dFloatHDF5(file,"RXWAVE",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVE",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
-  }else{
-    fprintf(stderr,"Can't handle this number of waveforms");
-    exit(1);
+  if(gediIO->useCount){
+    write2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins);
+    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins);
+  }
+  if(gediIO->useInt){
+    write2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[(int)gediIO->useCount],hdfData->nWaves,hdfData->nBins);
+    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[(int)gediIO->useCount],hdfData->nWaves,hdfData->nBins);
+  }
+  if(gediIO->useFrac){
+    write2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins);
+    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins);
   }
   write1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
   write1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
@@ -2193,18 +2189,18 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
         for(j=0;j<gediIO->pulse->nBins;j++){
           bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
           if((bin>=0)&&(bin<waves->nBins)){
-            waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
-            waves->wave[1][bin]+=rScale*gediIO->pulse->y[j];
-            waves->wave[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+            if(gediIO->useCount)waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
+            if(gediIO->useInt)waves->wave[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+            if(gediIO->useFrac)waves->wave[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
             if(gediIO->ground){
               if(data[numb]->class[i]==2){
-                waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
-                waves->ground[1][bin]+=rScale*gediIO->pulse->y[j];
-                waves->ground[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                if(gediIO->useCount)waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->ground[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+                if(gediIO->useFrac)waves->ground[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
               }else{
-                waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
-                waves->canopy[1][bin]+=rScale*gediIO->pulse->y[j];
-                waves->canopy[2][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                if(gediIO->useCount)waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->canopy[(int)gediIO->useCount][bin]+=rScale*gediIO->pulse->y[j];
+                if(gediIO->useFrac)waves->canopy[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
               }
             }/*ground recording if needed*/
           }/*bin bound check*/

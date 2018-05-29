@@ -184,7 +184,7 @@ int main(int argc,char **argv)
     /*write HDF if needed and not blank*/
     if(dimage->writeHDF&&(dimage->hdfCount>0)){
       hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
-      writeGEDIhdf(hdfData,dimage->outNamen);
+      writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO));
     }
   }/*make and write a waveform if needed*/
 
@@ -522,7 +522,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
     r=(float)waves->maxZ-(float)i*dimage->gediIO.res;
 
     fprintf(opoo,"%f",r);
-    for(j=0;j<waves->nWaves;j++){
+    for(j=0;j<dimage->gediIO.nTypeWaves;j++){
       fprintf(opoo," %f",waves->wave[j][i]);
        if(dimage->gediIO.ground&&(j<3))fprintf(opoo," %f %f",waves->canopy[j][i],waves->ground[j][i]);
     }
@@ -609,6 +609,9 @@ gediHDF *setUpHDF(control *dimage)
   int i=0;
   gediHDF *hdfData=NULL;
 
+
+
+
   /*set counter to zero*/
   dimage->hdfCount=0;
 
@@ -621,7 +624,7 @@ gediHDF *setUpHDF(control *dimage)
   /*header*/
   hdfData->nWaves=dimage->gediRat.gNx*dimage->gediRat.gNy;
   hdfData->nBins=dimage->maxBins;
-  hdfData->nTypeWaves=3;
+  hdfData->nTypeWaves=dimage->gediIO.nTypeWaves;
   hdfData->pSigma=dimage->gediIO.pSigma;
   hdfData->fSigma=dimage->gediIO.fSigma;
 
@@ -720,6 +723,9 @@ control *readCommands(int argc,char **argv)
   dimage->writeHDF=0;   /*write output as ascii*/
   dimage->gediRat.defWfront=0;   /*Gaussian footprint*/
   dimage->gediRat.wavefront=NULL;
+
+  /*beams*/
+  dimage->gediIO.useCount=dimage->gediIO.useFrac=dimage->gediIO.useInt=1;
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -858,8 +864,12 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-nOctPix",8)){
         checkArguments(1,i,argc,"-nOctPix");
         dimage->gediRat.nOctTop=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-countOnly",10)){
+        dimage->gediIO.useCount=1;
+        dimage->gediIO.useInt=0;
+        dimage->gediIO.useFrac=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;    make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-hdf;            write output as HDF5. Best with gridded or list of coords\n-maxBins;        for HDF5, limit number of bins to save trimming\n-readPulse file; read pulse shape and width from a file\n-wavefront file; read wavefront shape from file. Note that footprint width is still set by fSigma\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-countOnly;      only use count method\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;     make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-hdf;            write output as HDF5. Best with gridded or list of coords\n-maxBins;        for HDF5, limit number of bins to save trimming\n-readPulse file; read pulse shape and width from a file\n-wavefront file; read wavefront shape from file. Note that footprint width is still set by fSigma\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n\nQuestions to svenhancock@gmail.com\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -867,6 +877,10 @@ control *readCommands(int argc,char **argv)
       }
     }
   }/*command parser*/
+
+
+  /*total number of beams*/
+  dimage->gediIO.nTypeWaves=dimage->gediIO.useCount+dimage->gediIO.useFrac+dimage->gediIO.useInt;
 
   return(dimage);
 }/*readCommands*/
