@@ -33,6 +33,7 @@ set wavefront=" "
 set octree=" "
 set octLevels=" "
 set nOctPix=" "
+set countOnly=" "
 
 
 # read options
@@ -160,6 +161,10 @@ while ($#argv>0)
   shift argv;shift argv
   breaksw
 
+  case -countOnly
+    set countOnly="-countOnly"
+  shift argv
+  breaksw
 
   case -help
     echo " "
@@ -175,6 +180,7 @@ while ($#argv>0)
     echo "-fSigma sigma;     footprint width, sigma in m"
     echo "-res res;          output range resolution, in metres"
     echo "-ground;           output ground and canopy waveforms"
+    echo "-countOnly;        only simulate using the count method"
     echo "-sideLobe;         use the old side-lobes"
     echo "-lobeAng ang;      side lobe major axis azimuth, degrees"
     echo "-topHat;           use top hat rather than Gaussian footprint"
@@ -225,7 +231,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly
 
   endif
 
