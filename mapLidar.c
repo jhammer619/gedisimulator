@@ -58,6 +58,7 @@ typedef struct{
   char drawHeight;    /*height.elevation image switch*/
   char drawDens;      /*draw ensity images*/
   char findDens;      /*find point and footprint density*/
+  char drawCov;       /*draw canopy cover switch*/
   char writeBounds;   /*write out file bounds*/
   uint64_t pBuffSize; /*point buffer rading size in bytes*/
   char printNpoint;   /*write number of points to the screen*/
@@ -76,7 +77,8 @@ typedef struct{
 typedef struct{
   int nX;
   int nY;
-  int *nIn;       /*point density*/
+  uint64_t *nIn;  /*number of points in pixel*/
+  uint64_t *nCan; /*number of canopy returns*/
   int *nFoot;     /*footprint density*/
   float *jimlad;  /*FLOATING POINT IMAGE*/
   float min;      /*min intensity*/
@@ -129,7 +131,7 @@ int main(int argc,char **argv)
     if(dimage->printNpoint)fprintf(stdout,"nPoints %s %u\n",dimage->inList[i],las[i]->nPoints);
   }
 
-  if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens){
+  if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens||dimage->drawCov){
     /*allocate image array*/
     image=allocateImage(dimage,las);
 
@@ -142,7 +144,7 @@ int main(int argc,char **argv)
   }
 
   /*write image*/
-  if(dimage->drawInt||dimage->drawHeight)writeImage(dimage,image);
+  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)writeImage(dimage,image);
   if(dimage->writeBounds)fprintf(stdout,"Written to %s\n",dimage->bNamen);
 
 
@@ -170,6 +172,7 @@ imageStruct *tidyImage(imageStruct *image)
     TIDY(image->nIn);
     TIDY(image->image);
     TIDY(image->nFoot);
+    TIDY(image->nCan);
     TIDY(image);
   }
   return(image);
@@ -236,6 +239,7 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
         if(dimage->drawInt)image->jimlad[place]+=(float)las[i]->refl;
         else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
         if(dimage->findDens&&(las[i]->retNumb==las[i]->nRet))image->nFoot[place]++;
+        if(dimage->drawCov&&(las[i]->classif!=2))image->nCan[place]++;
         image->nIn[place]++;
       }else{
         fprintf(stderr,"How can we be outside %d %d? x %f %f %f y %f %f %f\n",xBin,yBin,image->minX,x,image->maxX,image->minY,y,image->maxY);
@@ -253,9 +257,10 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
         if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
         if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
       }
+      if(dimage->drawCov)image->jimlad[i]=((float)image->nCan[i]/(float)image->nIn[i])*100.0;
       if(dimage->findDens){
-        if(image->nIn[i]>image->maxPoint)image->maxPoint=image->nIn[i];
-        if(image->nFoot[i]>image->maxFoot)image->maxFoot=image->nFoot[i];
+        if(image->nIn[i]>(uint64_t)image->maxPoint)image->maxPoint=image->nIn[i];
+        if(image->nFoot[i]>(uint64_t)image->maxFoot)image->maxFoot=image->nFoot[i];
         if(image->nIn[i]>0){
           meanPoint+=(float)image->nIn[i];
           nContP++;
@@ -265,6 +270,8 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
           nContF++;
         }
       }
+    }else{  /*mark as missing data*/
+      if(dimage->drawCov)image->jimlad[i]=255.0;
     }
   }
 
@@ -290,6 +297,12 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
         else                           image->image[i]=255;
       }
     }
+    if(dimage->drawCov){
+      image->image=uchalloc((uint64_t)image->nX*(uint64_t)image->nY,"image",0);
+      for(i=image->nX*image->nY-1;i>=0;i--)image->image[i]=(unsigned char)image->jimlad[i];
+      image->max=255.0;
+      image->min=0.0;
+    }
     TIDY(image->jimlad);
   }
   return;
@@ -314,34 +327,38 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
   image->maxX=image->maxY=-10000000000.0;
   image->minX=image->minY=10000000000.0;
 
+  /*determine bounds from all files*/
   for(i=0;i<dimage->nFiles;i++){
     if(las[i]->minB[0]<image->minX)image->minX=las[i]->minB[0];
     if(las[i]->minB[1]<image->minY)image->minY=las[i]->minB[1];
     if(las[i]->maxB[0]>image->maxX)image->maxX=las[i]->maxB[0];
     if(las[i]->maxB[1]>image->maxY)image->maxY=las[i]->maxB[1];
-
-    /*for(j=0;j<las[i]->nPoints;j++){
-      readLasPoint(las[i],j);
-      setCoords(&x,&y,&z,las[i]);
-      if(x<image->minX)image->minX=x;
-      if(y<image->minY)image->minY=y;
-      if(x>image->maxX)image->maxX=x;
-      if(y>image->maxY)image->maxY=y;
-    }*/
   }
 
+  /*size of image*/
   image->nX=(int)((image->maxX-image->minX)/(double)dimage->res)+1;
   image->nY=(int)((image->maxY-image->minY)/(double)dimage->res)+1;
   fprintf(stdout,"Image will be %d by %d\n",image->nX,image->nY);
 
-  if(dimage->drawInt||dimage->drawHeight)image->jimlad=falloc(image->nX*image->nY,"jimlad",0);
-  else                                   image->jimlad=NULL;
-  image->nIn=ialloc(image->nX*image->nY,"nIn",0);
+  /*allocate data arrays*/
+  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)image->jimlad=falloc(image->nX*image->nY,"jimlad",0);
+  else                                                    image->jimlad=NULL;
+  if(dimage->drawCov){
+    if(!(image->nCan=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){
+      fprintf(stderr,"error in canopy allocation\n");
+      exit(1);
+    }
+  }
+  if(!(image->nIn=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){
+    fprintf(stderr,"error in canopy allocation\n");
+    exit(1);
+  }
   if(dimage->findDens)image->nFoot=ialloc(image->nX*image->nY,"nFoot",0);
   else                image->nFoot=NULL;
   for(i=image->nX*image->nY-1;i>=0;i--){
     if(dimage->drawInt||dimage->drawHeight)image->jimlad[i]=0.0;
     if(dimage->findDens)image->nFoot[i]=0;
+    if(dimage->drawCov)image->nCan[i]=0;
     image->nIn[i]=0;
   }
   image->min=1000000.0;
@@ -375,6 +392,7 @@ control *readCommands(int argc,char **argv)
   dimage->drawHeight=0;
   dimage->drawDens=0;
   dimage->findDens=0;
+  dimage->drawCov=0;
   dimage->writeBounds=0;
   dimage->printNpoint=0;
   dimage->bFile=NULL;
@@ -413,12 +431,15 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-epsg");
         dimage->epsg=(uint16_t)atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noInt",6)){
-        dimage->drawInt=0;
+        dimage->drawInt=dimage->drawCov=0;
       }else if(!strncasecmp(argv[i],"-height",7)){
         dimage->drawHeight=1;
-        dimage->drawInt=0;
+        dimage->drawInt=dimage->drawCov=0;
       }else if(!strncasecmp(argv[i],"-findDens",9)){
         dimage->findDens=1;
+      }else if(!strncasecmp(argv[i],"-cover",6)){
+        dimage->drawCov=1;
+        dimage->drawInt=dimage->drawHeight=0;
       }else if(!strncasecmp(argv[i],"-writeBound",11)){
         checkArguments(1,i,argc,"-writeBound");
         dimage->writeBounds=1;
@@ -435,7 +456,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-float",6)){
         dimage->charImage=0;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-float;       output as float\n-height;     draw height image\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
