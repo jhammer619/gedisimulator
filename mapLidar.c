@@ -64,6 +64,10 @@ typedef struct{
   char printNpoint;   /*write number of points to the screen*/
   char charImage;     /*char or float image*/
 
+  /*enforced bounds*/
+  char findBounds;    /*find bounds from data switch*/
+  double bounds[4];   /*minX, minY, maxX, maxY*/
+
   /*geotiff parts*/
   float res;
   float maxDN;
@@ -104,43 +108,48 @@ int main(int argc,char **argv)
   int i=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
-  lasFile **las=NULL;
+  lasFile *las=NULL;
   imageStruct *image=NULL;
-  imageStruct *allocateImage(control *,lasFile **);
+  imageStruct *allocateImage(control *);
   imageStruct *tidyImage(imageStruct *);
-  void collateImage(control *,lasFile **,imageStruct *);
+  void collateImage(control *,lasFile *,imageStruct *);
+  void finishImage(control *,imageStruct *);
   void writeImage(control *,imageStruct *);
   void writeFileBounds(lasFile *,char *,control *);
-
+  void updateBounds(double *,lasFile *);
 
   /*read command line*/
   dimage=readCommands(argc,argv);
 
-  /*allocate space*/
-  if(!(las=(lasFile **)calloc(dimage->nFiles,sizeof(lasFile *)))){
-    fprintf(stderr,"error contN allocation.\n");
-    exit(1);
+  /*read file bounds if needed*/
+  if(dimage->writeBounds||dimage->findBounds||dimage->printNpoint){
+    for(i=0;i<dimage->nFiles;i++){
+      las=readLasHead(dimage->inList[i],dimage->pBuffSize);
+      if(dimage->epsg==0)readLasGeo(las);
+      else               las->epsg=dimage->epsg;
+      if(dimage->writeBounds)writeFileBounds(las,dimage->inList[i],dimage);
+      if(dimage->printNpoint)fprintf(stdout,"nPoints %s %u\n",dimage->inList[i],las->nPoints);
+      if(dimage->findBounds)updateBounds(dimage->bounds,las);
+      las=tidyLasFile(las);
+    }
   }
 
-  /*read file headers*/
-  for(i=0;i<dimage->nFiles;i++){
-    las[i]=readLasHead(dimage->inList[i],dimage->pBuffSize);
-    if(dimage->epsg==0)readLasGeo(las[i]);
-    else               las[i]->epsg=dimage->epsg;
-    if(dimage->writeBounds)writeFileBounds(las[i],dimage->inList[i],dimage);
-    if(dimage->printNpoint)fprintf(stdout,"nPoints %s %u\n",dimage->inList[i],las[i]->nPoints);
-  }
-
+  /*create imge if needed*/
   if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens||dimage->drawCov){
     /*allocate image array*/
-    image=allocateImage(dimage,las);
+    image=allocateImage(dimage);
 
-    /*read data and set up image*/
-    collateImage(dimage,las,image);
-  }
-  if(las){
-    for(i=0;i<dimage->nFiles;i++)las[i]=tidyLasFile(las[i]);
-    TIDY(las);
+    /*loop over las files*/
+    for(i=0;i<dimage->nFiles;i++){
+      /*re-read data*/
+      las=readLasHead(dimage->inList[i],dimage->pBuffSize);
+
+      /*is this file needed?*/
+      if(checkFileBounds(las,dimage->bounds[0],dimage->bounds[2],dimage->bounds[1],dimage->bounds[3]))collateImage(dimage,las,image);
+      las=tidyLasFile(las);
+    }
+    /*finish off image*/
+    finishImage(dimage,image);
   }
 
   /*write image*/
@@ -207,45 +216,50 @@ void writeImage(control *dimage,imageStruct *image)
 /*##################################################*/
 /*collate image*/
 
-void collateImage(control *dimage,lasFile **las,imageStruct *image)
+void collateImage(control *dimage,lasFile *las,imageStruct *image)
 {
-  int i=0,place=0;
+  int place=0;
   int xBin=0,yBin=0;
-  int nContP=0,nContF=0;
   uint32_t j=0;
   double x=0,y=0,z=0;
-  float meanPoint=0,meanFoot=0;
 
-  /*geolocation*/
-  image->geoI[0]=image->geoI[1]=0;
-  image->geoL[0]=image->minX+0.5*(double)dimage->res;
-  image->geoL[1]=image->maxY-0.5*(double)dimage->res;
-  image->epsg=las[0]->epsg;
+  if(las->epsg==0)las->epsg=dimage->epsg;
 
-  for(i=0;i<dimage->nFiles;i++){
-    if(las[i]->epsg!=image->epsg){
-      fprintf(stderr,"EPSG mismatch %d %d\n",(int)image->epsg,las[i]->epsg);
-      exit(1);
+  /*check EPSG*/
+  if(las->epsg!=image->epsg){
+    fprintf(stderr,"EPSG mismatch %d %d\n",(int)image->epsg,las->epsg);
+    exit(1);
+  }
+
+  /*loop over points*/
+  for(j=0;j<las->nPoints;j++){
+    readLasPoint(las,j);
+    setCoords(&x,&y,&z,las);
+
+    xBin=(int)((x-image->minX)/(double)dimage->res);
+    yBin=(int)((image->maxY-y)/(double)dimage->res);
+
+    if((xBin>=0)&&(xBin<image->nX)&&(yBin>=0)&&(yBin<image->nY)){
+      place=yBin*image->nX+xBin;
+      if(dimage->drawInt)image->jimlad[place]+=(float)las->refl;
+      else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
+      if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
+      if(dimage->drawCov&&(las->classif!=2))image->nCan[place]++;
+      image->nIn[place]++;
     }
-    for(j=0;j<las[i]->nPoints;j++){
-      readLasPoint(las[i],j);
-      setCoords(&x,&y,&z,las[i]);
+  }/*point loop*/
+  return;
+}/*collateImage*/
 
-      xBin=(int)((x-image->minX)/(double)dimage->res);
-      yBin=(int)((image->maxY-y)/(double)dimage->res);
 
-      if((xBin>=0)&&(xBin<image->nX)&&(yBin>=0)&&(yBin<image->nY)){
-        place=yBin*image->nX+xBin;
-        if(dimage->drawInt)image->jimlad[place]+=(float)las[i]->refl;
-        else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
-        if(dimage->findDens&&(las[i]->retNumb==las[i]->nRet))image->nFoot[place]++;
-        if(dimage->drawCov&&(las[i]->classif!=2))image->nCan[place]++;
-        image->nIn[place]++;
-      }else{
-        fprintf(stderr,"How can we be outside %d %d? x %f %f %f y %f %f %f\n",xBin,yBin,image->minX,x,image->maxX,image->minY,y,image->maxY);
-      }
-    }/*point loop*/
-  }/*file loop*/
+/*##################################################*/
+/*finish off image*/
+
+void finishImage(control *dimage,imageStruct *image)
+{
+  int i=0;
+  int nContP=0,nContF=0;
+  float meanPoint=0,meanFoot=0;
 
   /*normalise and find bounds*/
   meanPoint=meanFoot=0.0;
@@ -306,13 +320,25 @@ void collateImage(control *dimage,lasFile **las,imageStruct *image)
     TIDY(image->jimlad);
   }
   return;
-}/*collateImage*/
+}/*finishImage*/
 
+
+/*##################################################*/
+/*update image bounds*/
+
+void updateBounds(double *bounds,lasFile *las)
+{
+  if(las->minB[0]<bounds[0])bounds[0]=las->minB[0];
+  if(las->minB[1]<bounds[1])bounds[1]=las->minB[1];
+  if(las->maxB[0]>bounds[2])bounds[2]=las->maxB[0];
+  if(las->maxB[1]>bounds[3])bounds[3]=las->maxB[1];
+  return;
+}/*updateBounds*/
 
 /*##################################################*/
 /*allocate image struture*/
 
-imageStruct *allocateImage(control *dimage,lasFile **las)
+imageStruct *allocateImage(control *dimage)
 {
   int i=0;
   /*uint32_t j=0;
@@ -324,16 +350,11 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
     exit(1);
   }
 
-  image->maxX=image->maxY=-10000000000.0;
-  image->minX=image->minY=10000000000.0;
-
-  /*determine bounds from all files*/
-  for(i=0;i<dimage->nFiles;i++){
-    if(las[i]->minB[0]<image->minX)image->minX=las[i]->minB[0];
-    if(las[i]->minB[1]<image->minY)image->minY=las[i]->minB[1];
-    if(las[i]->maxB[0]>image->maxX)image->maxX=las[i]->maxB[0];
-    if(las[i]->maxB[1]>image->maxY)image->maxY=las[i]->maxB[1];
-  }
+  /*set image bounds*/
+  image->minX=dimage->bounds[0];
+  image->minY=dimage->bounds[1];
+  image->maxX=dimage->bounds[2];
+  image->maxY=dimage->bounds[3];
 
   /*size of image*/
   image->nX=(int)((image->maxX-image->minX)/(double)dimage->res)+1;
@@ -365,6 +386,12 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
   image->max=-1000000.0;
   image->maxFoot=image->maxPoint=0;
 
+  /*geolocation*/
+  image->geoI[0]=image->geoI[1]=0;
+  image->geoL[0]=image->minX+0.5*(double)dimage->res;
+  image->geoL[1]=image->maxY-0.5*(double)dimage->res;
+  image->epsg=dimage->epsg;
+
   return(image);
 }/*allocateImage*/
 
@@ -374,7 +401,7 @@ imageStruct *allocateImage(control *dimage,lasFile **las)
 
 control *readCommands(int argc,char **argv)
 {
-  int i=0;
+  int i=0,j=0;
   control *dimage=NULL;
   char **readInList(int *,char *);
 
@@ -399,6 +426,10 @@ control *readCommands(int argc,char **argv)
   dimage->epsg=0;    /*leave bank*/
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->charImage=1;
+  /*bounds*/
+  dimage->findBounds=1;
+  dimage->bounds[0]=dimage->bounds[1]=1000000000.0;
+  dimage->bounds[2]=dimage->bounds[3]=-1000000000.0;
 
   dimage->res=100.0;
   dimage->maxDN=-1.0;
@@ -455,8 +486,12 @@ control *readCommands(int argc,char **argv)
         dimage->printNpoint=1;
       }else if(!strncasecmp(argv[i],"-float",6)){
         dimage->charImage=0;
+      }else if(!strncasecmp(argv[i],"-bounds",7)){
+        checkArguments(4,i,argc,"-bounds");
+        dimage->findBounds=0;
+        for(j=0;j<4;j++)dimage->bounds[j]=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
