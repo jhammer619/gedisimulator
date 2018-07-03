@@ -59,8 +59,9 @@ typedef struct{
   int nLvis;           /*number of LVIS*/
 
   /*options*/
-  char useLvisHDF;
-  char useLvisLGW;
+  char useLvisHDF;     /*input data format switch*/
+  char useLvisLGW;     /*input data format switch*/
+  char useGediHDF;     /*input data format switch*/
   float offset;        /*vertical datum offset*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
@@ -844,6 +845,7 @@ control *readCommands(int argc,char **argv)
   strcpy(dimage->outNamen,"teast.correl");
   dimage->useLvisHDF=1;
   dimage->useLvisLGW=0;
+  dimage->useGediHDF=0;
   dimage->aEPSG=32632;
   dimage->lEPSG=4326;
   dimage->offset=0.0;
