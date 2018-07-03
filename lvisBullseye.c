@@ -619,6 +619,9 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
     }else if(dimage->useLvisLGW){
       /*unpack*/
       lvis=copyLVISlgw(dimage->lvisIO.inList[i],lvis,dimage,bounds);
+    }else if(dimage->useGediHDF){
+      fprintf(stderr,"ot set up to read GEDI HDF5 files yet\n");
+      exit(1);
     }
   }/*file loop*/
 
