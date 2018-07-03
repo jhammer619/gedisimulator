@@ -597,8 +597,10 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   dataStruct **lvis=NULL;
   dataStruct **copyLVIShdf(lvisHDF *,dataStruct **,control *,double *);
   dataStruct **copyLVISlgw(char *,dataStruct **,control *,double *);
+  dataStruct **copyGEDIhdf(gediHDF *,dataStruct **,control *,double *);
   double bounds[4],offset=0;
-  lvisHDF *hdf=NULL;
+  lvisHDF *hdf=NULL;        /*LVIS HDF5 structure*/
+  gediHDF *simHDF=NULL;     /*GEDI HDF5 structure*/
   void reprojectBounds(control *,double *);
 
 
@@ -610,7 +612,7 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   /*loop over lvus files*/
   for(i=0;i<dimage->lvisIO.nFiles;i++){
     if(dimage->useLvisHDF){
-      /*read*/
+      /*read HDF5*/
       hdf=readLVIShdf(dimage->lvisIO.inList[i]);
       /*unpack*/
       lvis=copyLVIShdf(hdf,lvis,dimage,bounds);
@@ -620,8 +622,12 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
       /*unpack*/
       lvis=copyLVISlgw(dimage->lvisIO.inList[i],lvis,dimage,bounds);
     }else if(dimage->useGediHDF){
-      fprintf(stderr,"ot set up to read GEDI HDF5 files yet\n");
-      exit(1);
+      /*read HDF*/
+      simHDF=readGediHDF(dimage->lvisIO.inList[i],&dimage->lvisIO);
+      /*unpack simulated HDF data*/
+      lvis=copyGEDIhdf(simHDF,lvis,dimage,bounds);
+      /*tidy up*/
+      simHDF=tidyGediHDF(simHDF);
     }
   }/*file loop*/
 
@@ -768,6 +774,55 @@ dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *b
 
 
 /*####################################################*/
+/*copy data from simulated HDF5*/
+
+dataStruct **copyGEDIhdf(gediHDF *hdf,dataStruct **lvis,control *dimage,double *bounds)
+{
+  int i=0,nNew=0;
+  double x=0,y=0;
+
+
+  /*count number within*/
+  nNew=0;
+  for(i=0;i<hdf->nWaves;i++){
+    x=hdf->lon[i];
+    y=hdf->lat[i];
+    if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3]))nNew++;
+  }/*point loop*/
+
+  /*allocate space*/
+  if(lvis==NULL){
+    if(!(lvis=(dataStruct **)calloc(nNew,sizeof(dataStruct *)))){
+      fprintf(stderr,"error in lvis data allocation.\n");
+      exit(1);
+    }
+  }else{
+    if(!(lvis=(dataStruct **)realloc(lvis,(dimage->nLvis+nNew)*sizeof(dataStruct *)))){
+      fprintf(stderr,"Balls\n");
+      exit(1);
+    }
+  }
+
+  /*copy data*/
+  nNew=0;
+  for(i=0;i<hdf->nWaves;i++){
+    x=hdf->lon[i];
+    y=hdf->lat[i];
+
+    if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3])){
+      lvis[nNew+dimage->nLvis]=unpackHDFgedi(NULL,&dimage->lvisIO,&hdf,i);
+      nNew++;
+    }
+  }
+
+  /*keep count*/
+  dimage->nLvis+=nNew;
+
+  return(lvis);
+}/*copyGEDIhdf*/
+
+
+/*####################################################*/
 /*unpack relevant data from HDF*/
 
 dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *bounds)
@@ -866,6 +921,11 @@ control *readCommands(int argc,char **argv)
   dimage->simIO.fSigma=4.31;
   dimage->simIO.pSigma=0.6893;
   dimage->gediRat.iThresh=0.002;
+
+  /*waveform reading settings*/
+  dimage->lvisIO.useInt=dimage->lvisIO.useFrac=0;
+  dimage->lvisIO.useCount=1;
+  dimage->lvisIO.ground=0;
 
   /*LVIS denoising*/
   setDenoiseDefault(dimage->lvisIO.den);
