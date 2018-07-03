@@ -2,39 +2,90 @@
 
 ### What is this repository for? ###
 
-This is a set of programs to simulate large-footprint full-waveform lidar from airborne lidar and to process it and perform various other tasks.
+This is a set of programs to simulate large-footprint full-waveform lidar from airborne lidar and to process it and perform various other tasks. The parts are:
 
+
+gediRat: simulates GEDI waveforms from ALS .las files and outputs ASCII or HDF5 waveforms.
+
+gediMetric: processes full-waveform data (LVIS or simulated GEDI) and outputs metrics.
+
+mapLidar: produces geotiffs from .las files of different properties. Also produces the bounding boxes of .las files for use in overlapLasFiles.csh.
+
+lasPoints: outputs .pts files from .las files for selected areas.
+
+lvisBullseye: produces the correlation bullseye plots of ALS to full-waveform data following Blair and Hofton (1999).
+
+addNoiseHDF: Reads waveform data from HDF5 files and adds noise of a chosen level.
+
+
+To find options, type the above command with "-help". These are exp,ained in full detail later. The other .c files are either small test programs in the development of the above or are libraries called by the above. Important libraries are:
+
+
+gediIO.c: contains the GEDI simulator.
+
+
+There are some C and bash shells to control the above:
+
+gediRatList.csh: batch processes gediRat.
+
+filtForR.csh: converts the output .txt files into .csv files for reading in to R.
+
+overlapLasFiles.csh: determines which .las files are needed for a given simulation.
+
+orbitTracks.bash: produces lists of footprints from GEDI orbital simulations.
+
+listALS.csh: produces the lists of .las files needed to read multiple files.
 
 
 
 ### How do I get set up? ###
 
-There is an inelegant setup script to install the simulator and dependencies by brute force. Do not use if you are happy installing on unix yourself. Script:
+Clone the repository and point to its location with the environment variable:
 
-https://bitbucket.org/umdgedi/gedisimulator/src/2d34db078333b56f42d8c28ef95bacdcb2f23455/setupGediRat
+GEDIRAT_ROOT
 
 
-It depends on these libraries:
+All programs depend on these libraries:
 
 Gnu Scientific Library
 
-Minpack (Levenberg-Maruqardt)
-
 Geotiff
 
+HDF5
+
+Minpack (Levenberg-Maruqardt):  https://www.physics.wisc.edu/~craigm/idl/cmpfit.html
 
 
+Point to these with the environment variable:
 
-Once they're installed, it also requires two less common, "special", libraries:
+GSL_ROOT
+HDF5_LIB
+CMPFIT_ROOT
+
+
+Once they're installed, it also requires two libraries without package managers:
 
 C-tools: https://bitbucket.org/StevenHancock/tools
-
 libClidar: https://bitbucket.org/StevenHancock/libclidar
 
+Clone these from bitbucket and point to their locations with the environment variables:
 
-Once these have been downloaded, modify the makefile to point to these special libraries. Make sure that the common libraries are in the LD_LIBRARY_PATH and type "make". Add "THIS=gediMetric" to compile the other .c files in that directory.
+HANCOCKTOOLS_ROOT
+LIBCLIDAR_ROOT
 
-There are some Cshells to control jobs. These point to awk scripts and so the "set bin=..." lines should be modified to point to the directory in which this simulator is downloaded.
+To compile, type:
+
+make THIS=gediRat
+
+Make sure that ~/bin/$ARCH exists and is in the path, where $ARCH is the result of `uname -m`.
+
+make THIS=gediRat install
+
+Replace "gediRat" with each of the commands above to compile and install.
+
+
+Make sure that all .csh and .bash files are also in your path.
+
 
 
 ### Contribution guidelines ###
