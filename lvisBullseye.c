@@ -1020,6 +1020,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-lgw",4)){
         dimage->useLvisHDF=0;
         dimage->useLvisLGW=1;
+        dimage->useGediHDF=0;
+      }else if(!strncasecmp(argv[i],"-readHDFgedi",11)){
+        dimage->useLvisHDF=0;
+        dimage->useLvisLGW=0;
+        dimage->useGediHDF=1;
       }else if(!strncasecmp(argv[i],"-aEPSG",6)){
         checkArguments(1,i,argc,"-aEPSG");
         dimage->aEPSG=atoi(argv[++i]);
@@ -1069,7 +1074,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-allSimMeth",11)){
         dimage->simIO.useCount=dimage->simIO.useInt=dimage->simIO.useFrac=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
