@@ -154,6 +154,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 {
   int i=0,j=0,k=0;
   int nX=0,contN=0;
+  int nTypeWaves=0;
   double xOff=0,yOff=0;
   double **coords=NULL;
   double **shiftPrints(double **,double,double,int);
@@ -165,12 +166,21 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   waveStruct *waves=NULL;
   FILE *opoo=NULL;
 
+
+  /*how mamy types of simuation methods*/
+  nTypeWaves=(int)(dimage->simIO.useCount+dimage->simIO.useFrac+dimage->simIO.useInt);
+
   /*open ourput file*/
   if((opoo=fopen(dimage->outNamen,"w"))==NULL){
     fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
     exit(1);
   }
-  fprintf(opoo,"# 1 xOff, 2 yOff, 3 correlInt, 4 stdev, 5 deltaCofGint, 6 numb, 7 correlCount, 8 stdev, 9 deltaCofGcount, 10 numb, 11 correlFrac, 12 stdev, 13 deltaCofGfrac, 14 numb\n");
+  fprintf(opoo,"# 1 xOff, 2 yOff");
+  if(dimage->simIO.useInt)fprintf(opoo,", 3 correlInt, 4 stdev, 5 deltaCofGint, 6 numb");
+  if(dimage->simIO.useCount)fprintf(opoo,", %d correlCount, %d stdev, %d deltaCofGcount, %d numb",3+4*dimage->simIO.useInt,3+4*dimage->simIO.useInt+1,3+4*dimage->simIO.useInt+2,3+4*dimage->simIO.useInt+3);
+  if(dimage->simIO.useFrac)fprintf(opoo,", %d correlFrac, %d stdev, %d deltaCofGfrac, %d numb",3+4*(dimage->simIO.useInt+dimage->simIO.useCount),3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+1\
+                                                                                              ,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+2,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+3);
+  fprintf(opoo,"\n");
 
   /*set up pulse*/
   setGediPulse(&dimage->simIO,&dimage->gediRat);
@@ -214,8 +224,8 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
         /*tidy up*/
         if(waves){
           TTIDY((void **)waves->wave,waves->nWaves);
-          TTIDY((void **)waves->canopy,3);
-          TTIDY((void **)waves->ground,3);
+          TTIDY((void **)waves->canopy,nTypeWaves);
+          TTIDY((void **)waves->ground,nTypeWaves);
           TIDY(waves);
         }
         TIDY(dimage->gediRat.lobe);
@@ -224,7 +234,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
       }/*footprint loop*/
 
       /*output results*/
-      writeCorrelStats(correl,contN,3,opoo,xOff,yOff,dimage);
+      writeCorrelStats(correl,contN,nTypeWaves,opoo,xOff,yOff,dimage);
 
       /*tidy up*/
       TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
@@ -921,6 +931,9 @@ control *readCommands(int argc,char **argv)
   dimage->simIO.fSigma=4.31;
   dimage->simIO.pSigma=0.6893;
   dimage->gediRat.iThresh=0.002;
+  dimage->simIO.useCount=1;
+  dimage->simIO.useInt=0;
+  dimage->simIO.useFrac=0;
 
   /*waveform reading settings*/
   dimage->lvisIO.useInt=dimage->lvisIO.useFrac=0;
@@ -1053,8 +1066,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-maxZen",7)){
         checkArguments(1,i,argc,"-maxZen");
         dimage->maxZen=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-allSimMeth",11)){
+        dimage->simIO.useCount=dimage->simIO.useInt=dimage->simIO.useFrac=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-no\norm;              do not normalise by ALS coverage\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;        don't correct sims for ALS densiy variations\n-noFilt;      don't filter outliers from correlation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw rather than hdf5\n-readHDFlvis;     read LVIS HDF5 input\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
