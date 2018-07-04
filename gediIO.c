@@ -2475,14 +2475,14 @@ void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
   /*determine max ground and max return*/
   maxGround=max=0.0;
   for(i=0;i<waves->nBins;i++){
-    if(waves->ground[1][i]>maxGround)maxGround=waves->ground[1][i];
-    if(waves->wave[1][i]>max)max=waves->wave[1][i];
+    if(waves->ground[(int)gediIO->useInt][i]>maxGround)maxGround=waves->ground[(int)gediIO->useInt][i];  /*note that this uses the count method by default*/
+    if(waves->wave[(int)gediIO->useInt][i]>max)max=waves->wave[(int)gediIO->useInt][i];
   }
   gThresh=maxGround*0.01;
   thresh=max*0.001;
 
   for(i=0;i<waves->nBins;i++){
-    if(waves->ground[1][i]>=gThresh){
+    if(waves->ground[(int)gediIO->useInt][i]>=gThresh){
       if(pastGround==0)gStart=i;
       pastGround=1;
       gGap=0.0;
@@ -2492,7 +2492,7 @@ void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
     if(gGap>maxGap){  /*too big a break, delete*/
       waves->groundBreakElev=waves->maxZ-(double)i*(double)gediIO->res;
       for(;i<waves->nBins;i++){
-        waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
+        waves->canopy[0][i]=waves->canopy[(int)gediIO->useInt][i]=waves->ground[0][i]=waves->ground[(int)gediIO->useInt][i]=0.0;
         for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
       }
     }/*too big a break, delete*/
@@ -2502,12 +2502,12 @@ void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
   gGap=0.0;
   maxGap=50.0;
   for(i=gStart;i>=0;i--){
-    if(waves->wave[1][i]>=thresh)gGap=0.0;
+    if(waves->wave[(int)gediIO->useInt][i]>=thresh)gGap=0.0;
     gGap+=gediIO->res;
 
     if(gGap>=maxGap){
       for(;i>=0;i--){
-        waves->canopy[0][i]=waves->canopy[1][i]=waves->ground[0][i]=waves->ground[1][i]=0.0;
+        waves->canopy[0][i]=waves->canopy[(int)gediIO->useInt][i]=waves->ground[0][i]=waves->ground[(int)gediIO->useInt][i]=0.0;
         for(j=0;j<waves->nWaves;j++)waves->wave[j][i]=0.0;
       }
     }

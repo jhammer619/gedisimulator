@@ -34,6 +34,7 @@ set octree=" "
 set octLevels=" "
 set nOctPix=" "
 set countOnly=" "
+set pulseAfter=" "
 
 
 # read options
@@ -166,6 +167,11 @@ while ($#argv>0)
   shift argv
   breaksw
 
+  case -pulseAfter
+    set pulseAfter="-pulseAfter"
+  shift argv
+  breaksw
+
   case -help
     echo " "
     echo "-inList name;      name of list with las file names"
@@ -176,6 +182,7 @@ while ($#argv>0)
     echo "-pSigma sigma;     pulse width, sigma in m"
     echo "-pFWHM fwhm;       pulse FWHM in ns"
     echo "-pFile name;       read the pulse from an ASCII file"
+    echo "-pulseAfter;       apply pulse shape after binning for speed"
     echo "-wavefront file;   read wavefront shape for non-Gaussian footprints"
     echo "-fSigma sigma;     footprint width, sigma in m"
     echo "-res res;          output range resolution, in metres"
@@ -231,7 +238,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter
 
   endif
 
