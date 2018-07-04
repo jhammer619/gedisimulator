@@ -531,7 +531,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
     /*read data*/
     als[i]=readALSdata(las,&dimage->gediRat,i);
-    if(als[i]->nPoints>0)fprintf(stdout,"%d ALS\n",als[i]->nPoints);
+    if(als[i]->nPoints>0)fprintf(stdout,"Found %d ALS points in file %d of %d\n",als[i]->nPoints,i+1,dimage->simIO.nFiles);
 
     /*tidy up*/
     las=tidyLasFile(las);
@@ -959,22 +959,23 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.maxScanAng=1000000000.0;    /*maximum scan angle*/
   dimage->gediRat.coords=NULL;     /*list of coordinates*/
   dimage->gediRat.readWave=0;
-  dimage->simIO.ground=0;
+  dimage->gediRat.pulseAfter=1;  /*smooth after for speed*/
   dimage->gediRat.sideLobe=0;   /*no side lobes*/
   dimage->gediRat.lobeAng=0.0;
   dimage->gediRat.checkCover=1;
   dimage->gediRat.normCover=1;
   dimage->gediRat.cleanOut=0;
   dimage->gediRat.topHat=0;
-  dimage->simIO.readPulse=0;
   dimage->gediRat.useShadow=0;
   dimage->gediRat.maxScanAng=1000000.0;   /*maximum scan angle*/
   dimage->gediRat.coords=NULL;       /*list of coordinates*/
   dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
-  dimage->simIO.nMessages=200;
   dimage->gediRat.doDecon=0;
   dimage->gediRat.indDecon=0;
+  dimage->simIO.nMessages=200;
   dimage->simIO.pRes=0.01;
+  dimage->simIO.ground=0;
+  dimage->simIO.readPulse=0;
   setDenoiseDefault(dimage->simIO.den);
   dimage->simIO.den->meanN=0.0;
   dimage->simIO.den->thresh=0.0;
@@ -1072,10 +1073,12 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-maxZen",7)){
         checkArguments(1,i,argc,"-maxZen");
         dimage->maxZen=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-pulseBefore",12)){
+        dimage->gediRat.pulseAfter=0;  /*smooth befpre to prevent aliasing*/
       }else if(!strncasecmp(argv[i],"-allSimMeth",11)){
         dimage->simIO.useCount=dimage->simIO.useInt=dimage->simIO.useFrac=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      distance to search over\n-step x;          steps to take\n-offset x;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

@@ -159,6 +159,7 @@ typedef struct{
   char checkCover;     /*check that the whole footprit is covered by data*/
   char useFootprint;   /*use footprint or not flag*/
   char cleanOut;       /*clean subterranean outliers*/
+  char pulseAfter;     /*apply the pulse after binning*/
 
   /*coordinates*/
   double coord[2];

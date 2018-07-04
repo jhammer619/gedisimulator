@@ -27,8 +27,8 @@ dataStruct **tidyAsciiStruct(dataStruct **data,int nFiles)
 
   if(data){
     for(i=0;i<nFiles;i++){
-      if(data[i]->wave)TTIDY((void **)data[i]->wave,data[i]->nWaveTypes);
-      if(data[i]->ground)TTIDY((void **)data[i]->ground,data[i]->nWaveTypes);
+      TTIDY((void **)data[i]->wave,data[i]->nWaveTypes);
+      TTIDY((void **)data[i]->ground,data[i]->nWaveTypes);
       TIDY(data[i]->noised);
       TIDY(data[i]->totE);
       TIDY(data[i]->z);
@@ -605,8 +605,8 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 {
 
   if(hdfData){
-    if(hdfData->wave)TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
-    if(hdfData->ground)TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
+    TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
+    TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
     TIDY(hdfData->waveID);
     TIDY(hdfData->pulse);
     TIDY(hdfData->z0);       /*wave top elevations*/
@@ -1911,17 +1911,17 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   waves->maxZ=maxZ+buff;
 
   waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
-  if(gediRat->readWave)waves->nWaves=9;
-  else                 waves->nWaves=3;
+  waves->nWaves=(int)(gediIO->useCount+gediIO->useInt+gediIO->useFrac);
+  if(gediRat->readWave)waves->nWaves*=3;  /*if we are using full waveform*/
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
   for(j=0;j<waves->nWaves;j++){
     waves->wave[j]=falloc(waves->nBins,"result waveform",j+1);
     for(k=0;k<waves->nBins;k++)waves->wave[j][k]=0.0;
   }
   if(gediIO->ground){
-    waves->canopy=fFalloc(3,"canopy",0);
-    waves->ground=fFalloc(3,"ground",0);
-    for(j=0;j<3;j++){
+    waves->canopy=fFalloc(waves->nWaves,"canopy",0);
+    waves->ground=fFalloc(waves->nWaves,"ground",0);
+    for(j=0;j<waves->nWaves;j++){
       waves->canopy[j]=falloc(waves->nBins,"canopy waveform",j+1);
       waves->ground[j]=falloc(waves->nBins,"ground waveform",j+1);
       for(k=0;k<waves->nBins;k++)waves->canopy[j][k]=waves->ground[j][k]=0.0;
@@ -2140,6 +2140,8 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
   double totGround=0;     /*contrbution to ground estimate*/
   float refl=0,rScale=0,fracHit=0,totAng=0;
   void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,gediRatStruct *,gediIOstruct *);
+  void applyPulseShape(gediIOstruct *,gediRatStruct *,waveStruct *);
+
 
   /*reset mean scan angle*/
   waves->meanScanAng=totAng=0.0;
@@ -2189,25 +2191,48 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
         refl=(float)data[numb]->refl[i]*rScale;
         if(data[numb]->nRet[i]>0)fracHit=1.0/(float)data[numb]->nRet[i];
         else                     fracHit=1.0;
-        for(j=0;j<gediIO->pulse->nBins;j++){
-          bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
+
+        /*if convolving before, smooth now*/
+        if(gediRat->pulseAfter==0){
+          /*loop over pulse array*/
+          for(j=0;j<gediIO->pulse->nBins;j++){
+            bin=(int)((waves->maxZ-data[numb]->z[i]+(double)gediIO->pulse->x[j])/(double)gediIO->res);
+            if((bin>=0)&&(bin<waves->nBins)){
+              if(gediIO->useInt)waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
+              if(gediIO->useCount)waves->wave[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
+              if(gediIO->useFrac)waves->wave[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+              if(gediIO->ground){
+                if(data[numb]->class[i]==2){
+                  if(gediIO->useInt)waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
+                  if(gediIO->useCount)waves->ground[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
+                  if(gediIO->useFrac)waves->ground[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                }else{
+                  if(gediIO->useInt)waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
+                  if(gediIO->useCount)waves->canopy[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
+                  if(gediIO->useFrac)waves->canopy[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                }
+              }/*ground recording if needed*/
+            }/*bin bound check*/
+          }/*pulse bin loop*/
+        }else{   /*bin up to smooth later*/
+          bin=(int)((waves->maxZ-data[numb]->z[i])/(double)gediIO->res);
           if((bin>=0)&&(bin<waves->nBins)){
-            if(gediIO->useInt)waves->wave[0][bin]+=refl*gediIO->pulse->y[j];
-            if(gediIO->useCount)waves->wave[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
-            if(gediIO->useFrac)waves->wave[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+            if(gediIO->useInt)waves->wave[0][bin]+=refl;
+            if(gediIO->useCount)waves->wave[(int)gediIO->useInt][bin]+=rScale;
+            if(gediIO->useFrac)waves->wave[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit;
             if(gediIO->ground){
               if(data[numb]->class[i]==2){
-                if(gediIO->useInt)waves->ground[0][bin]+=refl*gediIO->pulse->y[j];
-                if(gediIO->useCount)waves->ground[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
-                if(gediIO->useFrac)waves->ground[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->ground[0][bin]+=refl;
+                if(gediIO->useCount)waves->ground[(int)gediIO->useInt][bin]+=rScale;
+                if(gediIO->useFrac)waves->ground[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit;
               }else{
-                if(gediIO->useInt)waves->canopy[0][bin]+=refl*gediIO->pulse->y[j];
-                if(gediIO->useCount)waves->canopy[(int)gediIO->useInt][bin]+=rScale*gediIO->pulse->y[j];
-                if(gediIO->useFrac)waves->canopy[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit*gediIO->pulse->y[j];
+                if(gediIO->useInt)waves->canopy[0][bin]+=refl;
+                if(gediIO->useCount)waves->canopy[(int)gediIO->useInt][bin]+=rScale;
+                if(gediIO->useFrac)waves->canopy[(int)(gediIO->useCount+gediIO->useInt)][bin]+=rScale*fracHit;
               }
-            }/*ground recording if needed*/
-          }/*bin bound check*/
-        }/*pulse bin loop*/
+            }
+          }/*bin check*/
+        }/*apply pulse before or after*/
         if(gediIO->ground){
           if(data[numb]->class[i]==2){
             waves->gElevSimp+=rScale*data[numb]->z[i];
@@ -2225,6 +2250,9 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
         }/*waveform test*/
       }
     }/*point loop*/
+
+    /*if applying pulse after, smooth*/
+    if(gediRat->pulseAfter)applyPulseShape(gediIO,gediRat,waves);
   }/*lobe loop*/
 
   /*normalise mean scan angle*/
@@ -2234,6 +2262,82 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
 
   return;
 }/*waveFromPointCloud*/
+
+
+/*################################################################################*/
+/*apply pulse on binned waveform*/
+
+void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *waves)
+{
+  int i=0,j=0,k=0;
+  int bin=0;
+  int binsAbove=0;
+  int binsBelow=0;
+  float **temp=NULL;
+  float **tempGr=NULL;
+  float **tempC=NULL;
+
+  /*allocate temporary space*/
+  temp=fFalloc(waves->nWaves,"temp waves",0);
+  if(gediIO->ground){
+    tempGr=fFalloc(waves->nWaves,"temp ground waves",0);
+    tempC=fFalloc(waves->nWaves,"temp canopy waves",0);
+  }
+  for(k=0;k<waves->nWaves;k++){
+    temp[k]=falloc(waves->nBins,"temp waves",i+1);
+    if(gediIO->ground){
+      tempGr[k]=falloc(waves->nBins,"temp ground waves",i+1);
+      tempC[k]=falloc(waves->nBins,"temp camopy waves",i+1);
+    }
+    /*set to zero*/
+    for(i=0;i<waves->nBins;i++){
+      temp[k][i]=0.0;
+      if(gediIO->ground){
+        tempGr[k][i]=0.0;
+        tempC[k][i]=0.0;
+      }
+    }
+  }/*allocate temporary space*/
+
+  /*maximum distance to loop*/
+  binsBelow=(int)((float)gediIO->pulse->centBin*gediIO->pRes/gediIO->res);
+  binsAbove=(int)((float)(gediIO->pulse->nBins-gediIO->pulse->centBin)*gediIO->pRes/gediIO->res);
+
+  /*smooth by pulse shape*/
+  /*loop over methods*/
+  for(k=0;k<waves->nWaves;k++){
+    /*loop over waveform*/
+    for(i=0;i<waves->nBins;i++){
+      /*loop over pulse*/
+      for(j=i-binsBelow;j<=(i+binsAbove);j++){
+        /*are we within the waveform?*/
+        if((j<0)||(j>=waves->nBins))continue;
+        /*pulse array bin*/
+        bin=(int)((float)(j-i)*gediIO->res/gediIO->pRes)+gediIO->pulse->centBin;
+        /*are we within the pulse array?*/
+        if((bin>=0)&&(bin<gediIO->pulse->nBins)){
+          temp[k][j]+=waves->wave[k][i]*gediIO->pulse->y[bin];
+          if(gediIO->ground){
+            tempGr[k][j]+=waves->ground[k][i]*gediIO->pulse->y[bin];
+            tempC[k][j]+=waves->canopy[k][i]*gediIO->pulse->y[bin];
+          }
+        }/*bin bound check*/
+      }/*pulse bin loop*/
+    }/*type loop*/
+  }/*bin loop*/
+
+  /*transfer arrays*/
+  TTIDY((void **)waves->wave,waves->nWaves);
+  TTIDY((void **)waves->ground,waves->nWaves);
+  TTIDY((void **)waves->canopy,waves->nWaves);
+  waves->wave=temp;
+  waves->ground=tempGr;
+  waves->canopy=tempC;
+  temp=NULL;
+  tempC=NULL;
+  tempGr=NULL;
+  return;
+}/*applyPulseShape*/
 
 
 /*################################################################################*/
@@ -2480,7 +2584,7 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
 
     /*make waves*/
     if(gediRat->useShadow==0)waveFromPointCloud(gediRat,gediIO,data,waves,pointmap);
-    else                    waveFromShadows(gediRat,gediIO,data,waves,pointmap);
+    else                     waveFromShadows(gediRat,gediIO,data,waves,pointmap);
 
     /*clean outliers if needed*/
     if(gediRat->cleanOut)cleanOutliers(waves,gediIO);
