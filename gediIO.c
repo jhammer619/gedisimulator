@@ -27,8 +27,8 @@ dataStruct **tidyAsciiStruct(dataStruct **data,int nFiles)
 
   if(data){
     for(i=0;i<nFiles;i++){
-      TTIDY((void **)data[i]->wave,data[i]->nWaveTypes);
-      TTIDY((void **)data[i]->ground,data[i]->nWaveTypes);
+      if(data[i]->wave)TTIDY((void **)data[i]->wave,data[i]->nWaveTypes);
+      if(data[i]->ground)TTIDY((void **)data[i]->ground,data[i]->nWaveTypes);
       TIDY(data[i]->noised);
       TIDY(data[i]->totE);
       TIDY(data[i]->z);
@@ -605,8 +605,8 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 {
 
   if(hdfData){
-    TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
-    TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
+    if(hdfData->wave)TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
+    if(hdfData->ground)TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
     TIDY(hdfData->waveID);
     TIDY(hdfData->pulse);
     TIDY(hdfData->z0);       /*wave top elevations*/
@@ -670,10 +670,12 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 
   /*point to arrays rather than copy*/
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[0]=&(hdfGedi[0]->wave[data->useType][numb*hdfGedi[0]->nBins]);
+  data->wave[0]=falloc(data->nBins,"waveform",0);
+  memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][numb*hdfGedi[0]->nBins]),data->nBins*4);
   if(gediIO->ground){
     data->ground=fFalloc(data->nWaveTypes,"ground waveform",0);
-    data->ground[0]=&(hdfGedi[0]->ground[data->useType][numb*hdfGedi[0]->nBins]);
+    data->ground[0]=falloc(data->nBins,"waveform",0);
+    memcpy(data->ground[0],&(hdfGedi[0]->ground[data->useType][numb*hdfGedi[0]->nBins]),data->nBins*4);
   }else data->ground=NULL;
 
   /*count energy*/

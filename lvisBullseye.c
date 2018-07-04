@@ -939,6 +939,7 @@ control *readCommands(int argc,char **argv)
   dimage->lvisIO.useInt=dimage->lvisIO.useFrac=0;
   dimage->lvisIO.useCount=1;
   dimage->lvisIO.ground=0;
+  dimage->lvisIO.nMessages=200;
 
   /*LVIS denoising*/
   setDenoiseDefault(dimage->lvisIO.den);
