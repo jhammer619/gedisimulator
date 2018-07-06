@@ -80,7 +80,7 @@ int main(int argc,char **argv)
   hdfGedi=noiseGEDI(dimage);
 
   /*write data*/
-  writeGEDIhdf(hdfGedi,dimage->outNamen);
+  writeGEDIhdf(hdfGedi,dimage->outNamen,&dimage->gediIO);
 
   /*tidy up*/
   hdfGedi=tidyGediHDF(hdfGedi);
@@ -112,17 +112,20 @@ gediHDF *noiseGEDI(control *dimage)
   dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->linkPsig,dimage->linkFsig,rhoC,rhoG);
 
   /*read dummy hdf data*/
-  dimage->gediIO.useInt=1;
-  dimage->gediIO.useCount=1;
-  dimage->gediIO.useFrac=1;
+  dimage->gediIO.useInt=dimage->gediIO.useCount=dimage->gediIO.useFrac=0;
   data=unpackHDFgedi(dimage->inNamen,&dimage->gediIO,&allHDF,0);
   data=tidyData(data,dimage->readHDFgedi);
 
   /*loop over wave types*/
   for(j=0;j<allHDF->nTypeWaves;j++){
-    dimage->gediIO.useInt=(j==0)?1:0;
-    dimage->gediIO.useCount=(j==1)?1:0;
-    dimage->gediIO.useFrac=(j==2)?1:0;
+    if(allHDF->nTypeWaves==3){
+      dimage->gediIO.useInt=(j==0)?1:0;
+      dimage->gediIO.useCount=(j==1)?1:0;
+      dimage->gediIO.useFrac=(j==2)?1:0;
+    }else{
+      dimage->gediIO.useCount=1;
+      dimage->gediIO.useInt=dimage->gediIO.useFrac=0;
+    }
     /*loop over waves*/
     for(i=0;i<allHDF->nWaves;i++){
       data=unpackHDFgedi(dimage->inNamen,&dimage->gediIO,&hdfGedi,i);
@@ -138,9 +141,14 @@ gediHDF *noiseGEDI(control *dimage)
   }/*wave loop*/
 
   /*reset all wave flags*/
-  dimage->gediIO.useInt=1;
-  dimage->gediIO.useCount=1;
-  dimage->gediIO.useFrac=1;
+  if(allHDF->nTypeWaves==3){
+    dimage->gediIO.useInt=1;
+    dimage->gediIO.useCount=1;
+    dimage->gediIO.useFrac=1;
+  }else{
+    dimage->gediIO.useCount=1;
+    dimage->gediIO.useInt=dimage->gediIO.useFrac=0;
+  }
 
   return(allHDF);
 }/*noiseGEDI*/
@@ -201,6 +209,8 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.useFrac=1;
   dimage->gediIO.nMessages=200;
   dimage->gediIO.ground=1;
+  dimage->linkFsig=5.5;
+  dimage->linkPsig=0.9;
 
   /*read the command line*/
   for (i=1;i<argc;i++){

@@ -494,6 +494,15 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   hdfData->idLength=*tempI;
   TIDY(tempI);
 
+  /*set which waves are here if not predefined*/
+  if(!(gediIO->useInt+gediIO->useCount+gediIO->useFrac)){
+    if(hdfData->nTypeWaves==3){
+      gediIO->useInt=gediIO->useCount=gediIO->useFrac=1;
+    }else{
+      gediIO->useInt=gediIO->useFrac=0;
+      gediIO->useCount=1;
+    }
+  }
 
   /*read ancillary data*/
   hdfData->z0=read1dFloatHDF5(file,"Z0",&nWaves);
