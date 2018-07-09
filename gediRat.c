@@ -499,7 +499,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
   /*make waveID if needed*/
   if(dimage->gediRat.doGrid){
-    if(dimage->useID)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->gediRat.coord[0],(int)dimage->gediRat.coord[1]);
+    if(dimage->useID)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->gediRat.geoCoords[numb][0],(int)dimage->gediRat.geoCoords[numb][1]);
   }else if(dimage->gediRat.readALSonce){
     strcpy(waveID,dimage->gediRat.waveIDlist[numb]);
   }else{
@@ -516,7 +516,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
   if(dimage->gediIO.ground==0)fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 discrete count, 4 discrete fraction, 5 ALS pulse, 6 ALS and GEDI pulse, 7 ind decon, 8 ind decon GEDI, 9 decon GEDI, 10 ind decon\n");
   else                 fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
   fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,dimage->gediRat.sideLobe);
-  fprintf(opoo,"# coord %.2f %.2f\n",dimage->gediRat.coord[0],dimage->gediRat.coord[1]);
+  fprintf(opoo,"# coord %.2f %.2f\n",dimage->gediRat.geoCoords[numb][0],dimage->gediRat.geoCoords[numb][1]);
   fprintf(opoo,"# density point %f beam %f\n",dimage->gediRat.pointDense,dimage->gediRat.beamDense);
   fprintf(opoo,"# meanScanAng %f\n",waves->meanScanAng);
   if(dimage->useID)fprintf(opoo,"# waveID %s\n",waveID);
