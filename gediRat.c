@@ -174,8 +174,8 @@ int main(int argc,char **argv)
         TIDY(dimage->gediRat.lobe);
         if(waves){
           TTIDY((void **)waves->wave,waves->nWaves);
-          TTIDY((void **)waves->canopy,3);
-          TTIDY((void **)waves->ground,3);
+          TTIDY((void **)waves->canopy,waves->nWaves);
+          TTIDY((void **)waves->ground,waves->nWaves);
           TIDY(waves);
         }
       }/*grid y loop*/
@@ -202,6 +202,7 @@ int main(int argc,char **argv)
       TIDY(dimage->gediIO.pulse);
     }
     TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
+    TTIDY((void **)dimage->gediRat.geoCoords,dimage->gediRat.gNx);
     TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
     TTIDY((void **)dimage->inList,dimage->gediIO.nFiles);
     if(dimage->gediRat.wavefront){
@@ -263,8 +264,13 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
   /*copy data*/
   hdfData->z0[numb]=waves->maxZ-(float)start*dimage->gediIO.res;
   hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*dimage->gediIO.res;
-  hdfData->lon[numb]=dimage->gediRat.coord[0];
-  hdfData->lat[numb]=dimage->gediRat.coord[1];
+  if(dimage->gediRat.geoCoords){
+    hdfData->lon[numb]=dimage->gediRat.geoCoords[waveNumb][0];
+    hdfData->lat[numb]=dimage->gediRat.geoCoords[waveNumb][1];
+  }else{
+    hdfData->lon[numb]=dimage->gediRat.coord[0];
+    hdfData->lat[numb]=dimage->gediRat.coord[1];
+  }
   hdfData->beamDense[numb]=dimage->gediRat.beamDense;
   hdfData->pointDense[numb]=dimage->gediRat.pointDense;
   hdfData->zen[numb]=waves->meanScanAng;;

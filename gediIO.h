@@ -176,6 +176,7 @@ typedef struct{
   char coordList[200]; /*list of coordinates*/
   char **waveIDlist;   /*list of waveform IDs*/
   double **coords;     /*list of coordinates*/
+  double **geoCoords;  /*list of coordinates of where GEDI thinks it is pointing*/
 
   /*GEDI footprint parameters, per footprint*/
   char sideLobe;     /*side lobe switch*/

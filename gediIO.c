@@ -1484,7 +1484,8 @@ void readFeetList(gediRatStruct *gediRat)
 {
   int i=0;
   char line[200],temp1[50];
-  char temp2[50],temp3[100];;
+  char temp2[50],temp3[100];
+  char temp4[50],temp5[50];
   FILE *ipoo=NULL;
 
   /*open file*/
@@ -1503,6 +1504,7 @@ void readFeetList(gediRatStruct *gediRat)
   gediRat->gNy=1;
   gediRat->coords=dDalloc(gediRat->gNx,"coord list",0);
   gediRat->waveIDlist=chChalloc(gediRat->gNx,"wave ID list",0);
+  gediRat->geoCoords=dDalloc(gediRat->gNx,"geolocated coord list",0);
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
@@ -1515,14 +1517,22 @@ void readFeetList(gediRatStruct *gediRat)
   while(fgets(line,200,ipoo)!=NULL){
     if(strncasecmp(line,"#",1)){
       gediRat->coords[i]=dalloc(2,"coord list",i+1);
-      if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){ /*read coord and waveID*/
+      gediRat->geoCoords[i]=dalloc(2,"geolocated coord list",i+1);
+      if(sscanf(line,"%s %s %s %s %s",temp1,temp2,temp3,temp4,temp5)==5){ /*read coord, waveID and shofted coord*/
         gediRat->coords[i][0]=atof(temp1);
         gediRat->coords[i][1]=atof(temp2);
         gediRat->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
         strcpy(gediRat->waveIDlist[i],temp3);
+        gediRat->geoCoords[i][0]=atof(temp4);
+        gediRat->geoCoords[i][1]=atof(temp5);
+      }else if(sscanf(line,"%s %s %s",temp1,temp2,temp3)==3){ /*read coord and waveID*/
+        gediRat->coords[i][0]=gediRat->geoCoords[i][0]=atof(temp1);
+        gediRat->coords[i][1]=gediRat->geoCoords[i][1]=atof(temp2);
+        gediRat->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
+        strcpy(gediRat->waveIDlist[i],temp3);
       }else if(sscanf(line,"%s %s",temp1,temp2)==2){
-        gediRat->coords[i][0]=atof(temp1);
-        gediRat->coords[i][1]=atof(temp2);
+        gediRat->coords[i][0]=gediRat->geoCoords[i][0]=atof(temp1);
+        gediRat->coords[i][1]=gediRat->geoCoords[i][1]=atof(temp2);
         sprintf(temp3,"%f.%f",gediRat->coords[i][0],gediRat->coords[i][1]);
         gediRat->waveIDlist[i]=challoc((int)strlen(temp3)+1,"wave ID list",i+1);
         strcpy(gediRat->waveIDlist[i],temp3);
