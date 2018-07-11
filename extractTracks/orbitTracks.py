@@ -265,7 +265,8 @@ if __name__ == '__main__':
           # date
           ye=int(((delta_time[ind]/(24*60*60))+t0)/365.25)+18
           doy=int(((delta_time[ind]/(24*60*60))+t0)%365.25)
-
+          day=int(delta_time[ind]/(24*60*60))
+          minute=(delta_time[ind]/60.0)-(day*24.0*60.0)
  
           # how many footprints within this MODIS cell?
           xS,yS=transform(inProj,outProj,crossing_lon[j],crossing_lat[j])
@@ -310,7 +311,7 @@ if __name__ == '__main__':
           for p in range(0,nIn+1):
             uX=np.append(uX,x00+dX*p*sRes+errX[doyInd])
             uY=np.append(uY,y00+dY*p*sRes+errY[doyInd])
-            waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d.pow.%d.phen.%d.vcf.%d"%(beamid,j,numb,tim,int(sim_sun_el[ind]),ye,doy,power,phenLab,vcf))
+            waveID.append("%d.%d.%d.%s.zen.%d.y.%d.doy.%d.pow.%d.phen.%d.vcf.%d.day.%d.min.%d"%(beamid,j,numb,tim,int(sim_sun_el[ind]),ye,doy,power,phenLab,vcf,day,minute))
             numb=numb+1  # increment footprint counter along
  
     # write data
