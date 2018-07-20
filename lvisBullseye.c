@@ -706,7 +706,8 @@ float **denoiseAllLvis(dataStruct **lvis,control *dimage)
     for(j=0;j<lvis[i]->nBins;j++)tot+=denoised[i][j];
     for(j=0;j<lvis[i]->nBins;j++)denoised[i][j]/=tot;
     /*determine beam sensitivity*/
-    lvis[i]->beamSense=findBlairSense(lvis[i],&dimage->simIO);
+    if(dimage->minSense>0.0)lvis[i]->beamSense=findBlairSense(lvis[i],&dimage->simIO);
+    else                    lvis[i]->beamSense=0.0;
   }/*LVIS footprint loop*/
 
   return(denoised);
