@@ -695,8 +695,8 @@ float **denoiseAllLvis(dataStruct **lvis,control *dimage)
   /*allocate space*/
   denoised=fFalloc(dimage->nLvis,"denoised waveforms",0);
 
+  /*make sure fSigma is not 0*/
   dimage->simIO.linkFsig=dimage->simIO.fSigma;
-  fprintf(stdout,"test %f %f\n",dimage->simIO.linkFsig,dimage->simIO.linkPsig);
 
   /*loop over LVIS footprints*/
   for(i=0;i<dimage->nLvis;i++){
