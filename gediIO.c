@@ -11,6 +11,7 @@
 #include "libLidVoxel.h"
 #include "libOctree.h"
 #include "gediIO.h"
+#include "gediNoise.h"
 
 
 /*tolerances*/
@@ -1704,6 +1705,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediIO->pSigma+=(gediIO->pulse->x[i]-CofG)*(gediIO->pulse->x[i]-CofG)*gediIO->pulse->y[i];
   }
   gediIO->pSigma=sqrt(gediIO->pSigma/tot);
+  gediIO->linkPsig=gediIO->pSigma;
 
   /*now normalise*/
   for(i=0;i<gediIO->pulse->nBins;i++)gediIO->pulse->y[i]/=tot;
@@ -2734,6 +2736,59 @@ float waveformTrueCover(dataStruct *data,gediIOstruct *gediIO,float rhoRatio)
   }
   return(cov);
 }/*waveformTrueCover*/
+
+
+/*####################################################*/
+/*determine Blair sensitivity metric*/
+
+float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
+{
+  int i=0;
+  float gAmp=0,totE=0;
+  float sigEff=0,gArea=0;
+  float slope=0,tanSlope=0;
+  float blairSense=0;
+  float meanN=0,stdev=0;
+  float notNeeded=0;
+  double nNsig=0,nSsig=0;
+  float probNoise=0,probMiss=0;
+  float *wave=NULL;
+  void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
+  void gaussThresholds(double,double,double,double,double *,double *);
+
+  /*set sigma*/
+  if(data->fSigma>0.0)gediIO->linkFsig=data->fSigma;
+
+  /*noised if available. Raw if not*/
+  if(data->noised)wave=data->noised;
+  else            wave=data->wave[data->useType];
+
+  /*determine noise stats for sensitivity metric*/
+  meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res));
+  stdev-=meanN;
+
+  /*total energy*/
+  totE=0.0;
+  for(i=0;i<data->nBins;i++)totE+=wave[i]-meanN;
+  wave=NULL;
+
+  if(stdev>0.0){
+    probNoise=0.05;
+    probMiss=0.1;
+    gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
+
+    slope=2.0*M_PI/180.0;
+    tanSlope=sin(slope)/cos(slope);
+    gAmp=(float)(nNsig+nSsig)*stdev;
+    sigEff=sqrt(gediIO->linkPsig*gediIO->linkPsig+gediIO->linkFsig*gediIO->linkFsig*tanSlope*tanSlope);
+    gArea=gAmp*sigEff*sqrt(2.0*M_PI)/totE;
+
+    if(gArea>0.0)blairSense=1.0-gArea;
+    else         blairSense=0.0;
+  }else blairSense=1.0;
+
+  return(blairSense);
+}/*findBlairSense*/
 
 
 /*the end*/

@@ -97,6 +97,7 @@ typedef struct{
   char usable;      /*is the data usable*/
   float beamDense;  /*beam density*/
   float pointDense; /*point denisty*/
+  float beamSense;  /*beam sensiivity*/
   float res;        /*range resolution*/
   float zen;        /*beam zenith angle (degrees)*/
   char demGround;   /*use the defined DEM ground values*/
@@ -122,6 +123,10 @@ typedef struct{
   /*denoising parameters*/
   denPar *den;   /*for denoising*/
   denPar *gFit;  /*for Gaussian fitting*/
+
+  /*for noise levels*/
+  float linkFsig; /*footprint width to calculate link margin from*/
+  float linkPsig; /*pulse width to calculate link margin from*/
 
   /*lidar parameters*/
   float pFWHM;     /*pulse width in ns*/
@@ -307,6 +312,7 @@ void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 wFrontStruct *copyFrontFilename(char *);
 float waveformTrueCover(dataStruct *,gediIOstruct *,float);
+float findBlairSense(dataStruct *,gediIOstruct *);
 
 /*# the end*/
 /*###########################################################*/

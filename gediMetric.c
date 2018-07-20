@@ -107,8 +107,6 @@ typedef struct{
   /*noise parameters*/
   noisePar noise;  /*noise adding structure*/
   float bThresh;   /*bounds threshold*/
-  float linkFsig;  /*footprint sigma used for link margin*/
-  float linkPsig;  /*pulse sigma used for link margin*/
 
   /*LVIS or HDF data*/
   lvisLGWstruct lvis;   /*LVIS lgw structure*/
@@ -211,7 +209,7 @@ int main(int argc,char **argv)
   dimage=readCommands(argc,argv);
 
   /*set link noise if needed*/
-  dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->linkPsig,dimage->linkFsig,rhoC,rhoG);
+  dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->gediIO.linkPsig,dimage->gediIO.linkFsig,rhoC,rhoG);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -703,7 +701,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   float *blankRH(float,int *);
   float *smoothed=NULL,*canWave=NULL;
   float halfCover(float *,double *,int,double,float);
-  float findBlairSense(metStruct *,dataStruct *,control *);
   void findSignalBounds(float *,double *,int,double *,double *,control *);
   void findWaveExtents(float *,double *,int,double,double,float *,float *);
   void setDenoiseDefault(denPar *);
@@ -736,7 +733,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
   /*Blair sensitivity*/
-  metric->blairSense=findBlairSense(metric,data,dimage);
+  metric->blairSense=findBlairSense(data,&dimage->gediIO);
 
   /*smooth waveform for fonding ground by max and inflection*/
   setDenoiseDefault(&den);
@@ -1000,48 +997,6 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
   TIDY(laiProf);
   return(tLAI);
 }/*findLAIprofile*/
-
-
-/*####################################################*/
-/*determine Blair sensitivity metric*/
-
-float findBlairSense(metStruct *metric,dataStruct *data,control *dimage)
-{
-  float gAmp=0;
-  float sigEff=0,gArea=0;
-  float slope=0,tanSlope=0;
-  float blairSense=0;
-  float meanN=0,stdev=0;
-  float notNeeded=0;
-  double nNsig=0,nSsig=0;
-  float probNoise=0,probMiss=0;
-  void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
-  void gaussThresholds(double,double,double,double,double *,double *);
-
-  /*set sigma*/
-  if(data->fSigma>0.0)dimage->linkFsig=data->fSigma;
-
-  /*determine noise stats for sensitivity metric*/
-  meanNoiseStats(data->noised,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(dimage->gediIO.den->statsLen/dimage->gediIO.res));
-  stdev-=meanN;
-
-  if(stdev>0.0){
-    probNoise=0.05;
-    probMiss=0.1;
-    gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
-
-    slope=2.0*M_PI/180.0;
-    tanSlope=sin(slope)/cos(slope);
-    gAmp=(float)(nNsig+nSsig)*stdev;
-    sigEff=sqrt(dimage->linkPsig*dimage->linkPsig+dimage->linkFsig*dimage->linkFsig*tanSlope*tanSlope);
-    gArea=gAmp*sigEff*sqrt(2.0*M_PI)/metric->totE;
-
-    if(gArea>0.0)blairSense=1.0-gArea;
-    else         blairSense=0.0;
-  }else blairSense=1.0;
-
-  return(blairSense);
-}/*findBlairSense*/
 
 
 /*####################################################*/
@@ -1596,8 +1551,8 @@ control *readCommands(int argc,char **argv)
   dimage->noise.missGround=0;
   dimage->noise.linkNoise=0;
   dimage->noise.driftFact=0.0;
-  dimage->linkPsig=0.764331; /*pulse length*/
-  dimage->linkFsig=5.5;      /*footprint width*/
+  dimage->gediIO.linkPsig=0.764331; /*pulse length*/
+  dimage->gediIO.linkFsig=5.5;      /*footprint width*/
   dimage->noise.trueSig=5.0;
   dimage->noise.deSig=0.0; //0.1; //4.0*0.15/2.355;
   dimage->noise.bitRate=12;
@@ -1823,10 +1778,10 @@ control *readCommands(int argc,char **argv)
         dimage->maxY=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-linkPsig",9)){
         checkArguments(1,i,argc,"-linkPsig");
-        dimage->linkPsig=atof(argv[++i]);
+        dimage->gediIO.linkPsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-linkFsig",9)){
         checkArguments(1,i,argc,"-linkFsig");
-        dimage->linkFsig=atof(argv[++i]);
+        dimage->gediIO.linkFsig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-fhdHistRes",11)){
         checkArguments(1,i,argc,"-fhdHistRes");
         dimage->fhdHistRes=atof(argv[++i]);
