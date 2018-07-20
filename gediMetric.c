@@ -102,6 +102,7 @@ typedef struct{
   char writeGauss;   /*write Gaussian parameters*/
   float laiRes;      /*LAI profile resolution*/
   float maxLAIh;     /*maximum height bin of LAI profile. Put all above this in top bin*/
+  char ice2;         /*ICESat-2 mode. GEDI by default*/
 
   /*noise parameters*/
   noisePar noise;  /*noise adding structure*/
@@ -247,18 +248,23 @@ int main(int argc,char **argv)
       /*denoise*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
 
-      /*Gaussian fit*/
-      if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
+      /*are we in GEDI mode?*/
+      if(!dimage->ice2){
+        /*Gaussian fit*/
+        if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
 
-      /*shift Gaussian centres to align to absolute elevation*/
-      alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
+        /*shift Gaussian centres to align to absolute elevation*/
+        alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
 
-      /*determine metrics*/
-      findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
+        /*determine metrics*/
+        findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
 
-      /*write results*/
-      if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
-      else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
+        /*write results*/
+        if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
+        else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
+      }else{  /*ICESat-2 mode*/
+        //photonCountCloud(denoised);
+      }/*operation mode switch*/
     }/*is the data usable*/
 
 
@@ -1608,6 +1614,7 @@ control *readCommands(int argc,char **argv)
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
   dimage->writeGauss=0;       /*do not write Gaussian parameters*/
+  dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->gediIO.den);
