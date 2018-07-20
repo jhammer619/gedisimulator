@@ -17,7 +17,7 @@ CC = gcc
 THIS=gediRat
 
 $(THIS):	$(THIS).o ${CMPFIT_ROOT}/$(MIN) ${LIBFILES}
-		$(CC) $(CFLAGS) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(CFLAGS) $(INCLS)
+		$(CC) $(CFLAGS) $(MIN) $(LOCLIB) $@.o -o $@ $(LIBS) $(INCLS)
 
 .c.o:		$<
 		$(CC) $(CFLAGS) -I. $(INCLS) -D$(ARCH)  -c $<
