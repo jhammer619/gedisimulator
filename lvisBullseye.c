@@ -67,6 +67,7 @@ typedef struct{
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
   float maxZen;        /*maximum LVIS zenith angle to use*/
+  float minDense;      /*minimum ALS beam density*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum horizontal distance to shift*/
@@ -223,15 +224,16 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
 void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
-  int nPar=0;
+  int i=0,nPar=0;
+  int status;
+  double size;
+  size_t iter=0;
   const gsl_multimin_fminimizer_type *T=gsl_multimin_fminimizer_nmsimplex2;
   gsl_vector *start=NULL,*ss=NULL;    /*initial conditions*/
   gsl_multimin_fminimizer *s=NULL;
   gsl_multimin_function minex_func;  /*optimiser options*/
   optStruct optBits;         /*to pass needed pieces to optimiser*/
-  size_t iter=0;
-  int status;
-  double size;
+  FILE *opoo=NULL;
 
   /*load needed bits into structure*/
   optBits.dimage=dimage;
@@ -255,12 +257,10 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   minex_func.f=findMeanCorr;
   minex_func.params =(void *)(&optBits);
 
-
   /* Set initial step sizes to 1 */
   ss=gsl_vector_alloc(nPar);
   gsl_vector_set_all(ss,1.0);
   if(dimage->findFsig)gsl_vector_set(ss,3,0.2);
-
 
   /*first run*/
   s=gsl_multimin_fminimizer_alloc(T,nPar);
@@ -276,9 +276,19 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
     status=gsl_multimin_test_size(size,dimage->optTol);
   }while((status==GSL_CONTINUE)&&(iter<dimage->maxIter));
 
+  /*open output*/
+  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    exit(1);
+  }
   /*write results*/
-  for(iter=0;iter<nPar;iter++)fprintf(stdout,"par %d %f\n",(int)iter,(float)gsl_vector_get (s->x,iter));
-
+  for(i=0;i<nPar;i++)fprintf(opoo,"%f ",(float)gsl_vector_get (s->x,i));
+  fprintf(opoo,"%f\n",1.0-(float)s->fval);
+  if(opoo){
+    fclose(opoo);
+    opoo=NULL;
+  }
+  fprintf(stdout,"Written to %s\n",dimage->outNamen);
 
   /*tidy up*/
   gsl_vector_free(start);
@@ -448,9 +458,10 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
     /*calculate correlation*/
-    if(dimage->gediRat.useFootprint){
+    if(dimage->gediRat.useFootprint&&(dimage->gediRat.beamDense>=dimage->minDense)){
       correl[*contN]=waveCorrel(waves,denoised[k],lvis[k],&dimage->simIO,zOff);
-    }else correl[*contN]=NULL;
+      (*contN)++;
+    }//else correl[*contN]=NULL;
 
     /*tidy up*/
     if(waves){
@@ -461,7 +472,6 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     }
     TIDY(dimage->gediRat.lobe);
     TIDY(dimage->gediRat.nGrid);
-    (*contN)++;
   }/*footprint loop*/
 
 
@@ -1135,6 +1145,7 @@ control *readCommands(int argc,char **argv)
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->filtOutli=1;    /*filter outliers*/
   dimage->maxZen=100000.0;
+  dimage->minDense=0.0;
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -1319,8 +1330,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-optTol",7)){
         checkArguments(1,i,argc,"-optTol");
         dimage->optTol=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-minDense",9)){
+        checkArguments(1,i,argc,"-minDense");
+        dimage->minDense=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          vertical step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          vertical step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
