@@ -82,6 +82,7 @@ typedef struct{
   char findFsig;       /*solve for fSigma*/
   int maxIter;         /*maximum number of interations*/
   float optTol;        /*tolerance*/
+  int nUsed;           /*number of footprints used in optimum*/
 
   /*bounds for subsets*/
   char useBounds;
@@ -284,7 +285,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   }
   /*write results*/
   for(i=0;i<nPar;i++)fprintf(opoo,"%f ",(float)gsl_vector_get (s->x,i));
-  fprintf(opoo,"%f\n",1.0-(float)s->fval);
+  fprintf(opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
   if(opoo){
     fclose(opoo);
     opoo=NULL;
@@ -345,6 +346,9 @@ double findMeanCorr(const gsl_vector *v, void *params)
   meanCorrel=0.0;
   for(i=0;i<contN;i++)meanCorrel+=correl[i][0];
   meanCorrel/=(float)contN;
+
+  /*record number used*/
+  dimage->nUsed=contN;
 
   /*tidy up*/
   TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
