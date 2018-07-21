@@ -898,6 +898,7 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
 
 
   fprintf(stdout,"Found %d LVIS\n",dimage->nLvis);
+  if(dimage->nLvis==0)exit(1);
   return(lvis);
 }/*readMultiLVIS*/
 
