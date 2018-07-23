@@ -409,7 +409,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
       yOff=(double)(j-nX/2)*(double)dimage->shiftStep+dimage->origin[1];
       for(m=0;m<nZ;m++){
         if(nZ>1)zOff=(double)(m-nZ/2)*(double)dimage->vShiftStep;   /*datum offset has already been applied*/
-        else    zOff=0.0;
+        else    zOff=dimage->origin[2];
         /*get correlation stats*/
         correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves);
 
@@ -884,12 +884,12 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   }/*file loop*/
 
   /*offset vertical datum*/
-  if(fabs(dimage->origin[2])>0.001){
+  /*if(fabs(dimage->origin[2])>0.001){
     offset=(double)dimage->origin[2];
     for(i=0;i<dimage->nLvis;i++){
       for(j=0;j<lvis[i]->nBins;j++)lvis[i]->z[j]+=offset;
     }
-  }
+  }*/
 
   /*res for simulations*/
   *res=0.0;
