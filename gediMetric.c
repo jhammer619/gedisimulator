@@ -712,10 +712,12 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*total energy. The sqrt(2.pi) can be normalised out*/
   tot=0.0;
-  energy=falloc(nGauss,"energy",0);
-  mu=falloc(nGauss,"mu",0);
-  A=falloc(nGauss,"A",0);
-  sig=falloc(nGauss,"sigma",0);
+  if(nGauss>0){  /*leave NULL if no Gaussians found to prevent memory leaks*/
+    energy=falloc(nGauss,"energy",0);
+    mu=falloc(nGauss,"mu",0);
+    A=falloc(nGauss,"A",0);
+    sig=falloc(nGauss,"sigma",0);
+  }
   for(i=0;i<nGauss;i++){
     mu[i]=gPar[3*i];
     A[i]=gPar[3*i+1];
@@ -789,8 +791,13 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   TIDY(canWave);
 
   /*lai profiles*/
-  metric->tLAI=trueLAIprofile(data->wave[data->useType],data->ground[data->useType],z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
-  metric->gLAI=gaussLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins,mu[gInd],A[gInd],sig[gInd],dimage->gediIO.res);
+  if(data->ground)metric->tLAI=trueLAIprofile(data->wave[data->useType],data->ground[data->useType],z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
+  else metric->tLAI=trueLAIprofile(data->wave[data->useType],NULL,z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
+  if(sig){
+    metric->gLAI=gaussLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins,mu[gInd],A[gInd],sig[gInd],dimage->gediIO.res);
+  }else{
+    metric->gLAI=trueLAIprofile(data->wave[data->useType],NULL,z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
+  }
   metric->hgLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins);
   metric->hiLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->inflGround,dimage->maxLAIh,&metric->laiBins);
   metric->hmLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->maxGround,dimage->maxLAIh,&metric->laiBins);
@@ -932,7 +939,7 @@ float *trueLAIprofile(float *wave,float *ground,double *z,int nBins,float laiRes
     /*lai profile*/
     tLAI=findLAIprofile(canopy,totG,nBins,laiRes,laiBins,gElev,rhoRatio,z,maxLAIh);
   }else{  /*no ground, leave blank*/
-    *laiBins=(int)(maxLAIh/laiRes+0.5);
+    *laiBins=(int)(maxLAIh/laiRes+0.5)+1;
     tLAI=falloc(*laiBins,"True LAI profile",0);
     for(i=0;i<*laiBins;i++)tLAI[i]=-1.0;
   }
@@ -1293,6 +1300,7 @@ double gaussianGround(float *energy,float *mu,int *gInd,int nGauss,float tot)
   float thresh=0;
   double gHeight=0;
 
+  (*gInd)=nGauss-1;
   thresh=0.001;  /*1% of energy*/
   gHeight=100000000.0;
   for(i=0;i<nGauss;i++){
@@ -1301,6 +1309,7 @@ double gaussianGround(float *energy,float *mu,int *gInd,int nGauss,float tot)
       *gInd=i;
     }
   }
+
   return(gHeight);
 }/*gaussianGround*/
 
