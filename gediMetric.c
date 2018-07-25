@@ -73,6 +73,18 @@ typedef struct{
 }lvisL2struct;
 
 
+/*###########################################################*/
+/*poton counting structure*/
+
+typedef struct{
+  float designval;     /*mean number of photons per footprint*/
+  float *prob;         /*probability of each number of photons occuring*/
+  int pBins;           /*number of probability bins*/
+  FILE *opoo;          /*output file*/
+  char outNamen[200];  /*output filename*/
+}photonStruct;
+
+
 /*####################################*/
 /*control structure*/
 
@@ -102,7 +114,6 @@ typedef struct{
   char writeGauss;   /*write Gaussian parameters*/
   float laiRes;      /*LAI profile resolution*/
   float maxLAIh;     /*maximum height bin of LAI profile. Put all above this in top bin*/
-  char ice2;         /*ICESat-2 mode. GEDI by default*/
 
   /*noise parameters*/
   noisePar noise;  /*noise adding structure*/
@@ -119,6 +130,10 @@ typedef struct{
   double maxX;
   double minY;
   double maxY;
+
+  /*photon counting*/
+  char ice2;         /*ICESat-2 mode. GEDI by default*/
+  photonStruct photonCount;  /*photon counting structure*/
 
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
@@ -203,6 +218,7 @@ int main(int argc,char **argv)
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
+  void photonCountCloud(float *,dataStruct *,photonStruct *,char *);
   float *processed=NULL,*denoised=NULL;;
 
   /*read command Line*/
@@ -261,7 +277,7 @@ int main(int argc,char **argv)
         if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
         else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
       }else{  /*ICESat-2 mode*/
-        //photonCountCloud(denoised);
+        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot);
       }/*operation mode switch*/
     }/*is the data usable*/
 
@@ -307,7 +323,8 @@ int main(int argc,char **argv)
 
 
   if(dimage->writeGauss)fprintf(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
-  fprintf(stdout,"Written to %s.metric.txt\n",dimage->outRoot);
+  if(!dimage->ice2)fprintf(stdout,"Written to %s.metric.txt\n",dimage->outRoot);
+  else             fprintf(stdout,"Written to %s\n",dimage->photonCount.outNamen);
 
 
   /*tidy up arrays*/
@@ -331,6 +348,10 @@ int main(int argc,char **argv)
       fclose(dimage->opooGauss);
       dimage->opooGauss=NULL;
     }
+    if(dimage->photonCount.opoo){
+      fclose(dimage->photonCount.opoo);
+      dimage->photonCount.opoo=NULL;
+    }
     if(dimage->gediIO.den){
       TTIDY((void **)dimage->gediIO.den->pulse,2);
       TIDY(dimage->gediIO.den->matchPulse);
@@ -342,10 +363,132 @@ int main(int argc,char **argv)
       TIDY(dimage->gediIO.gFit);
     }
     dimage->hdfLvis=tidyLVISstruct(dimage->hdfLvis);
+    TIDY(dimage->photonCount.prob);
     TIDY(dimage);
   }
   return(0);
 }/*main*/
+
+
+/*####################################################*/
+/*select photons for photon counting*/
+
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot)
+{
+  int i=0,nPhotons=0;
+  float n1=0,n2=0;
+  float photThresh=0,d=0,thisZ=0;
+  float pickArrayElement(float,float *,int,char);
+  void setPhotonProb(photonStruct *);
+
+  /*do we need to set up the probability array?*/
+  if(photonCount->prob==NULL)setPhotonProb(photonCount);
+
+  /*open file if needed*/
+  if(photonCount->opoo==NULL){
+    sprintf(photonCount->outNamen,"%s.pts",outRoot);
+    if((photonCount->opoo=fopen(photonCount->outNamen,"w"))==NULL){
+      fprintf(stderr,"Error opening input file %s\n",photonCount->outNamen);
+      exit(1);
+    }
+  }
+
+  /*choose a number of photons to use*/
+  n1=(float)rand();
+  n2=(float)RAND_MAX;
+  photThresh=n1/n2;
+  nPhotons=(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0);
+
+  /*generate that number of ranges*/
+  for(i=0;i<nPhotons;i++){
+    /*pick a point along the aveform*/
+    n1=(float)rand();
+    n2=(float)RAND_MAX;
+    photThresh=n1/n2;
+    d=pickArrayElement(photThresh,denoised,data->nBins,1);
+
+    /*determine range*/
+    thisZ=(float)data->z[0]-d*data->res;
+
+    /*write output*/
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f\n",data->lon,data->lat,thisZ);
+  }/*mutiple photon loop*/
+
+  return;
+}/*photonCountCloud*/
+
+
+/*####################################################*/
+/*determine point at which array exceeds threshold*/
+
+float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate)
+{
+  int i=0;
+  float x=0,y0=0;
+  float tot=0,*cumul=NULL;
+
+  /*determine total energy and adjust threshold*/
+  tot=0.0;
+  cumul=falloc(nBins,"cumul",0);
+  for(i=0;i<nBins;i++){
+    tot+=jimlad[i];
+    if(i>0)cumul[i]=cumul[i-1]+jimlad[i];
+    else   cumul[i]=jimlad[i];
+  }
+  photThresh*=tot;
+
+  /*determine point above*/
+  for(i=0;i<nBins;i++)if(cumul[i]>=photThresh)break;
+
+  /*extrapolate between two elements*/
+  if(interpolate){
+    if(i>0)y0=cumul[i-1];
+    else   y0=0.0;
+    if(i<(nBins-1))x=(cumul[i]-photThresh)/(cumul[i]-y0)+(float)i;
+    else           x=(float)(nBins-1);
+  }else x=(float)i;
+  TIDY(cumul);
+
+  return(x);
+}/*pickArrayElement*/
+
+
+/*####################################################*/
+/*set photon probabiloty*/
+
+void setPhotonProb(photonStruct *photonCount)
+{
+  int i=0;
+  float y=0;
+  float poissonPDF(float,float);
+
+  /*determine number of steps*/
+  photonCount->pBins=0;
+  do{
+    y=poissonPDF((float)photonCount->pBins,photonCount->designval);
+    photonCount->pBins++;
+  }while(y>0.00001);
+
+  /*allocate space*/
+  photonCount->prob=falloc(photonCount->pBins,"photon prob",0);
+
+  /*set probabilities*/
+  for(i=0;i<photonCount->pBins;i++)photonCount->prob[i]=poissonPDF((float)i,photonCount->designval);
+
+  return;
+}/*setPhotonProb*/
+
+
+/*####################################################*/
+/*Amy's Poission function*/
+
+float poissonPDF(float n,float lambda)
+{
+  float y=0;
+  y=exp(-1.0*lambda+n*log(lambda)-lgamma(n+1.0));
+  return(y);
+}/*poissonPDF*/
+
 
 
 /*####################################################*/
@@ -1578,7 +1721,6 @@ control *readCommands(int argc,char **argv)
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
   dimage->writeGauss=0;       /*do not write Gaussian parameters*/
-  dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->gediIO.den);
@@ -1613,6 +1755,11 @@ control *readCommands(int argc,char **argv)
   dimage->hdfLvis=NULL;
   /*LVIS level2 data*/
   dimage->readL2=0;   /*do not read L2*/
+  /*photon counting*/
+  dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
+  dimage->photonCount.designval=2.1;
+  dimage->photonCount.prob=NULL;
+  dimage->photonCount.pBins=0;
   /*others*/
   rhoG=0.4;
   rhoC=0.57;
@@ -1805,8 +1952,13 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->corrDrift=1;
         dimage->gediIO.den->varDrift=0;
         dimage->gediIO.den->fixedDrift=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-photonCount",12)){
+        dimage->ice2=1;
+      }else if(!strncasecmp(argv[i],"-nPhotons",9)){
+        checkArguments(1,i,argc,"-nPhotons");
+        dimage->photonCount.designval=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-laiRes res;     lai profile resolution in metres\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-laiRes res;     lai profile resolution in metres\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nPhoton counting\n-photonCount;    output point cloud from photon counting\n-nPhotons n;     mean number of photons\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

@@ -102,8 +102,8 @@ typedef struct{
   float zen;        /*beam zenith angle (degrees)*/
   char demGround;   /*use the defined DEM ground values*/
   /*for LVIS HDF5 and level2*/
-   uint32_t lfid;   /*LVIS file identifier*/
-   uint32_t shotN;  /*LVIS shotnumber*/
+  uint32_t lfid;   /*LVIS file identifier*/
+  uint32_t shotN;  /*LVIS shotnumber*/
 }dataStruct;
 
 
