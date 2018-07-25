@@ -218,7 +218,7 @@ int main(int argc,char **argv)
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
-  void photonCountCloud(float *,dataStruct *,photonStruct *,char *);
+  void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int);
   float *processed=NULL,*denoised=NULL;;
 
   /*read command Line*/
@@ -277,7 +277,7 @@ int main(int argc,char **argv)
         if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
         else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
       }else{  /*ICESat-2 mode*/
-        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot);
+        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i);
       }/*operation mode switch*/
     }/*is the data usable*/
 
@@ -373,12 +373,15 @@ int main(int argc,char **argv)
 /*####################################################*/
 /*select photons for photon counting*/
 
-void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot)
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb)
 {
-  int i=0,nPhotons=0;
+  int i=0,nRH=0;
+  int nPhotons=0;
   float n1=0,n2=0;
   float photThresh=0,d=0,thisZ=0;
   float pickArrayElement(float,float *,int,char);
+  float *rhReal=NULL,noiseInt=0;
+  float photonNoiseIntensity(float);
   void setPhotonProb(photonStruct *);
 
   /*do we need to set up the probability array?*/
@@ -391,6 +394,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
       fprintf(stderr,"Error opening input file %s\n",photonCount->outNamen);
       exit(1);
     }
+    /*fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem\n");*/
   }
 
   /*choose a number of photons to use*/
@@ -398,6 +402,9 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   n2=(float)RAND_MAX;
   photThresh=n1/n2;
   nPhotons=(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0);
+
+  /*get true RH metrics*/
+  rhReal=findRH(data->wave[data->useType],data->z,data->nBins,data->gElev,5.0,&nRH);
 
   /*generate that number of ranges*/
   for(i=0;i<nPhotons;i++){
@@ -410,12 +417,34 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
     /*determine range*/
     thisZ=(float)data->z[0]-d*data->res;
 
+    /*determine solar background intensity*/
+    noiseInt=photonNoiseIntensity(data->cov);
+
     /*write output*/
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f\n",data->lon,data->lat,thisZ);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt);
   }/*mutiple photon loop*/
 
+  TIDY(rhReal);
   return;
 }/*photonCountCloud*/
+
+
+/*########################################################*/
+/*determine solar background intensity for photon count*/
+
+float photonNoiseIntensity(float cov)
+{
+  float noiseInt=0;
+
+  noiseInt=1.0+(1.0-cov)*1.5;
+
+  /*this is what is in the ICEsat-2 code, just about
+  if(cov<0.25)noiseInt=2.5;
+  else if(cov>0.75)noiseInt=1.0;
+  else noiseInt=1.5+(float)rand()/(float)RAND_MAX;*/
+
+  return(noiseInt);
+}/*photonNoiseIntensity*/
 
 
 /*####################################################*/
