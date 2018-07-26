@@ -845,12 +845,12 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
 
 dataStruct **readMultiLVIS(control *dimage,float *res)
 {
-  int i=0,j=0;
+  int i=0;
   dataStruct **lvis=NULL;
   dataStruct **copyLVIShdf(lvisHDF *,dataStruct **,control *,double *);
   dataStruct **copyLVISlgw(char *,dataStruct **,control *,double *);
   dataStruct **copyGEDIhdf(gediHDF *,dataStruct **,control *,double *);
-  double bounds[4],offset=0;
+  double bounds[4];
   lvisHDF *hdf=NULL;        /*LVIS HDF5 structure*/
   gediHDF *simHDF=NULL;     /*GEDI HDF5 structure*/
   void reprojectBounds(control *,double *);
@@ -1225,6 +1225,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
   dimage->gediRat.doDecon=0;
   dimage->gediRat.indDecon=0;
+  dimage->gediRat.decimate=1.0;  /*accept all ALS beams*/
   dimage->simIO.nMessages=200;
   dimage->simIO.pRes=0.01;
   dimage->simIO.ground=0;

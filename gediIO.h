@@ -231,9 +231,10 @@ typedef struct{
   denPar *decon;   /*denoising parameters*/
 
   /*others*/
-  double maxSep;   /*maximum acceptable separation*/
-  float maxScanAng;    /*maximum scan angle*/
-  float iThresh;   /*intensity threshold*/
+  double maxSep;    /*maximum acceptable separation*/
+  float maxScanAng; /*maximum scan angle*/
+  float iThresh;    /*intensity threshold*/
+  float decimate;   /*probability of accepting a beam for decimation*/
 
   /*for voxel shadows*/
   float beamRad;   /*beam radius at ground*/

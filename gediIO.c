@@ -971,6 +971,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
   int j=0;
   uint32_t i=0;
   uint32_t pUsed=0;    /*number of points used*/
+  float decThresh=0;
   double x=0,y=0,z=0;
   pCloudStruct *data=NULL;
   char hasWave=0;   /*has waveform data, to save RAM*/
@@ -1026,12 +1027,20 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
       readLasPoint(las,i);
       setCoords(&x,&y,&z,las);
 
-      /*is the point is of use?*/
+      /*if the point is of use?*/
       if(!gediRat->readALSonce){
         if((x>=gediRat->globMinX)&&(x<=gediRat->globMaxX)&&(y>=gediRat->globMinY)&&(y<=gediRat->globMaxY)&&\
            (z>-10000.0)&&(z<10000.0)&&(fabs((float)las->scanAng)<=gediRat->maxScanAng))usePoint=1;
         else usePoint=0;
       }else usePoint=checkMultiPoints(x,y,z,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+
+      /*are we decimating*/
+      if(usePoint){
+        if(gediRat->decimate<1.0){
+          if(las->retNumb==las->nRet)decThresh=(float)rand()/(float)RAND_MAX;
+          if(decThresh>gediRat->decimate)usePoint=0;
+        }
+      }
 
       /*if we need to use point*/
       if(usePoint){

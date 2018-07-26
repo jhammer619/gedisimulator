@@ -377,10 +377,11 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
 {
   int i=0,nRH=0;
   int nPhotons=0;
-  float n1=0,n2=0;
+  float n1=0,n2=0,refl=0;
   float photThresh=0,d=0,thisZ=0;
   float pickArrayElement(float,float *,int,char);
   float *rhReal=NULL,noiseInt=0;
+  float noiseRate=0;
   float photonNoiseIntensity(float);
   void setPhotonProb(photonStruct *);
 
@@ -406,19 +407,22 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*get true RH metrics*/
   rhReal=findRH(data->wave[data->useType],data->z,data->nBins,data->gElev,5.0,&nRH);
 
+  /*determine intensity*/
+  noiseInt=photonNoiseIntensity(data->cov);
+
+  /*deterine albedo and backwards average, for noise*/
+  refl=data->cov*0.15+(1.0*data->cov)*0.22;
+  noiseRate=refl*pow(10.0,6.0);
+
   /*generate that number of ranges*/
   for(i=0;i<nPhotons;i++){
     /*pick a point along the aveform*/
     n1=(float)rand();
-    n2=(float)RAND_MAX;
     photThresh=n1/n2;
     d=pickArrayElement(photThresh,denoised,data->nBins,1);
 
     /*determine range*/
     thisZ=(float)data->z[0]-d*data->res;
-
-    /*determine solar background intensity*/
-    noiseInt=photonNoiseIntensity(data->cov);
 
     /*write output*/
     fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt);
