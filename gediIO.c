@@ -1037,8 +1037,8 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
       /*are we decimating*/
       if(usePoint){
         if(gediRat->decimate<1.0){
-          if(las->retNumb==las->nRet)decThresh=(float)rand()/(float)RAND_MAX;
-          if(decThresh>gediRat->decimate)usePoint=0;
+          if(decThresh>gediRat->decimate)usePoint=0;   /*are we accepting this point*/
+          if(las->retNumb==las->nRet)decThresh=(float)rand()/(float)RAND_MAX;  /*if last return, draw a new random number*/
         }
       }
 
