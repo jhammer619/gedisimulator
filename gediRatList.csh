@@ -36,6 +36,7 @@ set nOctPix=" "
 set countOnly=" "
 set pulseAfter=" "
 set decimate=" "
+set seed=" "
 
 
 # read options
@@ -175,7 +176,12 @@ while ($#argv>0)
 
   case -decimate
     set decimate="-decimate $argv[2]"
-  shift argv
+  shift argv;shift argv
+  breaksw
+
+  case -seed
+    set seed="-seed $argv[2]"
+  shift argv;shift argv
   breaksw
 
   case -help
@@ -204,6 +210,7 @@ while ($#argv>0)
     echo "-hdf;              output in HDF5"
     echo "-maxPer n;         maximum number of runs per processor"
     echo "-decimate x;       decimate ALS beams by a factor"
+    echo "-seed n;           random number seed"
     echo "# octree"
     echo "-noOctree;         do not use an octree"
     echo "-octLevels n;      number of octree levels to use"
@@ -245,7 +252,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed
 
   endif
 
