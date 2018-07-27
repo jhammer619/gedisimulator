@@ -242,12 +242,14 @@ if __name__ == '__main__':
         c_doy=(delta_time[ind]/(24*60*60))+t0
         while( c_doy > 365.25 ):
           c_doy-=365.25
-        if(lc==1)|(lc==2):  # evergreen
+        if(lc==1)|(lc==2)|(lc>5)|(lc==0):  # evergreen or unreliable phenology
+          condition_doy=True
+        elif (onDat==0)&(offDat==0):  # no data
           condition_doy=True
         elif onDat < offDat: #mostly nothern hemi
           condition_doy=(c_doy>onDat)&(c_doy<offDat)
         else: #growing period extending from year1 to the next year
-          condition_doy=(c_doy>onDat)|(c_doy<offDat)
+          condition_doy=(c_doy>offDat)&(c_doy<onDat)
  
         # is the beam usable?
         if(((usePhen==0)|(condition_doy==True))&((useWeak==1)|((power==1)|(sim_sun_el[ind]>=83)|(vcf<70)))):
