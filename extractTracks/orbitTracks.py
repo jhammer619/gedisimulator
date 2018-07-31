@@ -107,7 +107,7 @@ def getCmdArgs():
     latitude band
     '''
     p = argparse.ArgumentParser(description=("Print out GEDI footprint locations from orbital traks\n"))
-    p.add_argument("--modis", dest ="modNamen", type=str, default='/gpfs/data1/vclgp/htang/GEDI/ISS/MODIS_ancillary_sets.tif', help=("MODIS ancillary filename."))
+    p.add_argument("--modis", dest ="modNamen", type=str, default='/gpfs/data1/vclgp/data/phenology/leaf_on_off/forestonly/MODIS_land_ancillary_sets6.tif', help=("MODIS ancillary filename."))
     p.add_argument("--output",type=str,dest="outNamen",help="output filename",default='teast.coords')
     p.add_argument("--cloud",type=float,dest="cFrac",help="cloud fraction",default=0.0)
     p.add_argument("--seed",type=int,dest="seed",help="random number seed",default=0)
