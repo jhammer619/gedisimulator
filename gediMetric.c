@@ -166,6 +166,8 @@ typedef struct{
   float FHDhist;    /*foliage height diversity, all waveform, hist*/
   float FHDcan;     /*foliage height diversity, canopy, wave*/
   float FHDcanH;    /*foliage height diversity, canopy, hist*/
+  float FHDcanGauss;/*foliage height diversity, canopy from Gaussian fitting, wave*/
+  float FHDcanGhist;/*foliage height diversity, canopy from Gaussian fitting, hist*/
   int nLm;          /*number of L-moments*/
   //float *LmomGau;   /*L-moments from Gaussian fit*/
   //float *LmomRea;   /*L-moments from ALS ground*/
@@ -744,12 +746,13 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
     fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
-    fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist,",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+2*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+3*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+1+4*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
+    fprintf(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+27,14+4*metric->nRH+1+dimage->bayesGround+28);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+2*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+3*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+4*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
@@ -795,6 +798,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
   fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
+  fprintf(dimage->opooMet," %f %f",metric->FHDcanGauss,metric->FHDcanGhist);
   for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->tLAI[i]);
   for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->gLAI[i]);
   for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hgLAI[i]);
@@ -957,13 +961,17 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   /*foliage height diversity*/
   metric->FHD=foliageHeightDiversity(denoised,nBins);
   metric->FHDhist=foliageHeightDiversityHist(denoised,nBins,dimage->fhdHistRes);
-  if(dimage->gediIO.ground&&(!dimage->noise.linkNoise)&&(dimage->noise.nSig<TOL)){  /*subtract known ground*/
-    canWave=subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins);
-  }else if(nGauss>0){               /*subtract Gaussian and below as ground*/
-    canWave=subtractGaussFromCan(denoised,nBins,mu[gInd],A[gInd],sig[gInd],z);
-  }else canWave=NULL;
+  /*from ground removed canopy*/
+  if(dimage->gediIO.ground)canWave=subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins);
+  else                     canWave=NULL;  /*no ground estimate. Leave blank*/
   metric->FHDcan=foliageHeightDiversity(canWave,nBins);
   metric->FHDcanH=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
+  TIDY(canWave);
+  /*from Gaussian removed canopy*/
+  if(nGauss>0)canWave=subtractGaussFromCan(denoised,nBins,mu[gInd],A[gInd],sig[gInd],z);
+  else        canWave=NULL;  /*no Gaussian ground estimate*/
+  metric->FHDcanGauss=foliageHeightDiversity(canWave,nBins);
+  metric->FHDcanGhist=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
   TIDY(canWave);
 
   /*lai profiles*/
