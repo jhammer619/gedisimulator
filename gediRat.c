@@ -58,7 +58,7 @@
 typedef struct{
   char **inList;
   char outNamen[200];
-  char waveNamen[200];
+  char waveNamen[400];
 
   /*IO structure*/
   gediIOstruct gediIO; /*generic IO options*/
@@ -226,7 +226,7 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
   int nBins=0,idLength=0;
   float *tot=NULL,*cumul=NULL;
   float *thresh=NULL,buff=0;
-  char waveID[100];
+  char waveID[300];
 
   numb=dimage->hdfCount;
 
@@ -493,7 +493,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 {
   int i=0,j=0;
   float r=0;
-  char waveID[200];
+  char waveID[300];
   FILE *opoo=NULL;
 
 

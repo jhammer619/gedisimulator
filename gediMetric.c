@@ -705,8 +705,8 @@ float groundOverlap(float *wave,float *ground,int nBins)
 void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,float *denoised,float *processed,char *inNamen)
 {
   int i=0,j=0;
-  char waveNamen[200];
-  char namen[200];
+  char waveNamen[500];
+  char namen[420];
   float gauss(float,float,float);
   FILE *opoo=NULL;
 
