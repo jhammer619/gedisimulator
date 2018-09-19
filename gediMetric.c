@@ -397,7 +397,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
       fprintf(stderr,"Error opening input file %s\n",photonCount->outNamen);
       exit(1);
     }
-    /*fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem\n");*/
+    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt\n");
   }
 
   /*choose a number of photons to use*/
@@ -412,11 +412,14 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*determine intensity*/
   noiseInt=photonNoiseIntensity(data->cov);
 
-  /*deterine albedo and backwards average, for noise*/
+  /*determine albedo and backwards average, for noise*/
   refl=data->cov*0.15+(1.0*data->cov)*0.22;
   noiseRate=refl*pow(10.0,6.0);
 
-  /*generate that number of ranges*/
+  /*generate noise photons*/
+
+
+  /*generate signal photons*/
   for(i=0;i<nPhotons;i++){
     /*pick a point along the aveform*/
     n1=(float)rand();
@@ -448,6 +451,8 @@ float photonNoiseIntensity(float cov)
   if(cov<0.25)noiseInt=2.5;
   else if(cov>0.75)noiseInt=1.0;
   else noiseInt=1.5+(float)rand()/(float)RAND_MAX;*/
+
+  /*it should be replaced by a backwards averaging system to account for fov*/
 
   return(noiseInt);
 }/*photonNoiseIntensity*/
@@ -523,7 +528,6 @@ float poissonPDF(float n,float lambda)
   y=exp(-1.0*lambda+n*log(lambda)-lgamma(n+1.0));
   return(y);
 }/*poissonPDF*/
-
 
 
 /*####################################################*/
