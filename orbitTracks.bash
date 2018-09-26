@@ -61,6 +61,11 @@ key="$1"
       shift # past argument
       shift # past value
       ;;
+    -gridRes)
+      gridRes="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -bound)
       bounds=`echo "$2 $3 $4 $5"|gawk '{for(i=1;i<=NF;i++)print $i}'`
       readALS=0
@@ -89,6 +94,7 @@ key="$1"
       echo "-noPhen;             use leaf-off data"
       echo "-useWeak;            use daytime weak beam"
       echo "-pointErr sig;       pointing error, 1 sigma in metres"
+      echo "-gridRes res;        grid resolution, in EPSG units"
       echo " "
       exit
       ;;
@@ -111,6 +117,10 @@ python $bin/orbitTracks.py --bounds $bounds --oEPSG $epsg --output $temp --seed 
 
 
 # collate into patches
-python $bin/gridPrints.py --input $temp --output $output --res $gridRes
-rm $temp
+if [ $res > 0 ];then
+  python $bin/gridPrints.py --input $temp --output $output --res $gridRes
+  rm $temp
+else
+  mv $temp $output
+fi
 
