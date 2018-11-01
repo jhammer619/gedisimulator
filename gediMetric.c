@@ -1855,7 +1855,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.gFit->gWidth=1.2;
   dimage->gediIO.gFit->sWidth=0.0;
   dimage->gediIO.gFit->fitGauss=1;
-  dimage->gediIO.gFit->minGsig=0.9;
+  dimage->gediIO.gFit->minGsig=0.764331;
   /*noise parameters*/
   dimage->noise.meanN=0.0;
   dimage->noise.nSig=0.0;
