@@ -84,6 +84,9 @@ typedef struct{
   float optTol;        /*tolerance*/
   int nUsed;           /*number of footprints used in optimum*/
 
+  /*for large geolocation errors*/
+  char largeErr;       /*switch for large error method*/
+
   /*bounds for subsets*/
   char useBounds;
   double minX;
@@ -115,6 +118,8 @@ float **getCorrelStats(control *,dataStruct **,pCloudStruct **,int *,double,doub
 float *waveCorrel(waveStruct *,float *,dataStruct *,gediIOstruct *,double);
 double findMeanCorr(const gsl_vector *, void *);
 double **shiftPrints(double **,double,double,int);
+void fullBullseyePlot(control *,float **,int,dataStruct **,pCloudStruct **,float *);
+void simplexBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
 
 
 /*########################################################################*/
@@ -143,7 +148,7 @@ int main(int argc,char **argv)
   /*loop over, simulating*/
   bullseyeCorrel(lvis,als,dimage);
 
-  /*tidy up*/
+  /*tidy up allocated memory*/
   if(als){
     for(i=0;i<dimage->simIO.nFiles;i++)als[i]=tidyPointCloud(als[i]);
     TIDY(als);
@@ -177,7 +182,7 @@ int main(int argc,char **argv)
     TIDY(dimage->gediRat.nGrid);
     dimage->gediRat.octree=tidyOctree(dimage->gediRat.octree);
     TIDY(dimage);
-  }
+  }/*tidying up allocated memory*/
   return(0);
 }/*main*/
 
@@ -189,8 +194,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 {
   int nTypeWaves=0;
   float **denoiseAllLvis(dataStruct **,control *);
-  void fullBullseyePlot(control *,float **,int,dataStruct **,pCloudStruct **);
-  void simplexBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
+  void rapidGeolocation(control *,float **,int,dataStruct **,pCloudStruct **);
   float **denoised=NULL;
 
   /*how mamy types of simuation methods*/
@@ -204,7 +208,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
   /*are we doing the full bullseye plot?*/
   if(dimage->fullBull){
-    fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als);
+    fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,NULL);
+  }else if(dimage->largeErr){ /*do a rough bullseye followed by a simplex*/
+    rapidGeolocation(dimage,denoised,nTypeWaves,lvis,als);
   }else{ /*do simplex*/
     simplexBullseye(dimage,denoised,nTypeWaves,lvis,als);
   }/*are we doing the full bullseye plot?*/
@@ -219,6 +225,68 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   }
   return;
 }/*bullseyeCorrel*/
+
+
+/*####################################################*/
+/*do a rough bullseye followed by a simplex*/
+
+void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
+{
+  int nX=0,nZ=0;
+  float x=0,y=0,z=0;
+  float *roughCorrel=NULL;   /*mean correlation for rough bullseye*/
+  void bestRoughGeo(float *,float *,float *,float *,int,int,double *,float,float);
+
+  /*perform rough bullseye run*/
+  /*allocate space*/
+  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
+  if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+1);
+  else                     nZ=1;
+  roughCorrel=falloc(nX*nX*nZ,"mean correlation",0);
+  fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
+
+  /*find optimium location*/
+  bestRoughGeo(&x,&y,&z,roughCorrel,nX,nZ,dimage->origin,dimage->shiftStep,dimage->vShiftStep);
+  TIDY(roughCorrel);
+
+  /*start simplex from optimum*/
+  dimage->origin[0]=(double)x;
+  dimage->origin[1]=(double)y;
+  dimage->origin[2]=(double)z;
+  simplexBullseye(dimage,denoised,nTypeWaves,lvis,als);
+
+  return;
+}/*rapidGeolocation*/
+
+
+/*####################################################*/
+/*find optimium correlation shift*/
+
+void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,double *origin,float xStep,float zStep)
+{
+  int i=0,j=0,k=0,place=0;
+  float maxCorrel=0;
+
+  /*set nonesense value*/
+  maxCorrel=-1000.0;
+
+  /*loop over all correls*/
+  for(i=0;i<nX;i++){
+    for(j=0;j<nX;j++){
+      for(k=0;k<nZ;k++){
+        place=i*nX*nZ+j*nX+k;
+        if(roughCorrel[place]>maxCorrel){
+          maxCorrel=roughCorrel[place];
+          *x=(float)(i-nX/2)*xStep+(float)origin[0];
+          *y=(float)(j-nX/2)*xStep+(float)origin[1];
+          *z=(float)(k-nZ/2)*zStep+(float)origin[2];
+        }/*max value check*/
+      }/*z loop*/
+    }/*y loop*/
+  }/*x loop*/
+
+  return;
+}/*bestRoughGeo*/
 
 
 /*####################################################*/
@@ -366,10 +434,10 @@ double findMeanCorr(const gsl_vector *v, void *params)
 /*####################################################*/
 /*loop over full bullseye plot and write*/
 
-void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
+void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als,float *meanCorrel)
 {
   int indOff=0;
-  int i=0,j=0,m=0;
+  int i=0,j=0,m=0,k=0;
   int nX=0,nZ=0,contN=0;
   float **correl=NULL;
   double **coords=NULL;
@@ -377,23 +445,25 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
   void writeCorrelStats(float **,int,int,FILE *,double,double,double,control *);
   FILE *opoo=NULL;
 
-  /*open ourput file*/
-  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
-    exit(1);
-  }
-  fprintf(opoo,"# 1 xOff, 2 yOff");
-  if(dimage->maxVshift>0.0){
-    fprintf(opoo,", 3 zOff");
-    indOff=1;
-  }else indOff=0;
-  if(dimage->simIO.useInt)fprintf(opoo,", %d correlInt, %d stdev, %d deltaCofGint, %d numb",3+indOff,4+indOff,5+indOff,6+indOff);
-  if(dimage->simIO.useCount)fprintf(opoo,", %d correlCount, %d stdev, %d deltaCofGcount, %d numb",3+4*dimage->simIO.useInt+indOff,3+4*dimage->simIO.useInt+1+indOff,3+4*dimage->simIO.useInt+2+indOff,3+4*dimage->simIO.useInt+3+indOff);
-  if(dimage->simIO.useFrac)fprintf(opoo,", %d correlFrac, %d stdev, %d deltaCofGfrac, %d numb",3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+indOff,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+1+indOff\
-                                                                                              ,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+2+indOff,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+3+indOff);
-  fprintf(opoo,"\n");
+  /*open output file and write header*/
+  if(meanCorrel==NULL){
+    if((opoo=fopen(dimage->outNamen,"w"))==NULL){
+      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+      exit(1);
+    }
+    fprintf(opoo,"# 1 xOff, 2 yOff");
+    if(dimage->maxVshift>0.0){
+      fprintf(opoo,", 3 zOff");
+      indOff=1;
+    }else indOff=0;
+    if(dimage->simIO.useInt)fprintf(opoo,", %d correlInt, %d stdev, %d deltaCofGint, %d numb",3+indOff,4+indOff,5+indOff,6+indOff);
+    if(dimage->simIO.useCount)fprintf(opoo,", %d correlCount, %d stdev, %d deltaCofGcount, %d numb",3+4*dimage->simIO.useInt+indOff,3+4*dimage->simIO.useInt+1+indOff,3+4*dimage->simIO.useInt+2+indOff,3+4*dimage->simIO.useInt+3+indOff);
+    if(dimage->simIO.useFrac)fprintf(opoo,", %d correlFrac, %d stdev, %d deltaCofGfrac, %d numb",3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+indOff,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+1+indOff\
+                                                                                                ,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+2+indOff,3+4*(dimage->simIO.useInt+dimage->simIO.useCount)+3+indOff);
+    fprintf(opoo,"\n");
+  }/*open output file and write header*/
 
-  /*number of steps*/
+  /*calculate number of steps*/
   nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
   if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+1);
   else                     nZ=1;
@@ -402,19 +472,26 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
   coords=dimage->gediRat.coords;
   dimage->gediRat.coords=NULL;
 
-  /*loop over shifts*/
-  for(i=0;i<nX;i++){
+  /*loop over shifts and get correltion*/
+  for(i=0;i<nX;i++){  /*x loop*/
     xOff=(double)(i-nX/2)*(double)dimage->shiftStep+dimage->origin[0];
-    for(j=0;j<nX;j++){
+    for(j=0;j<nX;j++){  /*y loop*/
       yOff=(double)(j-nX/2)*(double)dimage->shiftStep+dimage->origin[1];
-      for(m=0;m<nZ;m++){
+      for(m=0;m<nZ;m++){  /*z loop*/
         if(nZ>1)zOff=(double)(m-nZ/2)*(double)dimage->vShiftStep;   /*datum offset has already been applied*/
         else    zOff=dimage->origin[2];
         /*get correlation stats*/
         correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves);
 
-        /*output results*/
-        writeCorrelStats(correl,contN,nTypeWaves,opoo,xOff,yOff,zOff,dimage);
+        /*which mode are we using*/
+        if(meanCorrel==NULL){  /*write out all points*/
+          /*output results*/
+          writeCorrelStats(correl,contN,nTypeWaves,opoo,xOff,yOff,zOff,dimage);
+        }else{                /*rough cut; keep track of mean correlation*/
+          meanCorrel[i*nX*nZ+j*nX+m]=0.0;
+          for(k=0;k<contN;k++)meanCorrel[i*nX*nZ+j*nX+m]+=correl[k][0];
+          meanCorrel[i*nX*nZ+j*nX+m]/=(float)contN;
+        }/*which mode are we using*/
 
         /*tidy up*/
         TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
@@ -423,14 +500,16 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
     }/*y loop*/
   }/*x loop*/
 
-  /*report success*/
+  /*return original coords*/
   dimage->gediRat.coords=coords;
   coords=NULL;
+  /*close output file*/
   if(opoo){
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  /*let them know output file, if made*/
+  if(meanCorrel==NULL)fprintf(stdout,"Written to %s\n",dimage->outNamen);
   return;
 }/*fullBullseyePlot*/
 
@@ -1201,9 +1280,16 @@ control *readCommands(int argc,char **argv)
 
   /*bulseye optimsation*/
   dimage->fullBull=1;        /*do full bullseye plot*/
+  dimage->largeErr=0;        /*don't do a large error search*/
   dimage->findFsig=1;
   dimage->maxIter=100;
   dimage->optTol=0.01;
+
+  /*all data*/
+  dimage->minX=-100000000.0;
+  dimage->minY=-100000000.0;
+  dimage->maxX=100000000.0;
+  dimage->maxY=100000000.0;
 
   /*simulation settings*/
   dimage->gediRat.readALSonce=1;    /*read all ALS data once*/
@@ -1355,8 +1441,19 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-minSense",9)){
         checkArguments(1,i,argc,"-minSense");
         dimage->minSense=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-quickGeo",9)){
+        dimage->largeErr=1;
+        dimage->fullBull=0;
+        dimage->maxShift=80.0;     /*expected geolocation error, plus a bit*/
+        dimage->shiftStep=20.0;    /*expected width of correlation hole*/
+      }else if(!strncasecmp(argv[i],"-geoError",9)){
+        checkArguments(2,i,argc,"-geoError");
+        dimage->largeErr=1;  
+        dimage->fullBull=0;
+        dimage->maxShift=atof(argv[++i]);     /*expected geolocation error, plus a bit*/
+        dimage->shiftStep=atof(argv[++i]);    /*expected width of correlation hole*/
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          vertical step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          vertical step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

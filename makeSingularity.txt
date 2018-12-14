@@ -15,8 +15,8 @@ yum install -y gsl-devel.x86_64
 yum install -y wget.x86_64
 yum install -y gcc-c++.x86_64
 yum install -y unzip.x86_64
-
-pwd
+yum install -y hdf5.x86_64
+yum install -y hdf5-devel.x86_64
 
 srcDir="$HOME/src"
 if [ ! -e $srcDir ]; then
@@ -69,5 +69,10 @@ mv cmpfit-1.2/* $CMPFIT_ROOT/
 popd
 
 
+hg clone https://StevenHancock@bitbucket.org/umdgedi/gedisimulator
+pushd gedi_simulator/
+make
+
+popd
 
 
