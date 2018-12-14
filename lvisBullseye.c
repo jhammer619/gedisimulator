@@ -274,8 +274,10 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
   for(i=0;i<nX;i++){
     for(j=0;j<nX;j++){
       for(k=0;k<nZ;k++){
-        place=i*nX*nZ+j*nX+k;
+        place=i*nX*nZ+j*nZ+k;
         if(roughCorrel[place]>maxCorrel){
+  fprintf(stdout,"Guess %f at %f %f %f\n",maxCorrel,roughCorrel[place],*x,*y,*z);
+
           maxCorrel=roughCorrel[place];
           *x=(float)(i-nX/2)*xStep+(float)origin[0];
           *y=(float)(j-nX/2)*xStep+(float)origin[1];
@@ -285,6 +287,7 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
     }/*y loop*/
   }/*x loop*/
 
+  fprintf(stdout,"Starting from %f %f %f\n",*x,*y,*z);
   return;
 }/*bestRoughGeo*/
 
@@ -413,7 +416,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   /*get mean correlation*/
   meanCorrel=0.0;
   for(i=0;i<contN;i++)meanCorrel+=correl[i][0];
-  meanCorrel/=(float)contN;
+  if(contN>0)meanCorrel/=(float)contN;
 
   /*record number used*/
   dimage->nUsed=contN;
@@ -436,7 +439,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
 
 void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als,float *meanCorrel)
 {
-  int indOff=0;
+  int indOff=0,place=0;
   int i=0,j=0,m=0,k=0;
   int nX=0,nZ=0,contN=0;
   float **correl=NULL;
@@ -488,9 +491,10 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
           /*output results*/
           writeCorrelStats(correl,contN,nTypeWaves,opoo,xOff,yOff,zOff,dimage);
         }else{                /*rough cut; keep track of mean correlation*/
-          meanCorrel[i*nX*nZ+j*nX+m]=0.0;
-          for(k=0;k<contN;k++)meanCorrel[i*nX*nZ+j*nX+m]+=correl[k][0];
-          meanCorrel[i*nX*nZ+j*nX+m]/=(float)contN;
+          place=i*nX*nZ+j*nZ+m;
+          meanCorrel[place]=0.0;
+          for(k=0;k<contN;k++)meanCorrel[place]+=correl[k][0];
+          if(contN>0)meanCorrel[place]/=(float)contN;
         }/*which mode are we using*/
 
         /*tidy up*/
@@ -562,7 +566,9 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
   /*check that we have something*/
   if((*contN)==0){
     fprintf(stderr,"No usable footprints contained\n");
-    exit(1);
+    TTIDY((void **)correl,dimage->gediRat.gNx);
+    correl=NULL;
+    //exit(1);
   }
   return(correl);
 }/*getCorrelStats*/
@@ -838,12 +844,13 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
   dimage->gediRat.globMaxX+=dimage->origin[0]+(double)dimage->maxShift;
   dimage->gediRat.globMinY+=dimage->origin[1]-(double)dimage->maxShift;
   dimage->gediRat.globMaxY+=dimage->origin[1]+(double)dimage->maxShift;
+  dimage->gediRat.maxSep+=+(double)dimage->maxShift;
 
   /*allocate space*/
   if(!(als=(pCloudStruct **)calloc(dimage->simIO.nFiles,sizeof(pCloudStruct *)))){
     fprintf(stderr,"error in lvis data allocation.\n");
     exit(1);
-  } 
+  }
 
   /*loop over ALS files*/
   for(i=0;i<dimage->simIO.nFiles;i++){
