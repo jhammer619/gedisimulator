@@ -276,8 +276,6 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
       for(k=0;k<nZ;k++){
         place=i*nX*nZ+j*nZ+k;
         if(roughCorrel[place]>maxCorrel){
-  fprintf(stdout,"Guess %f at %f %f %f\n",maxCorrel,roughCorrel[place],*x,*y,*z);
-
           maxCorrel=roughCorrel[place];
           *x=(float)(i-nX/2)*xStep+(float)origin[0];
           *y=(float)(j-nX/2)*xStep+(float)origin[1];
