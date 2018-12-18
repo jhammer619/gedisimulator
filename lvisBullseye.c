@@ -1256,7 +1256,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.octree=NULL;
 
   /*LVIS params for sim*/
-  dimage->simIO.fSigma=4.31;
+  dimage->simIO.fSigma=5.5;    /*default value for GEDI. 4.31 if LVIS*/;
   dimage->simIO.pSigma=0.6893;
   dimage->gediRat.iThresh=0.002;
   dimage->simIO.useCount=1;
