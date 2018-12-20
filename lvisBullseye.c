@@ -1449,7 +1449,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-quickGeo",9)){
         dimage->largeErr=1;
         dimage->fullBull=0;
-        dimage->maxShift=80.0;     /*expected geolocation error, plus a bit*/
+        dimage->maxShift=100.0;    /*expected geolocation error, plus a bit*/
         dimage->shiftStep=20.0;    /*expected width of correlation hole*/
       }else if(!strncasecmp(argv[i],"-geoError",9)){
         checkArguments(2,i,argc,"-geoError");
