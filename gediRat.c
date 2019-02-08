@@ -687,6 +687,7 @@ control *readCommands(int argc,char **argv)
 {
   int i=0;
   control *dimage=NULL;
+  void writeGediRatHelpMessage();
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");
@@ -711,7 +712,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.ground=0;
   dimage->gediRat.sideLobe=0;   /*no side lobes*/
   dimage->gediRat.lobeAng=0.0;
-  dimage->gediRat.pulseAfter=0;  /*smooth before to prevent aliasing*/
+  dimage->gediRat.pulseAfter=1;  /*smooth after for speed*/
   dimage->listFiles=0;
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->gediRat.checkCover=0;
@@ -828,6 +829,8 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->gediIO.pulseFile,argv[++i]);
       }else if(!strncasecmp(argv[i],"-pulseAfter",11)){
         dimage->gediRat.pulseAfter=1;
+      }else if(!strncasecmp(argv[i],"-pulseBefore",12)){
+        dimage->gediRat.pulseAfter=0;
       }else if(!strncasecmp(argv[i],"-maxScanAng",11)){
         checkArguments(1,i,argc,"-maxScanAng");
         dimage->gediRat.maxScanAng=atof(argv[++i]);
@@ -860,6 +863,8 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->gediRat.coordList,argv[++i]);
       }else if(!strncasecmp(argv[i],"-hdf",4)){
         dimage->writeHDF=1;
+      }else if(!strncasecmp(argv[i],"-ascii",6)){
+        dimage->writeHDF=0;
       }else if(!strncasecmp(argv[i],"-maxBins",8)){
         checkArguments(1,i,argc,"-maxBins");
         dimage->maxBins=atoi(argv[++i]);
@@ -886,7 +891,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-decimate");
         dimage->gediRat.decimate=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-countOnly;      only use count method\n-listCoord name; list of coordinates\n-gridBound minX maxX minY maxY;     make a grid of waveforms in this box\n-gridStep res;   grid step size\n-waveID id;      supply a waveID to pass to the output\n-hdf;            write output as HDF5. Best with gridded or list of coords\n-maxBins;        for HDF5, limit number of bins to save trimming\n-readPulse file; read pulse shape and width from a file\n-pulseAfter;     apply the pulse smoothing after binning for computational speed, at the risk of aliasing\n-wavefront file; read wavefront shape from file. Note that footprint width is still set by fSigma\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-pFWHM fhwm;     set pulse width in ns\n-fSigma sig;     set footprint width\n-res res;        range resolution to output in metres\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-topHat;         use a top hat wavefront\n-listFiles;      list files. Do not read them\n-pBuff s;        point reading buffer size in Gbytes\n-noNorm;         don't normalise for ALS density\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n-keepOld;        do not overwrite old files, if they exist\n-maxScanAng ang; maximum scan angle, degrees\n-useShadow;      account for shadowing in discrete return data through voxelisation\n-polyGround;     find mean ground elevation and slope through fitting a polynomial\n-nnGround;       find mean ground elevation and slope through nearest neighbour\n-decimate x;     probability of accepting an ALS beam\n-seed n;         random number seed\n\n\nQuestions to svenhancock@gmail.com\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n\n");
+        writeGediRatHelpMessage();
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -901,6 +906,66 @@ control *readCommands(int argc,char **argv)
 
   return(dimage);
 }/*readCommands*/
+
+/*####################################*/
+/*Help message*/
+
+void writeGediRatHelpMessage()
+{
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las or pts files. laz not yet supported\n#####\n\n\
+\n# Input output filenames and format\n\
+-input name;     lasfile input filename\n\
+-inList list;    input file list (ASCII file) for multiple files\n\
+-output name;    output filename\n\
+-ground;         record separate ground and canopy waveforms\n\
+-hdf;            write output as HDF5. Best with gridded or list of coords\n\
+-ascii;          write output as ASCII (default). Good for quick tests\n\
+-waveID id;      supply a waveID to pass to the output (only for single footprints)\n\
+\n# Single footprint, list of footprints, or grid of footprints\n\
+-coord lon lat;  footprint coordinate in same system as lasfile\n\
+-listCoord name; list of coordinates\n\
+-gridBound minX maxX minY maxY;     make a grid of waveforms in this box\n\
+-gridStep res;   grid step size\n\
+\n# Lidar characteristics. Defaults are expected GEDI values.\
+-pSigma sig;     set Gaussian pulse width as 1 sigma\n\
+-pFWHM fhwm;     set Gaussian pulse width as FWHM in ns\n\
+-readPulse file; read pulse shape and width from a file insteda of making Gaussian\n\
+-fSigma sig;     set footprint width\n\
+-wavefront file; read wavefront shape from file instead of setting Gaussian. Note that footprint width is still set by fSigma\n\
+-res res;        range resolution of waveform digitisation to output, in units of ALS data\n\
+-LVIS;           use LVIS pulse length, sigma=6.25m\n\
+-topHat;         use a top hat wavefront\n\
+-sideLobe;       use side lobes\n\
+-lobeAng ang;    lobe axis azimuth\n\
+\n# Input data quality filters\n\
+-checkCover;     check that the footprint is covered by ALS data. Do not output if not\n\
+-maxScanAng ang; maximum scan angle, degrees\n\
+-decimate x;     probability of accepting an ALS beam\n\
+\n# Computational speed options\n\
+-pBuff s;        point reading buffer size in Gbytes\n\
+-maxBins;        Optional: for HDF5, limit number of bins to save trimming.\n\
+-countOnly;      only use count method\n\
+-pulseAfter;     apply the pulse smoothing after binning for computational speed, at the risk of aliasing (default)\n\
+-pulseBefore;    apply the pulse smoothing before binning to avoid the risk of aliasing, at the expense of computational speed\n\
+-noNorm;         don't normalise for ALS density\n\
+\n# Octree\n\
+-noOctree;       do not use an octree\n\
+-octLevels n;    number of octree levels to use\n\
+-nOctPix n;      number of octree pixels along a side for the top level\n\
+\n# Using full-waveform input data (not tested)\n\
+-decon;          deconvolve\n\
+-indDecon;       deconvolve individual beams\n\
+-readWave;       read full-waveform where available\n\
+\n# Miscellaneous\n\
+-listFiles;      list files. Do not read them\n\
+-keepOld;        do not overwrite old files, if they exist\n\
+-useShadow;      account for shadowing in discrete return data through voxelisation\n\
+-polyGround;     find mean ground elevation and slope through fitting a polynomial\n\
+-nnGround;       find mean ground elevation and slope through nearest neighbour\n\
+-seed n;         random number seed\n\n\nQuestions to svenhancock@gmail.com\n\n");
+  return;
+}/*writeGediRatHelpMessage*/
+
 
 /*the end*/
 /*####################################*/
