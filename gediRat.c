@@ -499,7 +499,13 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
   /*make waveID if needed*/
   if(dimage->gediRat.doGrid){
-    if(dimage->useID)sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->gediRat.geoCoords[numb][0],(int)dimage->gediRat.geoCoords[numb][1]);
+    if(dimage->useID){
+      if(dimage->gediRat.geoCoords){
+        sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->gediRat.geoCoords[numb][0],(int)dimage->gediRat.geoCoords[numb][1]);
+      }else{
+        sprintf(waveID,"%s.%d.%d",dimage->waveID,(int)dimage->gediRat.coord[0],(int)dimage->gediRat.coord[1]);
+      }
+    }
   }else if(dimage->gediRat.readALSonce){
     strcpy(waveID,dimage->gediRat.waveIDlist[numb]);
   }else{
@@ -751,6 +757,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.waveIDlist=NULL;   /*list of waveform IDs*/
   dimage->maxBins=1024;
   dimage->gediIO.nMessages=200;
+  strcpy(dimage->waveID,"gediWave");
 
   dimage->gediRat.iThresh=0.0006;
   dimage->gediRat.meanN=12.0;
