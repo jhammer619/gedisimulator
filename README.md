@@ -5,7 +5,7 @@
 This is a set of programs to simulate large-footprint full-waveform lidar from airborne lidar and to process it and perform various other tasks. The parts are:
 
 
-gediRat: simulates GEDI waveforms from ALS .las files and outputs ASCII or HDF5 waveforms.
+**gediRat**: simulates GEDI waveforms from ALS .las files and outputs ASCII or HDF5 waveforms.
 
 gediMetric: processes full-waveform data (LVIS or simulated GEDI) and outputs metrics.
 
