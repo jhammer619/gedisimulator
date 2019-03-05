@@ -54,7 +54,7 @@ All programs depend on these libraries:
 Minpack (Levenberg-Maruqardt):  https://www.physics.wisc.edu/~craigm/idl/cmpfit.html
 
 
-Point to these with the environment variable:
+Point to these with the environment variables:
 
     GSL_ROOT
     HDF5_LIB
@@ -311,6 +311,63 @@ Where Ecan is the canopy energy, Eg is the ground energy, rho_v is the vegetatio
 These are described in:
 
 Lefsky, Michael A., Michael Keller, Yong Pang, Plinio B. De Camargo, and Maria O. Hunter. "Revised method for forest canopy height estimation from Geoscience Laser Altimeter System waveforms." Journal of Applied Remote Sensing 1, no. 1 (2007): 013537-013537.
+
+
+
+
+## lvisBullseye ##
+
+Uses the correlation method in Blair and Hofton (1999) to colocate a large-footprint lidar dataset with a small-footprint, discrete-return dataset. It uses the Pearson correlation to find the best affine transformation (x and y only, or x, y and z) and footprint size needed to align a large-footprint dataset with a small-footprint dataset. It has three potential modes of operation.
+
+* It can test a grid of affine transformations and give the correlation for every point (for a single fotprint width), as used in Blair and Hofton (1999)
+* It can use a simplex to move along the error surface and find the optimum transformation and footprint size. Note that initial ocation needs to be within around 20 m of the true location for their to be a sufficient gradient on the error surface.
+* It can use a hybrid of the two, testing every step on a coarse grid, then setting a simplex off from the location of maximum correlation. This allows a rapid assessment to get within 20 m of the true value, then uses the simplex to find the offsets precisely.
+
+It requires the large-footprint system pulse shape (either a Gaussian width or a file containing range and intensity) and the EPSG codes for the two datasets. It reads ALS data in .las format and can read either simulated HDF5 files from gediRat or LVIS in HDF5 or lgw format. A reader for GEDI data will be added once that data is available. 
+
+If the full grid is used, it outputs an ASCII file with the correlation for each x, y and z offset. If it uses a simplex it outputs the single optimum offset.
+
+
+#### inout outpout and switches
+    -output name;     output filename
+    -listAls list;    input file list for multiple als files
+    -als file;        input als file
+    -lvis file;       single input LVIS file
+    -listLvis file;   list of multiple LVIS files
+    -lgw;             LVIS is in lgw (default is LVIS hdf5)
+    -readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)
+    -lEPSG epsg;      LVIS projection
+    -aEPSG epsg;      ALS projection
+    -pSigma x;        pulse length, sigma in metres
+    -fSigma x;        footprint width, sigma in metres
+    -readPulse file;  pulse shape
+    -pulseBefore;     apply pulse shape before binning to prevent aliasing
+    -minDense x;      minimum ALS beam density to accept
+    -minSense x;      minimum waveform beam sensitivity to accept
+    -smooth sig;      smooth both waves before comparing
+    -maxShift x;      horizontal distance to search over
+    -step x;          vertical step size
+    -maxVshift x;      vertical distance to search over
+    -vStep z;          vertical step size
+    -hOffset dx dy;         centre of horizontal offsets
+    -offset z;        vertical datum offset
+    -bounds minX minY maxX maxY;    bounds to use, in ALS projection
+    -noNorm;          don't correct sims for ALS densiy variations
+    -noFilt;          don't filter outliers from correlation
+    -allSimMeth;      use all simulation methods
+
+##### Optimisation
+    -simplex;         use simplex optimisation rather than doing the full bullseye plot
+    -maxIter n;       maximum number of iterations
+    -optTol x;        tolerance for optimisation
+    -quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values
+    -geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance
+
+##### Octree
+    -noOctree;      do not use an octree
+    -octLevels n;   number of octree levels to use
+    -nOctPix n;     number of octree pixels along a side for the top level
+    -maxZen zen;     maximum zenith angle to use, degrees
 
 
 
