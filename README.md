@@ -46,31 +46,28 @@ Clone the repository and point to its location with the environment variable:
 
 All programs depend on these libraries:
 
-Gnu Scientific Library
-
-Geotiff
-
-HDF5
-
-GDAL
+* Gnu Scientific Library
+* Geotiff
+* HDF5
+* GDAL
 
 Minpack (Levenberg-Maruqardt):  https://www.physics.wisc.edu/~craigm/idl/cmpfit.html
 
 
 Point to these with the environment variable:
 
-GSL_ROOT
-
-HDF5_LIB
-
-CMPFIT_ROOT
+    GSL_ROOT
+    
+    HDF5_LIB
+    
+    CMPFIT_ROOT
 
 
 Once they're installed, it also requires two libraries without package managers:
 
-C-tools: https://bitbucket.org/StevenHancock/tools
+[**C-tools**](https://bitbucket.org/StevenHancock/tools)
 
-libClidar: https://bitbucket.org/StevenHancock/libclidar
+[**libClidar**](https://bitbucket.org/StevenHancock/libclidar)
 
 Clone these from bitbucket and point to their locations with the environment variables:
 
