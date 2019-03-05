@@ -12,7 +12,12 @@
 #include "libOctree.h"
 #include "gediIO.h"
 #include "gediNoise.h"
+
+//#define USEPHOTON
+
+#ifdef USEPHOTON
 #include "photonCount.h"
+#endif
 
 
 
@@ -73,6 +78,15 @@ typedef struct{
   uint32_t *shotN;    /*LVIS shotnumber*/
   float *zG;          /*ground elevation*/
 }lvisL2struct;
+
+
+/*####################################*/
+/*emtpy structure if photon counting not provided*/
+#ifndef USEPHOTON
+typedef struct{
+  void *nothing;
+}photonStruct;
+#endif
 
 
 /*####################################*/
@@ -316,7 +330,9 @@ int main(int argc,char **argv)
 
   if(dimage->writeGauss)fprintf(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
   if(!dimage->ice2)fprintf(stdout,"Written to %s.metric.txt\n",dimage->outRoot);
+  #ifdef USEPHOTON
   else             fprintf(stdout,"Written to %s\n",dimage->photonCount.outNamen);
+  #endif
 
 
   /*tidy up arrays*/
@@ -340,10 +356,13 @@ int main(int argc,char **argv)
       fclose(dimage->opooGauss);
       dimage->opooGauss=NULL;
     }
+    #ifdef USEPHOTON
     if(dimage->photonCount.opoo){
       fclose(dimage->photonCount.opoo);
       dimage->photonCount.opoo=NULL;
     }
+    TIDY(dimage->photonCount.prob);
+    #endif
     if(dimage->gediIO.den){
       TTIDY((void **)dimage->gediIO.den->pulse,2);
       TIDY(dimage->gediIO.den->matchPulse);
@@ -355,7 +374,6 @@ int main(int argc,char **argv)
       TIDY(dimage->gediIO.gFit);
     }
     dimage->hdfLvis=tidyLVISstruct(dimage->hdfLvis);
-    TIDY(dimage->photonCount.prob);
     TIDY(dimage);
   }
   return(0);
@@ -1527,6 +1545,20 @@ lvisL2struct *readLvisL2(char *namen)
 
 
 /*####################################################*/
+/*dummy function if photon counting not included*/
+
+#ifndef USEPHOTON
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb)
+
+{
+  fprintf(stderr,"This has been compiled without photon counting functions\n");
+  exit(1);
+  return;
+}/*photonCountCloud*/
+#endif
+
+
+/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -1535,6 +1567,7 @@ control *readCommands(int argc,char **argv)
   control *dimage=NULL;
   void setDenoiseDefault(denPar *);
   void readPulse(denPar *);
+  void writeHelp();
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
@@ -1634,11 +1667,13 @@ control *readCommands(int argc,char **argv)
   dimage->readL2=0;   /*do not read L2*/
   /*photon counting*/
   dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
+  #ifdef USEPHOTON
   dimage->photonCount.designval=2.1;
   dimage->photonCount.prob=NULL;
   dimage->photonCount.pBins=0;
   dimage->photonCount.H=200.0;
   dimage->photonCount.noise_mult=0.1;
+  #endif
   /*others*/
   rhoG=0.4;
   rhoC=0.57;
@@ -1837,6 +1872,7 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->corrDrift=1;
         dimage->gediIO.den->varDrift=0;
         dimage->gediIO.den->fixedDrift=atof(argv[++i]);
+      #ifdef USEPHOTON
       }else if(!strncasecmp(argv[i],"-photonCount",12)){
         dimage->ice2=1;
       }else if(!strncasecmp(argv[i],"-nPhotons",9)){
@@ -1848,8 +1884,9 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-noiseMult",10)){
         checkArguments(1,i,argc,"-noiseMult");
         dimage->photonCount.noise_mult=atof(argv[++i]);
+      #endif
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to calculate GEDI waveform metrics\n#####\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-laiRes res;     lai profile resolution in metres\n-laiH h;         height to calculate LAI to\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nPhoton counting\n-photonCount;    output point cloud from photon counting\n-nPhotons n;     mean number of photons\n-photonWind x;   window length for photon counting search, metres\n-noiseMult x;    noise multiplier for photon-counting\n\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-msWidth sig;    middle-smoothing width (after noise stats, before denoising)\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+        writeHelp();
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -1867,6 +1904,21 @@ control *readCommands(int argc,char **argv)
 
   return(dimage);
 }/*readCommands*/
+
+
+/*###########################################################*/
+/*write help statement*/
+
+void writeHelp()
+{
+  fprintf(stdout,"\n#########################\nProgram to calculate GEDI waveform metrics\n#########################\n\n-input name;     waveform  input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-writeFit;       write fitted waveform\n-writeGauss;     write Gaussian parameters\n-ground;         read true ground from file\n-useInt;         use discrete intensity instead of count\n-useFrac;        use fractional hits rather than counts\n-readBinLVIS;    input is an LVIS binary file\n-readHDFlvis;    read LVIS HDF5 input\n-readHDFgedi;    read GEDI simulator HDF5 input\n-level2 name;    level2 filename for LVIS ZG\n-forcePsigma;    do not read pulse sigma from file\n-rhRes r;        percentage energy resolution of RH metrics\n-laiRes res;     lai profile resolution in metres\n-laiH h;         height to calculate LAI to\n-noRoundCoord;   do not round up coords when outputting\n-bayesGround;    use Bayseian ground finding\n-gTol tol;       ALS ground tolerance. Used to calculate slope.\n-noRHgauss;      do not fit Gaussians\n-dontTrustGround;     don't trust ground in waveforms, if included\n-fhdHistRes res;     waveform intesnity resolution to use when calculating FHD from histograms\n-bounds minX minY maxX maxY;    only analyse data within bounds\n\nAdding noise:\n-dcBias n;       mean noise level\n-nSig sig;       noise sigma\n-seed n;         random number seed\n-hNoise n;       hard threshold noise as a fraction of integral\n-linkNoise linkM cov;     apply Gaussian noise based on link margin at a cover\n-linkFsig sig;       footprint width to use when calculating and applying signal noise\n-linkPsig sig;       pulse width to use when calculating and applying signal noise\n-trueSig sig;    true sigma of background noise\n-addDrift xi;    apply detector background drift\n-renoise;        remove noise feom truth\n-newPsig sig;    new value for pulse width\n-oldPsig sig;    old value for pulse width if not defined in waveform file\n-missGround;     assume ground is missed to assess RH metrics\n-minGap gap;     delete signal beneath min detectable gap fraction\n-maxDN max;      maximum DN\n-bitRate n;      DN bit rate\n\nPhoton counting\n");
+  #ifdef USEPHOTON
+  fprintf(stdout,"-photonCount;    output point cloud from photon counting\n-nPhotons n;     mean number of photons\n-photonWind x;   window length for photon counting search, metres\n-noiseMult x;    noise multiplier for photon-counting\n");
+  #endif
+  fprintf(stdout,"\nDenoising:\n-meanN n;        mean noise level\n-thresh n;       noise threshold\n-sWidth sig;     smoothing width\n-psWidth sigma;  pre-smoothing width\n-msWidth sig;    middle-smoothing width (after noise stats, before denoising)\n-gWidth sig;     Gaussian paremter selection width\n-minGsig sig;    minimum Gaussian sigma to fit\n-minWidth n;     minimum feature width in bins\n-varNoise;       variable noise threshold\n-varScale x;     variable noise threshold scale\n-statsLen len;   length to calculate noise stats over\n-medNoise;       use median stats rather than mean\n-noiseTrack;     use noise tracking\n-varDrift;       correct detector drift with variable factor\n-driftFac xi;    fix drift with constant drift factor\n-rhoG rho;       ground reflectance\n-rhoC rho;       canopy reflectance\n-pFile file;     read pulse file, for deconvoltuion and matched filters\n-pSigma sig;     pulse width to smooth by if using Gaussian pulse\n-preMatchF;      matched filter before denoising\n-postMatchF;     matched filter after denoising\n-gold;           deconvolve with Gold's method\n-deconTol;       deconvolution tolerance\n\nQuestions to svenhancock@gmail.com\n\n");
+
+  return;
+}/*writeHelp*/
 
 /*the end*/
 /*###########################################################*/
