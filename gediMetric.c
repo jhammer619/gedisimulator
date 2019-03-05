@@ -13,7 +13,7 @@
 #include "gediIO.h"
 #include "gediNoise.h"
 
-#define USEPHOTON
+/*#define USEPHOTON*/
 
 #ifdef USEPHOTON
 #include "photonCount.h"
