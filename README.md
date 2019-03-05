@@ -57,9 +57,7 @@ Minpack (Levenberg-Maruqardt):  https://www.physics.wisc.edu/~craigm/idl/cmpfit.
 Point to these with the environment variable:
 
     GSL_ROOT
-    
     HDF5_LIB
-    
     CMPFIT_ROOT
 
 
