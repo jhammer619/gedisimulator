@@ -60,7 +60,6 @@ Point to these with the environment variable:
     HDF5_LIB
     CMPFIT_ROOT
 
-
 Once they're installed, it also requires two libraries without package managers:
 
 [**C-tools**](https://bitbucket.org/StevenHancock/tools)
@@ -69,22 +68,22 @@ Once they're installed, it also requires two libraries without package managers:
 
 Clone these from bitbucket and point to their locations with the environment variables:
 
-HANCOCKTOOLS_ROOT
-
-LIBCLIDAR_ROOT
+    HANCOCKTOOLS_ROOT
+    LIBCLIDAR_ROOT
 
 To compile, type:
 
-make THIS=gediRat
+  **make THIS=gediRat**
 
 Make sure that ~/bin/$ARCH exists and is in the path, where $ARCH is the result of `uname -m`.
 
-make THIS=gediRat install
+  **make THIS=gediRat install**
 
-Replace "gediRat" with each of the commands above to compile and install.
+Replace "**gediRat**" with each of the commands above to compile and install.
 
 
-Make sure that all .csh and .bash files are also in your path.
+Make sure that all **.csh** and **.bash** files are also in your path.
+
 
 # Function operation #
 
@@ -93,96 +92,64 @@ Make sure that all .csh and .bash files are also in your path.
 Program to create GEDI waveforms from ALS las or pts files. laz not yet supported
 
 ### Input output filenames and format
--input name;     lasfile input filename
-
--inList list;    input file list (ASCII file) for multiple files
-
--output name;    output filename
-
--ground;         record separate ground and canopy waveforms
-
--hdf;            write output as HDF5. Best with gridded or list of coords
-
--ascii;          write output as ASCII (default). Good for quick tests
-
--waveID id;      supply a waveID to pass to the output (only for single footprints)
+    -input name;     lasfile input filename
+    -inList list;    input file list (ASCII file) for multiple files
+    -output name;    output filename
+    -ground;         record separate ground and canopy waveforms
+    -hdf;            write output as HDF5. Best with gridded or list of coords
+    -ascii;          write output as ASCII (default). Good for quick tests
+    -waveID id;      supply a waveID to pass to the output (only for single footprints)
 
 ### Single footprint, list of footprints, or grid of footprints
--coord lon lat;  footprint coordinate in same system as lasfile
-
--listCoord name; list of coordinates
-
--gridBound minX maxX minY maxY;     make a grid of waveforms in this box
-
--gridStep res;   grid step size
+    -coord lon lat;  footprint coordinate in same system as lasfile
+    -listCoord name; list of coordinates
+    -gridBound minX maxX minY maxY;     make a grid of waveforms in this box
+    -gridStep res;   grid step size
 
 ### Lidar characteristics. Defaults are expected GEDI values.-pSigma sig;     set Gaussian pulse width as 1 sigma
--pFWHM fhwm;     set Gaussian pulse width as FWHM in ns
-
--readPulse file; read pulse shape and width from a file insteda of making Gaussian
-
--fSigma sig;     set footprint width
-
--wavefront file; read wavefront shape from file instead of setting Gaussian. Note that footprint width is still set by fSigma
-
--res res;        range resolution of waveform digitisation to output, in units of ALS data
-
--LVIS;           use LVIS pulse length, sigma=6.25m
-
--topHat;         use a top hat wavefront
-
--sideLobe;       use side lobes
-
--lobeAng ang;    lobe axis azimuth
+    -pFWHM fhwm;     set Gaussian pulse width as FWHM in ns
+    -readPulse file; read pulse shape and width from a file insteda of making Gaussian
+    -fSigma sig;     set footprint width
+    -wavefront file; read wavefront shape from file instead of setting Gaussian. Note that footprint width is still set by fSigma
+    -res res;        range resolution of waveform digitisation to output, in units of ALS data
+    -LVIS;           use LVIS pulse length, sigma=6.25m
+    -topHat;         use a top hat wavefront
+    -sideLobe;       use side lobes
+    -lobeAng ang;    lobe axis azimuth
 
 
 ### Input data quality filters
--checkCover;     check that the footprint is covered by ALS data. Do not output if not
-
--maxScanAng ang; maximum scan angle, degrees
-
--decimate x;     probability of accepting an ALS beam
+    -checkCover;     check that the footprint is covered by ALS data. Do not output if not
+    -maxScanAng ang; maximum scan angle, degrees
+    -decimate x;     probability of accepting an ALS beam
 
 
 ### Computational speed options
--pBuff s;        point reading buffer size in Gbytes
-
--maxBins;        Optional: for HDF5, limit number of bins to save trimming.
-
--countOnly;      only use count method
-
--pulseAfter;     apply the pulse smoothing after binning for computational speed, at the risk of aliasing (default)
-
--pulseBefore;    apply the pulse smoothing before binning to avoid the risk of aliasing, at the expense of computational speed
-
--noNorm;         don't normalise for ALS density
+    -pBuff s;        point reading buffer size in Gbytes
+    -maxBins;        Optional: for HDF5, limit number of bins to save trimming.
+    -countOnly;      only use count method
+    -pulseAfter;     apply the pulse smoothing after binning for computational speed, at the risk of aliasing (default)
+    -pulseBefore;    apply the pulse smoothing before binning to avoid the risk of aliasing, at the expense of computational speed
+    -noNorm;         don't normalise for ALS density
 
 ### Octree
--noOctree;       do not use an octree
-
--octLevels n;    number of octree levels to use
-
--nOctPix n;      number of octree pixels along a side for the top level
+    -noOctree;       do not use an octree
+    -octLevels n;    number of octree levels to use
+    -nOctPix n;      number of octree pixels along a side for the top level
 
 
 ### Using full-waveform input data (not tested)
--decon;          deconvolve
-
--indDecon;       deconvolve individual beams
-
--readWave;       read full-waveform where available
+    -decon;          deconvolve
+    -indDecon;       deconvolve individual beams
+    -readWave;       read full-waveform where available
 
 
 ### Miscellaneous
--listFiles;      list files. Do not read them
-
--keepOld;        do not overwrite old files, if they exist
-
--useShadow;      account for shadowing in discrete return data through voxelisation
-
--polyGround;     find mean ground elevation and slope through fitting a polynomial
-
--nnGround;       find mean ground elevation and slope through nearest neighbour
+    -listFiles;      list files. Do not read them
+    -keepOld;        do not overwrite old files, if they exist
+    -useShadow;      account for shadowing in discrete return data through voxelisation
+    -polyGround;     find mean ground elevation and slope through fitting a polynomial
+    -nnGround;       find mean ground elevation and slope through nearest neighbour
 
 
 
