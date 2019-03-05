@@ -7,42 +7,41 @@ This is a set of programs to simulate large-footprint full-waveform lidar from a
 
 **gediRat**: simulates GEDI waveforms from ALS .las files and outputs ASCII or HDF5 waveforms.
 
-gediMetric: processes full-waveform data (LVIS or simulated GEDI) and outputs metrics.
+**gediMetric**: processes full-waveform data (LVIS or simulated GEDI) and outputs metrics.
 
-mapLidar: produces geotiffs from .las files of different properties. Also produces the bounding boxes of .las files for use in overlapLasFiles.csh.
+**mapLidar**: produces geotiffs from .las files of different properties. Also produces the bounding boxes of .las files for use in overlapLasFiles.csh.
 
-lasPoints: outputs .pts files from .las files for selected areas.
+**lasPoints**: outputs .pts files from .las files for selected areas.
 
-lvisBullseye: produces the correlation bullseye plots of ALS to full-waveform data following Blair and Hofton (1999).
+**lvisBullseye**: produces the correlation bullseye plots of ALS to full-waveform data following Blair and Hofton (1999).
 
-addNoiseHDF: Reads waveform data from HDF5 files and adds noise of a chosen level.
-
-
-To find options, type the above command with "-help". These are explained in full detail later. The other .c files are either small test programs in the development of the above or are libraries called by the above. Important libraries are:
+**addNoiseHDF**: Reads waveform data from HDF5 files and adds noise of a chosen level.
 
 
-gediIO.c: contains the GEDI simulator.
+To find options, type the above command with "-help". These are explained in full detail later. 
 
 
 There are some C and bash shells to control the above:
 
-gediRatList.csh: batch processes gediRat.
+**gediRatList.csh**: batch processes gediRat.
 
-filtForR.csh: converts the output .txt files into .csv files for reading in to R.
+**filtForR.csh**: converts the output .txt files into .csv files for reading in to R.
 
-overlapLasFiles.csh: determines which .las files are needed for a given simulation.
+**overlapLasFiles.cs**h: determines which .las files are needed for a given simulation.
 
-orbitTracks.bash: produces lists of footprints from GEDI orbital simulations.
+**orbitTracks.bash**: produces lists of footprints from GEDI orbital simulations.
 
-listALS.csh: produces the lists of .las files needed to read multiple files.
+**listALS.csh**: produces the lists of .las files needed to read multiple files.
 
+The other .c files are either small test programs in the development of the above or are libraries called by the above. Important libraries are:
 
+**gediIO.c**: contains the GEDI simulator functions.
 
 ### How do I get set up? ###
 
 Clone the repository and point to its location with the environment variable:
 
-GEDIRAT_ROOT
+    GEDIRAT_ROOT
 
 
 All programs depend on these libraries:
