@@ -312,6 +312,15 @@ These are described in:
 
 Lefsky, Michael A., Michael Keller, Yong Pang, Plinio B. De Camargo, and Maria O. Hunter. "Revised method for forest canopy height estimation from Geoscience Laser Altimeter System waveforms." Journal of Applied Remote Sensing 1, no. 1 (2007): 013537-013537.
 
+
+
+## mapLidar ##
+Generates a geotiff from las file properties, combining multiple files.
+
+## lasPoints ##
+Extracts a point cloud as a pts for a bounding box within a collection of las files.
+
+
 ### Contribution guidelines ###
 
 * Writing tests
