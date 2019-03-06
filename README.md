@@ -2,7 +2,12 @@
 
 ### What is this repository for? ###
 
-This is a set of programs to simulate large-footprint full-waveform lidar from airborne lidar and to process it and perform various other tasks. The parts are:
+This is a set of programs to simulate large-footprint full-waveform lidar from airborne lidar and to process it and perform various other tasks. It is described and validated in:
+
+[Hancock, S., Armston, J., Hofton, M., Sun, X., Tang, H., Duncanson, L.I., Kellner, J.R. and Dubayah, R., 2019. The GEDI simulator: A large‐footprint waveform lidar simulator for calibration and validation of spaceborne missions. Earth and Space Science.](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2018EA000506)
+
+
+The programs are:
 
 
 **gediRat**: simulates GEDI waveforms from ALS .las files and outputs ASCII or HDF5 waveforms.
