@@ -39,7 +39,23 @@ The other .c files are either small test programs in the development of the abov
 
 ### How do I get set up? ###
 
-Clone the repository and point to its location with the environment variable:
+
+##### Singularity container
+The simplest way to get set up is to use the script provided to build all programs within a [**singularity container**](https://www.sylabs.io/docs/). Download this [script](https://bitbucket.org/StevenHancock/gedisimulator/src/master/makeSingularity.txt), then build (in Linux) by the command below. **Note** that this requires root access. Singularity cannot be run on a Mac natively and must be built and run within a [virtual machine](https://www.sylabs.io/guides/2.6/user-guide/installation.html#install-on-mac).
+
+    sudo singularity build gediSingularity makeSingularity.txt
+
+This will compile all programs within a singularity, called *gediSingularity* (the name can be changed to whatever the user desires). All the above programs can be called, for example:
+
+    singularity exec --bind $dataDir gediSingularity gediMetric -help
+
+Where *dataDir* is a disk location that you want the singularity to have access to. Each disk area the singularity needs access to must be bound in this way.
+
+
+
+#### Compile from source
+
+Alternatively to the singularity container, the programs can be compiled from source. Clone the repository and point to its location with the environment variable:
 
     GEDIRAT_ROOT
 
@@ -51,7 +67,7 @@ All programs depend on these libraries:
 * HDF5
 * GDAL
 
-Minpack (Levenberg-Maruqardt):  https://www.physics.wisc.edu/~craigm/idl/cmpfit.html
+[**Minpack** (Levenberg-Maruqardt)](https://www.physics.wisc.edu/~craigm/idl/cmpfit.html)
 
 
 Point to these with the environment variables:
