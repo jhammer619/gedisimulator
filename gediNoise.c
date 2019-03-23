@@ -92,11 +92,6 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
     TIDY(data->noised);
     data->noised=digitiseWave(tempNoise,data->nBins,gNoise->bitRate,gNoise->maxDN,tot);
     TIDY(tempNoise);
-    /*scale ground of recorded*/
-    /*if(data->ground){
-      for(i=0;i<data->nBins;i++)data->ground[data->useType][i]=\
-             data->ground[data->useType][i]*gNoise->trueSig/(gNoise->linkSig*reflScale/gNoise->trueSig)+gNoise->offset;
-    }*/
   }else if((gNoise->nSig>0.0)||(gNoise->meanN>0.0)){   /*mean and stdev based noise*/
     for(i=0;i<data->nBins;i++){
       noise=gNoise->nSig*GaussNoise();
