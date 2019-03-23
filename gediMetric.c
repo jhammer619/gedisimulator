@@ -1606,7 +1606,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.useInt=0;
   dimage->gediIO.useCount=1;
   dimage->gediIO.useFrac=0;
-  dimage->rhRes=10.0;
+  dimage->rhRes=5.0;
   dimage->laiRes=10.0;
   dimage->maxLAIh=30.0;
   dimage->bayesGround=0;
