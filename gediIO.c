@@ -405,8 +405,8 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dIntHDF5(file,"NBINS",&hdfData->nBins,1);
   write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1);
   write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1);
-  write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
   write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1);
+  write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
   write1dIntHDF5(file,"NPBINS",&hdfData->nPbins,1);
   /*write datasets*/
   write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
@@ -473,11 +473,11 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*read the header*/
-  tempF=read1dFloatHDF5(file,"PSIGMA",&nWaves);
-  hdfData->pSigma=*tempF;
-  TIDY(tempF);
   tempF=read1dFloatHDF5(file,"FSIGMA",&nWaves);
   hdfData->fSigma=*tempF;
+  TIDY(tempF);
+  tempF=read1dFloatHDF5(file,"PSIGMA",&nWaves);
+  hdfData->pSigma=*tempF;
   TIDY(tempF);
   tempI=read1dIntHDF5(file,"NWAVES",&nWaves);
   hdfData->nWaves=*tempI;

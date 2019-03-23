@@ -1755,6 +1755,7 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->statsLen=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-varScale",9)){
         checkArguments(1,i,argc,"-varScale");
+        dimage->gediIO.den->varNoise=1;
         dimage->gediIO.den->threshScale=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noiseTrack",11)){
         dimage->gediIO.den->noiseTrack=1;
