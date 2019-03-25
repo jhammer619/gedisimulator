@@ -1681,7 +1681,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=rhoC/rhoG;
   dimage->gTol=0.0;
   dimage->gediIO.nMessages=200;
-  dimage->fhdHistRes=0.01;
+  dimage->fhdHistRes=0.001;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
