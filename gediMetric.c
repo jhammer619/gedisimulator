@@ -818,7 +818,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   /*from ground removed canopy*/
   if(dimage->gediIO.ground)canWave=subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins);
   else                     canWave=NULL;  /*no ground estimate. Leave blank*/
-  metric->FHDcan=foliageHeightDiversity(canWave,nBins);
   metric->FHDcanH=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
   TIDY(canWave);
   /*from Gaussian removed canopy*/
@@ -827,6 +826,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->FHDcanGauss=foliageHeightDiversity(canWave,nBins);
   metric->FHDcanGhist=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
   TIDY(canWave);
+
 
   /*lai profiles*/
   if(data->ground)metric->tLAI=trueLAIprofile(data->wave[data->useType],data->ground[data->useType],z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
@@ -839,6 +839,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->hgLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->gHeight,dimage->maxLAIh,&metric->laiBins);
   metric->hiLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->inflGround,dimage->maxLAIh,&metric->laiBins);
   metric->hmLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->maxGround,dimage->maxLAIh,&metric->laiBins);
+
 
   /*signal start and end*/
   findSignalBounds(denoised,z,nBins,&metric->tElev,&metric->bElev,dimage);
@@ -1680,7 +1681,7 @@ control *readCommands(int argc,char **argv)
   dimage->rhoRatio=rhoC/rhoG;
   dimage->gTol=0.0;
   dimage->gediIO.nMessages=200;
-  dimage->fhdHistRes=0.0001;
+  dimage->fhdHistRes=0.01;
 
   /*read the command line*/
   for (i=1;i<argc;i++){
