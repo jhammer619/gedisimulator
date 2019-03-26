@@ -71,8 +71,7 @@ All programs depend on these libraries:
 * Geotiff
 * HDF5
 * GDAL
-
-[**Minpack** (Levenberg-Maruqardt)](https://www.physics.wisc.edu/~craigm/idl/cmpfit.html)
+* [Minpack (Levenberg-Maruqardt)](https://www.physics.wisc.edu/~craigm/idl/cmpfit.html)
 
 
 Point to these with the environment variables:
@@ -83,9 +82,8 @@ Point to these with the environment variables:
 
 Once they're installed, it also requires two libraries without package managers:
 
-[**C-tools**](https://bitbucket.org/StevenHancock/tools)
-
-[**libClidar**](https://bitbucket.org/StevenHancock/libclidar)
+* [C-tools](https://bitbucket.org/StevenHancock/tools)
+* [libClidar](https://bitbucket.org/StevenHancock/libclidar)
 
 Clone these from bitbucket and point to their locations with the environment variables:
 
@@ -131,7 +129,7 @@ Program to create GEDI waveforms from ALS las or pts files. laz not yet supporte
 ##### Lidar characteristics. Defaults are expected GEDI values.
     -pSigma sig;     set Gaussian pulse width as 1 sigma
     -pFWHM fhwm;     set Gaussian pulse width as FWHM in ns
-    -readPulse file; read pulse shape and width from a file insteda of making Gaussian
+    -readPulse file; read pulse shape and width from a file instead of making Gaussian
     -fSigma sig;     set footprint width
     -wavefront file; read wavefront shape from file instead of setting Gaussian. Note that footprint width is still set by fSigma
     -res res;        range resolution of waveform digitisation to output, in units of ALS data
@@ -179,7 +177,7 @@ Program to create GEDI waveforms from ALS las or pts files. laz not yet supporte
 
 ## gediMetric ##
 
-Program to process large-footprint lidar data (real or simulated) and produce standard waveform metrics. It can add noise to simulations and alter pulse shapes (increase length only). It reads either ASCII or HDF5 files created by gediRat, or can read LVIS data in either HDF5 or .lgw format. It will be updated to read GEDI data when that is available. Take care when reading ASCII data as some options are mutually exclusive (different gediRat options can change the column order). This outputs an ASCII file with the first row defining the contenst of each column. Output variable names are defined below.
+Program to process large-footprint lidar data (real or simulated) and produce standard waveform metrics. It can add noise to simulations and alter pulse shapes (increase length only). It reads either ASCII or HDF5 files created by gediRat, or can read LVIS data in either HDF5 or .lgw format. It will be updated to read GEDI data when that is available. Take care when reading ASCII data as some options are mutually exclusive (different gediRat options can change the column order). This outputs an ASCII file with the first row defining the contents of each column. Output variable names are defined below.
 
 ##### Input output
     -input name;      waveform  input filename
@@ -198,7 +196,7 @@ Program to process large-footprint lidar data (real or simulated) and produce st
     -useInt;          use discrete intensity instead of count
     -useFrac;         use fractional hits rather than counts
     -rhRes r;         percentage energy resolution of RH metrics
-    -laiRes res;      lai profile resolution in metres
+    -laiRes res;      LAI profile resolution in metres
     -laiH h;          height to calculate LAI to
     -noRHgauss;       do not fit Gaussians
     -gTol tol;        ALS ground tolerance. Used to calculate slope.
@@ -244,7 +242,7 @@ Program to process large-footprint lidar data (real or simulated) and produce st
     -msWidth sig;     smoothing width, after noise stats, before denoising
     -preMatchF;       matched filter before denoising
     -postMatchF;      matched filter after denoising
-    -pFile file;      read pulse file, for deconvoltuion and matched filters
+    -pFile file;      read pulse file, for deconvolution and matched filters
     -gWidth sig;      Gaussian parameter selection smoothing width
     -minGsig sig;     minimum Gaussian sigma to fit
     -minWidth n;      minimum feature width in bins
@@ -284,6 +282,10 @@ Note that some metrics are "true" and will not be available to GEDI. They are in
     FHD - Foliage height diversity
     niM2 - Wenge Ni's biomass metric, equal to the sum of the RH metrics to the power of 2 (unpublished)
     niM2.1 - Wenge Ni's biomass metric, equal to the sum of the RH metrics to the power of 2.1 (unpublished)
+    gLAI0t10 - LAI at each height band (0-10m in this case) using the ground Gaussian to isolate canopy returns
+    hgLAI0t10 - LAI at each height band (0-10m in this case) using the energy beneath the lowest Gaussian, reflected, to isolate canopy returns
+    hiLAI0t10 - LAI at each height band (0-10m in this case) using the energy beneath the lowest inflection point, reflected, to isolate canopy returns
+    hmLAI0t10 - LAI at each height band (0-10m in this case) using the energy beneath the lowest maximum, reflected, to isolate canopy returns
 
 ##### Metrics unavailable to GEDI
     wave ID - waveform label, relates to plot name and footprint number.
@@ -297,6 +299,7 @@ Note that some metrics are "true" and will not be available to GEDI. They are in
     groundInfl - d2y/dx2 of inflection point between ground and canopy return. A measure of understorey.
     pointDense - average ALS point density within GEDI footprint.
     beamDense - average ALS beam density within GEDI footprint.
+    tLAI0t10 - LAI at each height band (0-10m in this case) using the ALS ground estimate to isolate canopy returns
 
 ##### System settings
     pSigma - GEDI system pulse width, sigma (m).
@@ -312,7 +315,7 @@ Note that some metrics are "true" and will not be available to GEDI. They are in
 
 
 ##### Gaussian fitting
-Used for "gHeight", "rhGauss" and "gaussHalfCov". The waveform is denoised (mean+5*sigma, noise tracking to avoid truncation), smoothed (pSigma*0.75) and Gaussians fitted with Levenberg-Marquardt optimisation. The center of the lowest Gaussian containing at least 0.5% of the waveform energy is selected as the ground.
+Used for "gHeight", "rhGauss" and "gaussHalfCov". The waveform is denoised (mean+5*sigma, noise tracking to avoid truncation), smoothed (pSigma*0.75) and Gaussians fitted with Levenberg-Marquardt optimisation. The centre of the lowest Gaussian containing at least 0.5% of the waveform energy is selected as the ground.
 
 ##### Maximum
 Used for "maxGround", "rhMax" and "maxHalfCov". The waveform is denoised (mean+5*sigma, noise tracking to avoid truncation), smoothed (pSigma*0.75). The lowest maximum is taken as the ground.
@@ -340,8 +343,8 @@ Lefsky, Michael A., Michael Keller, Yong Pang, Plinio B. De Camargo, and Maria O
 
 Uses the correlation method in Blair and Hofton (1999) to colocate a large-footprint lidar dataset with a small-footprint, discrete-return dataset. It uses the Pearson correlation to find the best affine transformation (x and y only, or x, y and z) and footprint size needed to align a large-footprint dataset with a small-footprint dataset. It has three potential modes of operation.
 
-* It can test a grid of affine transformations and give the correlation for every point (for a single fotprint width), as used in Blair and Hofton (1999)
-* It can use a simplex to move along the error surface and find the optimum transformation and footprint size. Note that initial ocation needs to be within around 20 m of the true location for their to be a sufficient gradient on the error surface.
+* It can test a grid of affine transformations and give the correlation for every point (for a single footprint width), as used in Blair and Hofton (1999)
+* It can use a simplex to move along the error surface and find the optimum transformation and footprint size. Note that initial location needs to be within around 20 m of the true location for their to be a sufficient gradient on the error surface.
 * It can use a hybrid of the two, testing every step on a coarse grid, then setting a simplex off from the location of maximum correlation. This allows a rapid assessment to get within 20 m of the true value, then uses the simplex to find the offsets precisely.
 
 It requires the large-footprint system pulse shape (either a Gaussian width or a file containing range and intensity) and the EPSG codes for the two datasets. It reads ALS data in .las format and can read either simulated HDF5 files from gediRat or LVIS in HDF5 or lgw format. A reader for GEDI data will be added once that data is available. 
@@ -349,10 +352,10 @@ It requires the large-footprint system pulse shape (either a Gaussian width or a
 If the full grid is used, it outputs an ASCII file with the correlation for each x, y and z offset. If it uses a simplex it outputs the single optimum offset.
 
 
-#### inout outpout and switches
+#### Input output and switches
     -output name;     output filename
-    -listAls list;    input file list for multiple als files
-    -als file;        input als file
+    -listAls list;    input file list for multiple ALS files
+    -als file;        input ALS file
     -lvis file;       single input LVIS file
     -listLvis file;   list of multiple LVIS files
     -lgw;             LVIS is in lgw (default is LVIS hdf5)
@@ -373,7 +376,7 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
     -hOffset dx dy;         centre of horizontal offsets
     -offset z;        vertical datum offset
     -bounds minX minY maxX maxY;    bounds to use, in ALS projection
-    -noNorm;          don't correct sims for ALS densiy variations
+    -noNorm;          don't correct sims for ALS density variations
     -noFilt;          don't filter outliers from correlation
     -allSimMeth;      use all simulation methods
 
