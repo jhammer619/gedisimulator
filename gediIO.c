@@ -1034,7 +1034,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
              (z>-10000.0)&&(z<10000.0))usePoint=1;
           else usePoint=0;
         }else usePoint=checkMultiPoints(x,y,z,gediRat->gNx,gediRat->coords,gediRat->maxSep);
-      }
+      }else usePoint=0;
 
       /*are we decimating*/
       if(usePoint){
@@ -2271,8 +2271,8 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
             totGround+=rScale;
           }
         }
-        waves->meanScanAng+=rScale*fracHit*(float)abs((int)data[numb]->scanAng[i]);
-        totAng+=rScale*fracHit;
+        waves->meanScanAng+=rScale*(float)abs((int)data[numb]->scanAng[i]);
+        totAng+=rScale;
 
         /*full-waveform*/
         if(gediRat->readWave&&data[numb]->hasWave){
