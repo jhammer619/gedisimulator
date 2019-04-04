@@ -1028,11 +1028,13 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
       setCoords(&x,&y,&z,las);
 
       /*if the point is of use?*/
-      if(!gediRat->readALSonce){
-        if((x>=gediRat->globMinX)&&(x<=gediRat->globMaxX)&&(y>=gediRat->globMinY)&&(y<=gediRat->globMaxY)&&\
-           (z>-10000.0)&&(z<10000.0)&&(fabs((float)las->scanAng)<=gediRat->maxScanAng))usePoint=1;
-        else usePoint=0;
-      }else usePoint=checkMultiPoints(x,y,z,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+      if(fabs((float)las->scanAng)<=gediRat->maxScanAng){
+        if(!gediRat->readALSonce){
+          if((x>=gediRat->globMinX)&&(x<=gediRat->globMaxX)&&(y>=gediRat->globMinY)&&(y<=gediRat->globMaxY)&&\
+             (z>-10000.0)&&(z<10000.0))usePoint=1;
+          else usePoint=0;
+        }else usePoint=checkMultiPoints(x,y,z,gediRat->gNx,gediRat->coords,gediRat->maxSep);
+      }
 
       /*are we decimating*/
       if(usePoint){
