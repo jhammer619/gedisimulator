@@ -623,8 +623,6 @@ gediHDF *setUpHDF(control *dimage)
   gediHDF *hdfData=NULL;
 
 
-
-
   /*set counter to zero*/
   dimage->hdfCount=0;
 
@@ -636,7 +634,7 @@ gediHDF *setUpHDF(control *dimage)
 
   /*header*/
   hdfData->nWaves=dimage->gediRat.gNx*dimage->gediRat.gNy;
-  hdfData->nBins=dimage->maxBins;
+  hdfData->nBins=(int)((float)dimage->maxBins*0.15/dimage->gediIO.res);
   hdfData->nTypeWaves=dimage->gediIO.nTypeWaves;
   hdfData->pSigma=dimage->gediIO.pSigma;
   hdfData->fSigma=dimage->gediIO.fSigma;
