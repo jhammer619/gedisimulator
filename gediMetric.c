@@ -212,7 +212,6 @@ typedef struct{
 int main(int argc,char **argv)
 {
   int i=0;
-int j=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
