@@ -69,6 +69,7 @@ typedef struct{
   float maxZen;        /*maximum LVIS zenith angle to use*/
   float minDense;      /*minimum ALS beam density*/
   float minSense;      /*minimum waveform beam sensitivity to use*/
+  char leaveEmpty;     /*exit if no usable footprints at any time*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum horizontal distance to shift*/
@@ -114,7 +115,7 @@ typedef struct{
 /*####################################*/
 /*global functions*/
 
-float **getCorrelStats(control *,dataStruct **,pCloudStruct **,int *,double,double,double,double **,float **,int);
+float **getCorrelStats(control *,dataStruct **,pCloudStruct **,int *,double,double,double,double **,float **,int,char);
 float *waveCorrel(waveStruct *,float *,dataStruct *,gediIOstruct *,double);
 double findMeanCorr(const gsl_vector *, void *);
 double **shiftPrints(double **,double,double,int);
@@ -409,7 +410,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   }
 
   /*get correlations*/
-  correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves);
+  correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
 
   /*get mean correlation*/
   meanCorrel=0.0;
@@ -482,7 +483,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
         if(nZ>1)zOff=(double)(m-nZ/2)*(double)dimage->vShiftStep;   /*datum offset has already been applied*/
         else    zOff=dimage->origin[2];
         /*get correlation stats*/
-        correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves);
+        correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
 
         /*which mode are we using*/
         if(meanCorrel==NULL){  /*write out all points*/
@@ -519,7 +520,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
 /*####################################################*/
 /*get correlation across all waves*/
 
-float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int *contN,double xOff,double yOff,double zOff,double **coords,float **denoised,int nTypeWaves)
+float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int *contN,double xOff,double yOff,double zOff,double **coords,float **denoised,int nTypeWaves,char leaveEmpty)
 {
   int k=0;
   float **correl=NULL;
@@ -566,7 +567,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     fprintf(stderr,"No usable footprints contained\n");
     TTIDY((void **)correl,dimage->gediRat.gNx);
     correl=NULL;
-    exit(1);
+    if(leaveEmpty)exit(1);
   }
   return(correl);
 }/*getCorrelStats*/
@@ -1248,6 +1249,7 @@ control *readCommands(int argc,char **argv)
   dimage->maxZen=100000.0;
   dimage->minDense=0.0;
   dimage->minSense=0.0;
+  dimage->leaveEmpty=0;
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -1457,8 +1459,10 @@ control *readCommands(int argc,char **argv)
         dimage->fullBull=0;
         dimage->maxShift=atof(argv[++i]);     /*expected geolocation error, plus a bit*/
         dimage->shiftStep=atof(argv[++i]);    /*expected width of correlation hole*/
+      }else if(!strncasecmp(argv[i],"-leaveEmpty",11)){
+        dimage->leaveEmpty=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          horizontal step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n\n");
+        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          horizontal step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n-leaveEmpty;     exit if there are no usable footprints\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
