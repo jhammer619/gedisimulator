@@ -566,7 +566,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     fprintf(stderr,"No usable footprints contained\n");
     TTIDY((void **)correl,dimage->gediRat.gNx);
     correl=NULL;
-    //exit(1);
+    exit(1);
   }
   return(correl);
 }/*getCorrelStats*/
