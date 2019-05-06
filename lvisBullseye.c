@@ -279,7 +279,7 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
       for(k=0;k<nZ;k++){
         place=i*nX*nZ+j*nZ+k;
         if(dimage->writeSimProg){
-          fprintf(dimage->opoo,"%f %f %f %f\n",(float)(i-nX/2)*xStep+(float)origin[0],(float)(j-nX/2)*xStep+(float)origin[1],(float)(k-nZ/2)*zStep+(float)origin[2],roughCorrel[place]);
+          fprintf(dimage->opoo,"%f %f %f %f roughGrid\n",(float)(i-nX/2)*xStep+(float)origin[0],(float)(j-nX/2)*xStep+(float)origin[1],(float)(k-nZ/2)*zStep+(float)origin[2],roughCorrel[place]);
         }
         if(roughCorrel[place]>maxCorrel){
           maxCorrel=roughCorrel[place];
@@ -363,7 +363,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
     /*write progress if needed*/
     if(dimage->writeSimProg){
       for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
-      fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
+      fprintf(dimage->opoo,"%f %d simplex\n",1.0-(float)s->fval,dimage->nUsed);
     }
   }while((status==GSL_CONTINUE)&&(iter<dimage->maxIter));
 
