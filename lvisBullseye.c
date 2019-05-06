@@ -70,6 +70,7 @@ typedef struct{
   float minDense;      /*minimum ALS beam density*/
   float minSense;      /*minimum waveform beam sensitivity to use*/
   char leaveEmpty;     /*exit if no usable footprints at any time*/
+  FILE *opoo;          /*output file*/
 
   /*bullseye settings*/
   float maxShift;      /*maximum horizontal distance to shift*/
@@ -237,7 +238,7 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   int nX=0,nZ=0;
   float x=0,y=0,z=0;
   float *roughCorrel=NULL;   /*mean correlation for rough bullseye*/
-  void bestRoughGeo(float *,float *,float *,float *,int,int,double *,float,float);
+  void bestRoughGeo(float *,float *,float *,float *,int,int,double *,float,float,control *);
 
   /*perform rough bullseye run*/
   /*allocate space*/
@@ -248,7 +249,7 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
 
   /*find optimium location*/
-  bestRoughGeo(&x,&y,&z,roughCorrel,nX,nZ,dimage->origin,dimage->shiftStep,dimage->vShiftStep);
+  bestRoughGeo(&x,&y,&z,roughCorrel,nX,nZ,dimage->origin,dimage->shiftStep,dimage->vShiftStep,dimage);
   TIDY(roughCorrel);
 
   /*start simplex from optimum*/
@@ -264,7 +265,7 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
 /*####################################################*/
 /*find optimium correlation shift*/
 
-void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,double *origin,float xStep,float zStep)
+void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,double *origin,float xStep,float zStep,control *dimage)
 {
   int i=0,j=0,k=0,place=0;
   float maxCorrel=0;
@@ -277,6 +278,9 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
     for(j=0;j<nX;j++){
       for(k=0;k<nZ;k++){
         place=i*nX*nZ+j*nZ+k;
+        if(dimage->writeSimProg){
+          fprintf(dimage->opoo,"%f %f %f %f\n",(float)(i-nX/2)*xStep+(float)origin[0],(float)(j-nX/2)*xStep+(float)origin[1],(float)(k-nZ/2)*zStep+(float)origin[2],roughCorrel[place]);
+        }
         if(roughCorrel[place]>maxCorrel){
           maxCorrel=roughCorrel[place];
           *x=(float)(i-nX/2)*xStep+(float)origin[0];
@@ -306,7 +310,6 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   gsl_multimin_fminimizer *s=NULL;
   gsl_multimin_function minex_func;  /*optimiser options*/
   optStruct optBits;         /*to pass needed pieces to optimiser*/
-  FILE *opoo=NULL;
 
   /*load needed bits into structure*/
   optBits.dimage=dimage;
@@ -337,9 +340,11 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
 
 
   /*open output*/
-  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
-    exit(1);
+  if(dimage->opoo==NULL){
+    if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
+      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+      exit(1);
+    }
   }
 
   /*first run*/
@@ -357,17 +362,17 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
 
     /*write progress if needed*/
     if(dimage->writeSimProg){
-      for(i=0;i<nPar;i++)fprintf(opoo,"%f ",(float)gsl_vector_get (s->x,i));
-      fprintf(opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
+      for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
+      fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
     }
   }while((status==GSL_CONTINUE)&&(iter<dimage->maxIter));
 
   /*write results*/
-  for(i=0;i<nPar;i++)fprintf(opoo,"%f ",(float)gsl_vector_get (s->x,i));
-  fprintf(opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
-  if(opoo){
-    fclose(opoo);
-    opoo=NULL;
+  for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
+  fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
+  if(dimage->opoo){
+    fclose(dimage->opoo);
+    dimage->opoo=NULL;
   }
   fprintf(stdout,"Written to %s\n",dimage->outNamen);
 
@@ -1259,6 +1264,7 @@ control *readCommands(int argc,char **argv)
   dimage->minDense=0.0;
   dimage->minSense=0.0;
   dimage->leaveEmpty=0;
+  dimage->opoo=NULL;
 
   /*octree*/
   dimage->gediRat.useOctree=1;
