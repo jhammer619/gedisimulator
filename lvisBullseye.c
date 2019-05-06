@@ -248,6 +248,14 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   roughCorrel=falloc(nX*nX*nZ,"mean correlation",0);
   fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
 
+  /*open output if needed*/
+  if((dimage->opoo==NULL)&&(dimage->writeSimProg)){
+    if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
+      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+      exit(1);
+    }
+  }
+
   /*find optimium location*/
   bestRoughGeo(&x,&y,&z,roughCorrel,nX,nZ,dimage->origin,dimage->shiftStep,dimage->vShiftStep,dimage);
   TIDY(roughCorrel);
