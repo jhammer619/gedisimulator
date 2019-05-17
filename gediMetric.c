@@ -224,7 +224,7 @@ int main(int argc,char **argv)
   void determineTruth(dataStruct *,control *);
   void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
-  void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int);
+  void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
   float *processed=NULL,*denoised=NULL;;
 
   /*read command Line*/
@@ -283,7 +283,7 @@ int main(int argc,char **argv)
         if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
         else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
       }else{  /*ICESat-2 mode*/
-        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i);
+        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
       }/*operation mode switch*/
     }/*is the data usable*/
 
@@ -1674,6 +1674,9 @@ control *readCommands(int argc,char **argv)
   dimage->photonCount.pBins=0;
   dimage->photonCount.H=200.0;
   dimage->photonCount.noise_mult=0.1;
+  dimage->photonCount.rhoVrhoG=1.0;
+  dimage->photonCount.writeHDF=0;  /*write ASCII by default*/
+  dimage->photonCount.hdf=NULL;
   #endif
   /*others*/
   rhoG=0.4;
@@ -1886,6 +1889,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-noiseMult",10)){
         checkArguments(1,i,argc,"-noiseMult");
         dimage->photonCount.noise_mult=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-rhoVrhoG",9)){
+        checkArguments(1,i,argc,"-rhoVrhoG");
+        dimage->photonCount.rhoVrhoG=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-photHDF",8)){
+        dimage->photonCount.writeHDF=1;
       #endif
       }else if(!strncasecmp(argv[i],"-help",5)){
         writeHelp();
@@ -1961,8 +1969,9 @@ void writeHelp()
 -photonCount;     output point cloud from photon counting\n\
 -nPhotons n;      mean number of photons\n\
 -photonWind x;    window length for photon counting search, metres\n\
--noiseMult x;     noise multiplier for photon\
--counting\n");
+-noiseMult x;     noise multiplier for photon-counting\n\
+-rhoVrhoG x;      ratio of canopy to ground reflectance at this wavelength. Not different from rhoV and rhoG\n\
+-photHDF;         write photon-counting output in HDF5\n");
   #endif
   fprintf(stdout,"\nDenoising:\n\
 -meanN n;         mean noise level, if using a predefined mean level\n\

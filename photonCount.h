@@ -33,20 +33,34 @@
 
 
 /*###########################################################*/
+/*hold photon coiunting data for binary output*/
+
+typedef struct{
+  uint64_t nPhots;   /*number of photons*/
+  double *x;         /*x coord*/
+  double *y;         /*y coord*/
+  double *z;         /*z coord*/
+}photonHDF;
+
+
+/*###########################################################*/
 /*poton counting structure*/
 
 typedef struct{
   float designval;     /*mean number of photons per footprint*/
   float *prob;         /*probability of each number of photons occuring*/
   int pBins;           /*number of probability bins*/
+  float rhoVrhoG;      /*ratio of canopy to ground reflectance for weighting*/
   /*noise*/
   float noise_mult;    /*noise scaling factor*/
   float H;             /*search window length, metres*/
   /*IO*/
   FILE *opoo;          /*output file*/
   char outNamen[200];  /*output filename*/
+  char writeHDF;       /*writeHDF switch*/
+  /*HDF file*/
+  photonHDF *hdf;      /*HDF file, if needed*/
 }photonStruct;
-
 
 /*###########################################################*/
 

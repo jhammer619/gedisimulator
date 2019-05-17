@@ -53,7 +53,7 @@
 /*####################################################*/
 /*select photons for photon counting*/
 
-void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb)
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
 {
   int i=0,nRH=0;
   int nPhotons=0,nNoise=0;
@@ -65,6 +65,8 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   float photonNoiseIntensity(float);
   float minZ=0,maxZ=0;
   float *thisGr=NULL;
+  float *wave=NULL;
+  float *adjustPhotonProb(float *,dataStruct *,denPar *,float,noisePar *,int);
   void setPhotonProb(photonStruct *);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
 
@@ -93,12 +95,15 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*determine reflectance for noise intensity*/
   noiseInt=photonNoiseIntensity(data->cov);
 
+  /*rescale waveform for reflectance*/
+  wave=adjustPhotonProb(denoised,data,den,photonCount->rhoVrhoG,noise,data->useType);
+
   /*generate signal photons*/
   for(i=0;i<nPhotons;i++){
     /*pick a point along the aveform*/
     n1=(float)rand();
     photThresh=n1/n2;
-    d=pickArrayElement(photThresh,denoised,data->nBins,1);
+    d=pickArrayElement(photThresh,wave,data->nBins,1);
 
     /*determine range*/
     thisZ=(float)data->z[0]-d*data->res;
@@ -121,9 +126,66 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
     fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f noise\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
   }
 
+  if(wave!=denoised){
+    TIDY(wave);
+  }else wave=NULL;
   TIDY(rhReal);
   return;
 }/*photonCountCloud*/
+
+
+/*########################################################*/
+/*adjust waveform to account for refl difference*/
+
+float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVrhoG,noisePar *noise,int numb)
+{
+  int i=0;
+  float tot=0;
+  float *wave=NULL,*canopy=NULL;
+  float *smooGr=NULL,*smooCan=NULL;
+
+  /*is any adjustment needed*/
+  if(fabs(1.0-rhoVrhoG)<TOL)wave=denoised;
+  else{
+    if(den->varNoise||noise->linkNoise){
+      fprintf(stderr,"Not able to readjust denoised waveforms just yet\n");
+      exit(1);
+    }else{
+      /*find canopy portion*/
+      canopy=falloc(data->nBins,"canopy wave",0);
+      for(i=0;i<data->nBins;i++)canopy[i]=data->wave[numb][i]-data->ground[numb][i];
+      /*smooth ground if needed*/
+      if((den->sWidth>0.001)||(den->psWidth>0.001)||(den->msWidth>0.001)){
+        /*smooth if needed*/
+        smooCan=processFloWave(canopy,data->nBins,den,1.0);
+        smooGr=processFloWave(data->ground[numb],data->nBins,den,1.0);
+      }else{
+        smooCan=canopy;
+        smooGr=data->ground[numb];
+      }
+      /*add up and normalise*/
+      wave=falloc(data->nBins,"rescaled erflectance wave",0);
+      tot=0.0;
+      for(i=0;i<data->nBins;i++){
+        wave[i]=smooCan[i]+smooGr[i]/rhoVrhoG;
+        tot+=wave[i];
+      }
+      if(fabs(1.0-tot)>TOL){
+        for(i=0;i<data->nBins;i++)wave[i]/=tot;
+      }
+    }
+  }
+
+  /*tidy up*/
+  if(smooCan!=canopy){
+    TIDY(smooCan);
+  }
+  TIDY(canopy);
+  if(smooGr!=data->ground[numb]){
+    TIDY(smooGr);
+  }
+  return(wave);
+}/*adjustPhotonProb*/
 
 
 /*########################################################*/
@@ -186,21 +248,20 @@ float photonNoiseIntensity(float cov)
 {
   float noiseInt=0;
 
-  noiseInt=1.0+(1.0-cov)*1.5;
+  /*it should be a backwards average of this, using the FOV (1D slice thereof)*/
+  /*noiseInt=1.0+(1.0-cov)*1.5;*/
 
-  /*this is what is in the ICEsat-2 code, just about
+  /*this is what is in the ICEsat-2 code, just about*/
   if(cov<0.25)noiseInt=2.5;
   else if(cov>0.75)noiseInt=1.0;
-  else noiseInt=1.5+(float)rand()/(float)RAND_MAX;*/
-
-  /*it should be replaced by a backwards averaging system to account for fov*/
+  else noiseInt=1.5+(float)rand()/(float)RAND_MAX;
 
   return(noiseInt);
 }/*photonNoiseIntensity*/
 
 
 /*####################################################*/
-/*set photon probabiloty*/
+/*set photon probability*/
 
 void setPhotonProb(photonStruct *photonCount)
 {
