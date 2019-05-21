@@ -86,6 +86,7 @@ make THIS=lvisBullseye
 mv lvisBullseye /usr/bin/
 make THIS=lasPoints
 mv lasPoints /usr/bin/
+make THIS=addNoiseHDF
+mv addNoiseHDF /usr/bin/
 popd
-
 
