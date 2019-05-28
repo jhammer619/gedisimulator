@@ -80,7 +80,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
       fprintf(stderr,"Error opening input file %s\n",photonCount->outNamen);
       exit(1);
     }
-    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal/noise\n");
+    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal\n");
   }
 
   /*choose a number of photons to use*/
@@ -109,7 +109,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
     thisZ=(float)data->z[0]-d*data->res;
 
     /*write output*/
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f signal\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 1\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt);
   }/*mutiple photon loop*/
 
   /*generate noise photons*/
@@ -123,7 +123,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*add noise photons*/
   for(i=0;i<nNoise;i++){
     thisZ=(maxZ-minZ)*((float)rand()/(float)RAND_MAX)+minZ;
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f noise\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 0\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
   }
 
   if(wave!=denoised){
