@@ -59,7 +59,7 @@ class iceSim(object):
     inProj=Proj(init="epsg:"+str(self.epsg))
     outProj=Proj(init="epsg:"+str(4326))
     lon,lat=transform(inProj,outProj,self.x,self.y)
-    segment_dist_x=np.remainder(np.array(self.dists/20))
+    segment_dist_x=np.remainder(self.dists,20)
     segment_id=np.around(np.array(self.dists/20))
     # open output
     f=h5py.File(outNamen,'w')
