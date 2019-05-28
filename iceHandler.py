@@ -131,7 +131,7 @@ if __name__ == '__main__':
   # read data
   data=iceSim(cmdargs.inNamen,cmdargs.epsg)
   # write data
-
+  data.writeHDF(cmdargs.outNamen)
 
 # The end
 ########################################
