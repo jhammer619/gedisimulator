@@ -69,6 +69,8 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   float *adjustPhotonProb(float *,dataStruct *,denPar *,float,noisePar *,int);
   void setPhotonProb(photonStruct *);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
+  char testPhotonGround(dataStruct *,float);
+  char isGround=0;
 
   /*do we need to set up the probability array?*/
   if(photonCount->prob==NULL)setPhotonProb(photonCount);
@@ -80,7 +82,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
       fprintf(stderr,"Error opening input file %s\n",photonCount->outNamen);
       exit(1);
     }
-    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal\n");
+    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal, 19 ground\n");
   }
 
   /*choose a number of photons to use*/
@@ -100,7 +102,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
 
   /*generate signal photons*/
   for(i=0;i<nPhotons;i++){
-    /*pick a point along the aveform*/
+    /*pick a point along the waveform*/
     n1=(float)rand();
     photThresh=n1/n2;
     d=pickArrayElement(photThresh,wave,data->nBins,1);
@@ -108,8 +110,11 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
     /*determine range*/
     thisZ=(float)data->z[0]-d*data->res;
 
+    /*is this ground or canopy?*/
+    isGround=testPhotonGround(data,d);
+
     /*write output*/
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 1\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 1 %d\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,isGround);
   }/*mutiple photon loop*/
 
   /*generate noise photons*/
@@ -123,7 +128,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*add noise photons*/
   for(i=0;i<nNoise;i++){
     thisZ=(maxZ-minZ)*((float)rand()/(float)RAND_MAX)+minZ;
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 0\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 0 0\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
   }
 
   if(wave!=denoised){
@@ -132,6 +137,28 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   TIDY(rhReal);
   return;
 }/*photonCountCloud*/
+
+
+/*########################################################*/
+/*is this photon from the ground?*/
+
+char testPhotonGround(dataStruct *data,float d)
+{
+  int bin=0;
+  float gFrac=0;
+  char isGround=0;
+
+  if(data->ground==NULL)isGround=0;
+  else{
+    bin=(int)d;
+    if(data->wave[data->useType][bin]>0.0){
+      gFrac=data->ground[data->useType][bin]/data->wave[data->useType][bin];
+      isGround=(gFrac>=0.5)?1:0;
+    }else isGround=0;
+  }
+
+  return(isGround);
+}/*testPhotonGround*/
 
 
 /*########################################################*/
