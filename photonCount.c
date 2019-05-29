@@ -301,7 +301,7 @@ void setPhotonProb(photonStruct *photonCount)
   do{
     y=poissonPDF((float)photonCount->pBins,photonCount->designval);
     photonCount->pBins++;
-  }while(y>0.00001);
+  }while((y>0.00001)||((float)photonCount->pBins<photonCount->designval));  /*at least to mean and then to low prob*/
 
   /*allocate space*/
   photonCount->prob=falloc(photonCount->pBins,"photon prob",0);
