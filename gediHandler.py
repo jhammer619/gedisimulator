@@ -24,7 +24,18 @@ class gediData(object):
     to read waveforms between bounds
     '''
     if(filename):  # then read a file
-      self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=gediData.readGEDI(filename,minX,maxX,minY,maxY)
+      # check file format
+      f=h5py.File(filename,'r')
+      if(list(f)[0]=='BEAM0000'):
+        readReal=1
+      else:
+        readReal=0
+      f.close()
+      # read data
+      if(readReal==1):
+        self.readGEDI(filename,minX,maxX,minY,maxY)
+      else:
+        self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=gediData.readSimGEDI(filename,minX,maxX,minY,maxY)
     else:          # create a blank space
       self.nWaves=0
       self.lon=None
@@ -49,9 +60,49 @@ class gediData(object):
 
   ###########################################
 
-  def readGEDI(filename,minX,maxX,minY,maxY):
+  def readGEDI(self,filename,minX,maxX,minY,maxY):
     '''
-    Read GEDI data from file
+    Read real GEDI data from file
+    '''
+    # open file for reading
+    f=h5py.File(filename,'r')
+    self.beamList=list(f)
+    self.nWaves=0
+    # loop over beams
+    for b in self.beamList:
+      if(b!='BEAM0101'):
+        continue
+      nWaves=len(f[b]['shot_number'])
+      nBins=np.array(f[b]['rx_sample_count'])
+      useInd=np.where(nBins>1000)[0]
+      for i in useInd:
+        idx=int(f[b]['rx_sample_start_index'][i])-1
+        cnt=nBins[i]
+        rxdn=f[b]['rxwaveform'][idx:int(idx+cnt)]
+        lon=f[b]["geolocation"]["longitude_bin0"][i]
+        lat=f[b]["geolocation"]["latitude_bin0"][i]
+        tot=f[b]['rx_sample_sum'][i]
+        if(np.max(rxdn)>300):
+          #print(b,cnt,idx,'diff',tot-np.sum(rxdn),'stats',np.median(rxdn),np.min(rxdn),np.max(rxdn))
+          plt.plot(rxdn)
+          plt.ylabel('DN')
+          plt.xlabel('Elevation (m)')
+          outNamen=outRoot+"."+b+"."+str(i)+".png"
+          plt.savefig(outNamen)
+          plt.close()
+          plt.clf()
+          print("Written to",outNamen,lon,lat)
+      #self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
+      #self.nWaves=self.nWaves+nWaves
+    f.close()
+    return
+
+
+  ###########################################
+
+  def readSimGEDI(filename,minX,maxX,minY,maxY):
+    '''
+    Read simulated GEDI data from file
     '''
     # open file for reading
     f=h5py.File(filename,'r')
