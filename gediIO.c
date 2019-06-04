@@ -634,6 +634,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   uint16_t *nBins=NULL;
   uint16_t *tempI=NULL;
   uint64_t *sInds=NULL;
+  uint64_t *shotN=NULL;
   hid_t group=0,group2=0;
   double *temp1=NULL,*temp2=NULL;
   double *tempLon=NULL,*tempLat=NULL;
@@ -643,6 +644,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   void updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
   void unwrapRealGEDI(uint16_t *,uint64_t *,int,int,gediHDF *,int *);
+  void setGEDIwaveID(gediHDF *,int,uint64_t *,int *,char *);
 
 
   /*set the list of beams*/
@@ -712,6 +714,11 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       setGEDIzenith(hdfData,numb,nBins);
       TIDY(nBins);
 
+      /*set waveIDs*/
+      shotN=read1dUint64HDF5(group,"shot_number",&numb);
+      setGEDIwaveID(hdfData,nUse,shotN,useInd,beamList[i]);
+      TIDY(shotN);
+
       hdfData->nWaves+=nUse;
     }else H5Gclose(group2);
     H5Gclose(group);
@@ -721,6 +728,22 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   TTIDY((void **)beamList,nBeams);
   return;
 }/*readRealGediHDF*/
+
+
+/*####################################################*/
+/*set waveform ID*/
+
+void setGEDIwaveID(gediHDF *hdfData,int nUse,uint64_t *shotN,int *useInd,char *beam)
+{
+  int i=0,ind=0;
+
+  for(i=0;i<nUse;i++){
+    ind=i+hdfData->nWaves;
+    sprintf(&hdfData->waveID[ind*hdfData->idLength],"gedi.%s.%lu",beam,shotN[useInd[i]]);
+  }
+
+  return;
+}/*setGEDIwaveID*/
 
 
 /*####################################################*/
@@ -904,6 +927,10 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
       fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
+    if(!(hdfData->waveID=(char *)realloc(hdfData->waveID,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)hdfData->idLength*(uint64_t)sizeof(char)))){
+      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      exit(1);
+    }
   }else{  /*allocate for the first time*/
     hdfData->z0=falloc(numb,"z0",0);
     hdfData->zN=falloc(numb,"zN",0);
@@ -916,6 +943,8 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
       fprintf(stderr,"error in sInd allocation.\n");
       exit(1);
     }
+    hdfData->idLength=50;
+    hdfData->waveID=challoc(numb*hdfData->idLength,"waveID",0);
     hdfData->ground=NULL;
     hdfData->slope=NULL;
     hdfData->gElev=NULL;
@@ -1044,9 +1073,9 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   if(hdfGedi[0]->beamDense){
     data->beamDense=hdfGedi[0]->beamDense[numb];
     data->pointDense=hdfGedi[0]->pointDense[numb];
-    data->useID=1;
-    strcpy(data->waveID,&(hdfGedi[0]->waveID[numb*hdfGedi[0]->idLength]));
   }
+  data->useID=1;
+  strcpy(data->waveID,&(hdfGedi[0]->waveID[numb*hdfGedi[0]->idLength]));
   data->lon=hdfGedi[0]->lon[numb];
   data->lat=hdfGedi[0]->lat[numb];
   data->zen=hdfGedi[0]->zen[numb];
