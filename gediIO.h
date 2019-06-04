@@ -148,6 +148,8 @@ typedef struct{
 
   /*bounds*/
   double bounds[4]; /*minX minY, maxX maxY*/
+  int bEPSG;        /*epsg of bounds*/
+  int wEPSG;        /*epsg of waveform data*/
 
   /*others*/
   int nMessages;  /*number of progress messages*/
@@ -319,6 +321,7 @@ void updateGediCoord(gediRatStruct *,int,int);
 wFrontStruct *copyFrontFilename(char *);
 float waveformTrueCover(dataStruct *,gediIOstruct *,float);
 float findBlairSense(dataStruct *,gediIOstruct *);
+double *reprojectWaveBounds(double *,int,int);
 
 /*# the end*/
 /*###########################################################*/

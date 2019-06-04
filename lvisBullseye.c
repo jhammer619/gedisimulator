@@ -957,18 +957,20 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   dataStruct **copyLVIShdf(lvisHDF *,dataStruct **,control *,double *);
   dataStruct **copyLVISlgw(char *,dataStruct **,control *,double *);
   dataStruct **copyGEDIhdf(gediHDF *,dataStruct **,control *,double *);
-  double bounds[4];
+  double *bounds=NULL,tempBound[4];
   lvisHDF *hdf=NULL;        /*LVIS HDF5 structure*/
   gediHDF *simHDF=NULL;     /*GEDI HDF5 structure*/
-  void reprojectBounds(control *,double *);
-
 
   dimage->nLvis=0;
 
   /*reproject bounds*/
-  reprojectBounds(dimage,bounds);
+  tempBound[0]=dimage->minX;
+  tempBound[1]=dimage->minY;
+  tempBound[2]=dimage->maxX;
+  tempBound[3]=dimage->maxY;
+  bounds=reprojectWaveBounds(&(tempBound[0]),dimage->aEPSG,dimage->lEPSG);
 
-  /*loop over lvus files*/
+  /*loop over lvis files*/
   for(i=0;i<dimage->lvisIO.nFiles;i++){
     if(dimage->useLvisHDF){
       /*read HDF5*/
@@ -1008,55 +1010,6 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   if(dimage->nLvis==0)exit(1);
   return(lvis);
 }/*readMultiLVIS*/
-
-
-/*####################################################*/
-/*reproject the bounds*/
-
-void reprojectBounds(control *dimage,double *bounds)
-{
-  double *x=NULL,*y=NULL,*z=NULL;
-  OGRCoordinateTransformationH hTransform;
-  OGRSpatialReferenceH hSourceSRS,hTargetSRS;
-  OGRErr err;
-
-  if(dimage->aEPSG!=dimage->lEPSG){
-    x=dalloc(2,"x trans",9);
-    y=dalloc(2,"y trans",9);
-    z=dalloc(2,"z trans",9);
-
-    x[0]=dimage->minX;
-    x[1]=dimage->maxX;
-    y[0]=dimage->minY;
-    y[1]=dimage->maxY;
-    z[0]=z[1]=0.0;
-
-    hSourceSRS=OSRNewSpatialReference(NULL);
-    hTargetSRS=OSRNewSpatialReference(NULL);
-    err=OSRImportFromEPSG(hTargetSRS,dimage->lEPSG);
-    err=OSRImportFromEPSG(hSourceSRS,dimage->aEPSG);
-    hTransform=OCTNewCoordinateTransformation(hSourceSRS,hTargetSRS);
-    OCTTransform(hTransform,2,x,y,z);
-    OCTDestroyCoordinateTransformation(hTransform);
-    OSRDestroySpatialReference(hSourceSRS);
-    OSRDestroySpatialReference(hTargetSRS);
-
-    bounds[0]=x[0];
-    bounds[1]=y[0];
-    bounds[2]=x[1];
-    bounds[3]=y[1];
-  }else{
-    bounds[0]=dimage->minX;
-    bounds[1]=dimage->minY;
-    bounds[2]=dimage->maxX;
-    bounds[3]=dimage->maxY;
-  }
-
-  TIDY(x);
-  TIDY(y);
-  TIDY(z);
-  return;
-}/*reprojectBounds*/
 
 
 /*####################################################*/
@@ -1264,8 +1217,8 @@ control *readCommands(int argc,char **argv)
   dimage->useLvisHDF=1;
   dimage->useLvisLGW=0;
   dimage->useGediHDF=0;
-  dimage->aEPSG=32632;
-  dimage->lEPSG=4326;
+  dimage->aEPSG=dimage->lvisIO.bEPSG=32632;
+  dimage->lEPSG=dimage->lvisIO.wEPSG=4326;
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->filtOutli=1;    /*filter outliers*/
   dimage->maxZen=100000.0;
@@ -1400,10 +1353,10 @@ control *readCommands(int argc,char **argv)
         dimage->useGediHDF=1;
       }else if(!strncasecmp(argv[i],"-aEPSG",6)){
         checkArguments(1,i,argc,"-aEPSG");
-        dimage->aEPSG=atoi(argv[++i]);
+        dimage->aEPSG=dimage->lvisIO.bEPSG=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-lEPSG",6)){
         checkArguments(1,i,argc,"-lEPSG");
-        dimage->lEPSG=atoi(argv[++i]);
+        dimage->lEPSG=dimage->lvisIO.wEPSG=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
         checkArguments(1,i,argc,"-pBuff");
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);

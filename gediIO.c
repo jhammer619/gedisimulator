@@ -12,6 +12,7 @@
 #include "libOctree.h"
 #include "gediIO.h"
 #include "gediNoise.h"
+#include "ogr_srs_api.h"
 
 
 /*tolerances*/
@@ -634,7 +635,6 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   uint16_t *tempI=NULL;
   uint64_t *sInds=NULL;
   hid_t group=0,group2=0;
-  herr_t status;
   double *temp1=NULL,*temp2=NULL;
   double *tempLon=NULL,*tempLat=NULL;
   double *meanCoord(double *,double *,int);
@@ -695,7 +695,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       temp1=read1dDoubleHDF5(group2,"elevation_lastbin",&numb);
       for(j=0;j<nUse;j++)hdfData->zN[j+hdfData->nWaves]=(float)temp1[useInd[j]];
       TIDY(temp1);
-      status=H5Gclose(group2);
+      H5Gclose(group2);
 
       /*waveform*/
       nBins=read1dUint16HDF5(group,"rx_sample_count",&numb);
@@ -713,8 +713,8 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       TIDY(nBins);
 
       hdfData->nWaves+=nUse;
-    }else status=H5Gclose(group2);
-    status=H5Gclose(group);
+    }else H5Gclose(group2);
+    H5Gclose(group);
     TIDY(useInd);
   }/*beam loop*/
 
@@ -731,11 +731,13 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
   int i=0;
   int *useInd=NULL;
   int *markInt(int,int *,int);
+  double *bounds=NULL;
 
   /*reset counter*/
   *nUse=0;
 
-  /*reproject if needed*/
+  /*reproject bounds if needed*/
+  bounds=reprojectWaveBounds(&(gediIO->bounds[0]),gediIO->bEPSG,gediIO->wEPSG);
 
   /*loop over all footprints*/
   for(i=0;i<numb;i++){
@@ -746,8 +748,62 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
     }
   }
 
+  TIDY(bounds);
   return(useInd);
 }/*usableGEDIfootprints*/
+
+
+/*####################################################*/
+/*reproject waveform bounds if needed*/
+
+double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
+{
+  double *x=NULL,*y=NULL,*z=NULL;
+  OGRCoordinateTransformationH hTransform;
+  OGRSpatialReferenceH hSourceSRS,hTargetSRS;
+  double *bounds=NULL;
+
+  /*allocate space*/
+  bounds=dalloc(4,"wave bounds",0);
+
+  /*do we need to transform?*/
+  if(inEPSG!=outEPSG){
+    x=dalloc(2,"x trans",9);
+    y=dalloc(2,"y trans",9);
+    z=dalloc(2,"z trans",9);
+
+    x[0]=inBounds[0];
+    x[1]=inBounds[2];
+    y[0]=inBounds[1];
+    y[1]=inBounds[3];
+    z[0]=z[1]=0.0;
+
+    hSourceSRS=OSRNewSpatialReference(NULL);
+    hTargetSRS=OSRNewSpatialReference(NULL);
+    OSRImportFromEPSG(hTargetSRS,outEPSG);
+    OSRImportFromEPSG(hSourceSRS,inEPSG);
+    hTransform=OCTNewCoordinateTransformation(hSourceSRS,hTargetSRS);
+    OCTTransform(hTransform,2,x,y,z);
+    OCTDestroyCoordinateTransformation(hTransform);
+    OSRDestroySpatialReference(hSourceSRS);
+    OSRDestroySpatialReference(hTargetSRS);
+
+    bounds[0]=x[0];
+    bounds[1]=y[0];
+    bounds[2]=x[1];
+    bounds[3]=y[1];
+  }else{  /*copy bounds*/
+    bounds[0]=inBounds[0];
+    bounds[1]=inBounds[1];
+    bounds[2]=inBounds[2];
+    bounds[3]=inBounds[3];
+  }
+
+  TIDY(x);
+  TIDY(y);
+  TIDY(z);
+  return(bounds);
+}/*reprojectWaveBounds*/
 
 
 /*####################################################*/
@@ -801,12 +857,13 @@ void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int nUse,gediHDF 
 
 void setGEDIzenith(gediHDF *hdfData,int numb,uint16_t *nBins)
 {
+  /* To be finished
   int i=0,ind=0;
 
   for(i=0;i<numb;i++){
     ind=i-hdfData->nWaves;
 
-  }
+  }*/
 
   return;
 }/*setGEDIzenith*/

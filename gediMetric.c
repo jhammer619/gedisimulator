@@ -1661,6 +1661,9 @@ control *readCommands(int argc,char **argv)
   dimage->bThresh=0.001;
   dimage->noise.hNoise=0.0;
   dimage->noise.offset=94.0;
+  /*projection, not yet used*/
+  dimage->gediIO.wEPSG=4326;  /*waveforms*/
+  dimage->gediIO.bEPSG=4326;  /*bounds*/
   /*LVIS data*/
   dimage->lvis.data=NULL;
   dimage->hdfLvis=NULL;
