@@ -628,6 +628,8 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 {
   int i=0,j=0,nBeams=0;
   int numb=0,nSamps=0;
+  int *useInd=NULL,nUse=0;
+  int *usableGEDIfootprints(double *,double *,int,int *,gediIOstruct *);
   uint16_t *nBins=NULL;
   uint16_t *tempI=NULL;
   uint64_t *sInds=NULL;
@@ -640,7 +642,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   char **setGEDIbeamList(int *);
   void updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
-  void unwrapRealGEDI(uint16_t *,uint64_t *,int,int,gediHDF *);
+  void unwrapRealGEDI(uint16_t *,uint64_t *,int,int,gediHDF *,int *);
 
 
   /*set the list of beams*/
@@ -652,8 +654,6 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   gediIO->useCount=1;
   gediIO->useFrac=gediIO->useInt=0;
 
-//Debugging
-nBeams=1;
 
   /*loop over beams and read all*/
   for(i=0;i<nBeams;i++){
@@ -673,42 +673,49 @@ nBeams=1;
     TIDY(temp1);
     TIDY(temp2);
 
-    /*update the number of waves and arrays for holding data*/
-    updateGEDInWaves(numb,hdfData);
 
     /*which are within bounds?*/
-    for(j=0;j<numb;j++){
-      hdfData->lat[j+hdfData->nWaves]=tempLat[j];
-      hdfData->lon[j+hdfData->nWaves]=tempLon[j];
-    }
-    TIDY(tempLon);
-    TIDY(tempLat);
+    useInd=usableGEDIfootprints(tempLon,tempLat,numb,&nUse,gediIO);
 
-    temp1=read1dDoubleHDF5(group2,"elevation_bin0",&numb);
-    for(j=0;j<numb;j++)hdfData->z0[j+hdfData->nWaves]=(float)temp1[j];
-    TIDY(temp1);
-    temp1=read1dDoubleHDF5(group2,"elevation_lastbin",&numb);
-    for(j=0;j<numb;j++)hdfData->zN[j+hdfData->nWaves]=(float)temp1[j];
-    TIDY(temp1);
-    status=H5Gclose(group2);
+    /*are there any usable in this track?*/
+    if(nUse>0){
+      /*update the number of waves and arrays for holding data*/
+      updateGEDInWaves(nUse,hdfData);
 
-    /*waveform*/
-    nBins=read1dUint16HDF5(group,"rx_sample_count",&numb);
-    for(j=0;j<numb;j++)hdfData->nBins[j+hdfData->nWaves]=(int)nBins[j];
-    TIDY(nBins);
-    sInds=read1dUint64HDF5(group,"rx_sample_start_index",&numb);
-    tempI=read1dUint16HDF5(group,"rxwaveform",&nSamps);
-    /*unpack and pad all waves to have the same number of bins*/
-    unwrapRealGEDI(tempI,sInds,nSamps,numb,hdfData);
-    TIDY(tempI);
-    TIDY(sInds);
+      for(j=0;j<nUse;j++){
+        hdfData->lat[j+hdfData->nWaves]=tempLat[useInd[j]];
+        hdfData->lon[j+hdfData->nWaves]=tempLon[useInd[j]];
+      }
+      TIDY(tempLon);
+      TIDY(tempLat);
 
-    /*calculate zenith angles from elevations*/
-    setGEDIzenith(hdfData,numb,nBins);
-    TIDY(nBins);
+      temp1=read1dDoubleHDF5(group2,"elevation_bin0",&numb);
+      for(j=0;j<nUse;j++)hdfData->z0[j+hdfData->nWaves]=(float)temp1[useInd[j]];
+      TIDY(temp1);
+      temp1=read1dDoubleHDF5(group2,"elevation_lastbin",&numb);
+      for(j=0;j<nUse;j++)hdfData->zN[j+hdfData->nWaves]=(float)temp1[useInd[j]];
+      TIDY(temp1);
+      status=H5Gclose(group2);
 
+      /*waveform*/
+      nBins=read1dUint16HDF5(group,"rx_sample_count",&numb);
+      for(j=0;j<nUse;j++)hdfData->nBins[j+hdfData->nWaves]=(int)nBins[useInd[j]];
+      TIDY(nBins);
+      sInds=read1dUint64HDF5(group,"rx_sample_start_index",&numb);
+      tempI=read1dUint16HDF5(group,"rxwaveform",&nSamps);
+      /*unpack and pad all waves to have the same number of bins*/
+      unwrapRealGEDI(tempI,sInds,nSamps,nUse,hdfData,useInd);
+      TIDY(tempI);
+      TIDY(sInds);
+
+      /*calculate zenith angles from elevations*/
+      setGEDIzenith(hdfData,numb,nBins);
+      TIDY(nBins);
+
+      hdfData->nWaves+=nUse;
+    }else status=H5Gclose(group2);
     status=H5Gclose(group);
-    hdfData->nWaves+=numb;
+    TIDY(useInd);
   }/*beam loop*/
 
   TTIDY((void **)beamList,nBeams);
@@ -717,9 +724,36 @@ nBeams=1;
 
 
 /*####################################################*/
+/*determine which are within bounds*/
+
+int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,gediIOstruct *gediIO)
+{
+  int i=0;
+  int *useInd=NULL;
+  int *markInt(int,int *,int);
+
+  /*reset counter*/
+  *nUse=0;
+
+  /*reproject if needed*/
+
+  /*loop over all footprints*/
+  for(i=0;i<numb;i++){
+    if((tempLon[i]>=gediIO->bounds[0])&&(tempLon[i]<=gediIO->bounds[2])&&\
+       (tempLat[i]>=gediIO->bounds[1])&&(tempLat[i]<=gediIO->bounds[3])){
+      useInd=markInt(*nUse,useInd,i);
+      (*nUse)++;
+    }
+  }
+
+  return(useInd);
+}/*usableGEDIfootprints*/
+
+
+/*####################################################*/
 /*unwrap real GEDI data*/
 
-void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int numb,gediHDF *hdfData)
+void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int nUse,gediHDF *hdfData,int *useInd)
 {
   int i=0,j=0,ind=0;
   uint64_t totBins=0;
@@ -728,7 +762,7 @@ void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int numb,gediHDF 
 
   /*number of bins in this section and find offsets*/
   totBins=0;
-  for(i=0;i<numb;i++){
+  for(i=0;i<nUse;i++){
     ind=i+hdfData->nWaves;
     totBins+=(uint64_t)hdfData->nBins[ind];
     if(ind>0)hdfData->sInd[ind]=hdfData->sInd[ind-1]+(uint64_t)hdfData->nBins[ind-1];
@@ -749,11 +783,11 @@ void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int numb,gediHDF 
   }
 
   /*copy data*/
-  for(i=0;i<numb;i++){
+  for(i=0;i<nUse;i++){
     ind=i+hdfData->nWaves;
     for(j=0;j<hdfData->nBins[ind];j++){
-      tPlace=sInds[ind]+(uint64_t)j;
-      hdfData->wave[0][offset]=tempI[tPlace];
+      tPlace=sInds[useInd[i]]+(uint64_t)j;
+      hdfData->wave[0][offset]=(float)tempI[tPlace];
       offset++;
     }
   }
@@ -805,11 +839,11 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
       fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
-    if(!(hdfData->nBins=(int *)realloc(hdfData->zen,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(int)))){
+    if(!(hdfData->nBins=(int *)realloc(hdfData->nBins,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(int)))){
       fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
-    if(!(hdfData->sInd=(uint64_t *)realloc(hdfData->zen,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(uint64_t)))){
+    if(!(hdfData->sInd=(uint64_t *)realloc(hdfData->sInd,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(uint64_t)))){
       fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }

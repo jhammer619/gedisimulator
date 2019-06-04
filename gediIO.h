@@ -146,6 +146,9 @@ typedef struct{
   char useCount;    /*use no weighting*/
   char useFrac;     /*use fraction of hits per beam for weighting*/
 
+  /*bounds*/
+  double bounds[4]; /*minX minY, maxX maxY*/
+
   /*others*/
   int nMessages;  /*number of progress messages*/
 }gediIOstruct;

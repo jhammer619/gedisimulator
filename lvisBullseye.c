@@ -1386,10 +1386,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-bounds",7)){
         checkArguments(4,i,argc,"-bounds");
         dimage->useBounds=1;
-        dimage->minX=atof(argv[++i]);
-        dimage->minY=atof(argv[++i]);
-        dimage->maxX=atof(argv[++i]);
-        dimage->maxY=atof(argv[++i]);
+        dimage->minX=dimage->lvisIO.bounds[0]=atof(argv[++i]);
+        dimage->minY=dimage->lvisIO.bounds[1]=atof(argv[++i]);
+        dimage->maxX=dimage->lvisIO.bounds[2]=atof(argv[++i]);
+        dimage->maxY=dimage->lvisIO.bounds[3]=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-lgw",4)){
         dimage->useLvisHDF=0;
         dimage->useLvisLGW=1;

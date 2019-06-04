@@ -1853,10 +1853,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-bounds",7)){
         checkArguments(4,i,argc,"-bounds");
         dimage->useBounds=1;
-        dimage->minX=atof(argv[++i]);
-        dimage->minY=atof(argv[++i]);
-        dimage->maxX=atof(argv[++i]);
-        dimage->maxY=atof(argv[++i]);
+        dimage->minX=dimage->gediIO.bounds[0]=atof(argv[++i]);
+        dimage->minY=dimage->gediIO.bounds[1]=atof(argv[++i]);
+        dimage->maxX=dimage->gediIO.bounds[2]=atof(argv[++i]);
+        dimage->maxY=dimage->gediIO.bounds[3]=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-linkPsig",9)){
         checkArguments(1,i,argc,"-linkPsig");
         dimage->gediIO.linkPsig=atof(argv[++i]);
