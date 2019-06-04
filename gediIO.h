@@ -248,7 +248,8 @@ typedef struct{
 typedef struct{
   /*header*/
   int nWaves;      /*number of waveforms*/
-  int nBins;       /*number of waveform bins*/
+  int *nBins;      /*number of waveform bins*/
+  char varBins;    /*variable bin length switch*/
   int idLength;    /*length of wavefor ID strings*/
   float pSigma;    /*pulse length*/
   float fSigma;    /*footprint width*/
@@ -270,6 +271,7 @@ typedef struct{
   float *beamDense;/*beam density*/
   float *pointDense;/*point density*/
   float *zen;      /*scan angles, or mean angles*/
+  uint64_t *sInd;  /*start indices of waveforms*/
 }gediHDF;
 
 
