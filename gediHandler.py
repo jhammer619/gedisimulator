@@ -231,9 +231,9 @@ class gediData(object):
       # find bounds
       minX,maxX=self.findBounds(meanN,stdev,i)
       # plot it
-      plt.plot(self.wave[i],self.z,label='Waveform')
+      #plt.plot(self.wave[i],self.z,label='Waveform')
       #plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
-      #plt.fill_betweenx(z,self.wave[i],meanN)
+      plt.fill_betweenx(self.z,self.wave[i],meanN)
       #plt.legend()
       #plt.xlim(left=0)
       plt.ylim((minX,maxX))
