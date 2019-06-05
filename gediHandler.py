@@ -253,7 +253,7 @@ class gediData(object):
     thresh=3.5*stdev+meanN
     minWidth=3
     binList=np.where(self.wave[i]>thresh)
-    buff=30
+    buff=15
 
     topBin=0
     for j in range(0,len(binList[0])):
