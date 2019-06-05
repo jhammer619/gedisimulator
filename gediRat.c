@@ -263,7 +263,7 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
 
   /*copy data*/
   hdfData->z0[numb]=waves->maxZ-(float)start*dimage->gediIO.res;
-  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins*dimage->gediIO.res;
+  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins[0]*dimage->gediIO.res;
   if(dimage->gediRat.geoCoords){
     hdfData->lon[numb]=dimage->gediRat.geoCoords[waveNumb][0];
     hdfData->lat[numb]=dimage->gediRat.geoCoords[waveNumb][1];
@@ -285,9 +285,9 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
   memcpy(&hdfData->waveID[numb*hdfData->idLength],waveID,idLength);
 
   /*waveform*/
-  nBins=(hdfData->nBins<(waves->nBins-start))?hdfData->nBins:waves->nBins-start;
+  nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
   for(j=0;j<hdfData->nTypeWaves;j++){
-    memcpy(&hdfData->wave[j][numb*hdfData->nBins],&waves->wave[j][start],nBins*sizeof(float));
+    memcpy(&hdfData->wave[j][numb*hdfData->nBins[0]],&waves->wave[j][start],nBins*sizeof(float));
   }
 
   /*ground variables if using*/
@@ -295,7 +295,7 @@ void packGEDIhdf(control *dimage,waveStruct *waves,gediHDF *hdfData,int waveNumb
     hdfData->gElev[numb]=waves->gElevSimp;
     hdfData->slope[numb]=waves->gSlopeSimp;
     for(j=0;j<hdfData->nTypeWaves;j++){
-      memcpy(&hdfData->ground[j][numb*hdfData->nBins],&waves->ground[j][start],nBins*sizeof(float));
+      memcpy(&hdfData->ground[j][numb*hdfData->nBins[0]],&waves->ground[j][start],nBins*sizeof(float));
     }
   }
 
@@ -634,7 +634,8 @@ gediHDF *setUpHDF(control *dimage)
 
   /*header*/
   hdfData->nWaves=dimage->gediRat.gNx*dimage->gediRat.gNy;
-  hdfData->nBins=(int)((float)dimage->maxBins*0.15/dimage->gediIO.res);
+  hdfData->nBins=ialloc(1,"nBins",0);
+  hdfData->nBins[0]=(int)((float)dimage->maxBins*0.15/dimage->gediIO.res);
   hdfData->nTypeWaves=dimage->gediIO.nTypeWaves;
   hdfData->pSigma=dimage->gediIO.pSigma;
   hdfData->fSigma=dimage->gediIO.fSigma;
@@ -663,10 +664,10 @@ gediHDF *setUpHDF(control *dimage)
 
   /*allocate arrays*/
   hdfData->wave=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
-  for(i=0;i<hdfData->nTypeWaves;i++)hdfData->wave[i]=falloc(hdfData->nWaves*hdfData->nBins,"hdf waveforms",i+1);
+  for(i=0;i<hdfData->nTypeWaves;i++)hdfData->wave[i]=falloc(hdfData->nWaves*hdfData->nBins[0],"hdf waveforms",i+1);
   if(dimage->gediIO.ground){
     hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf ground waveforms",0);
-    for(i=0;i<hdfData->nTypeWaves;i++)hdfData->ground[i]=falloc(hdfData->nWaves*hdfData->nBins,"hdf ground waveforms",i+1);
+    for(i=0;i<hdfData->nTypeWaves;i++)hdfData->ground[i]=falloc(hdfData->nWaves*hdfData->nBins[0],"hdf ground waveforms",i+1);
   }
   hdfData->z0=falloc(hdfData->nWaves,"hdf z0",0);
   hdfData->zN=falloc(hdfData->nWaves,"hdf zN",0);
