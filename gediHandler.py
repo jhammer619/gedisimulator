@@ -225,15 +225,19 @@ class gediData(object):
     for i in useInd:
       # make z profile
       self.res=(self.Z0[i]-self.ZN[i])/self.nBins
-      z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
+      self.z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
       # determine noise for scaling ground return
-      reflScale,meanN=self.meanNoise(i)
+      reflScale,meanN,stdev=self.meanNoise(i)
+      # find bounds
+      minX,maxX=self.findBounds(meanN,stdev,i)
       # plot it
-      plt.plot(self.wave[i],z,label='Waveform')
-      plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
-      plt.legend()
-      plt.xlim(left=0)
-      plt.xlabel('DN')
+      plt.plot(self.wave[i],self.z,label='Waveform')
+      #plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
+      #plt.fill_betweenx(z,self.wave[i],meanN)
+      #plt.legend()
+      #plt.xlim(left=0)
+      plt.ylim((minX,maxX))
+      #plt.xlabel('DN')
       plt.ylabel('Elevation (m)')
       outNamen=outRoot+"."+str(self.waveID[i])+".x."+str(self.lon[i])+".y."+str(self.lat[i])+".png"
       plt.savefig(outNamen)
@@ -244,12 +248,37 @@ class gediData(object):
 
   ###########################################
 
+  def findBounds(self,meanN,stdev,i):
+    '''Find the signal start and end'''
+    thresh=3.5*stdev+meanN
+    minWidth=3
+    binList=np.where(self.wave[i]>thresh)
+    buff=30
+
+    topBin=0
+    for j in range(0,len(binList[0])):
+      if (binList[0][j]==(binList[0][j-1]+1))&(binList[0][j]==(binList[0][j-2]+2)):
+        topBin=binList[0][j]
+        break
+
+    botBin=binList[len(binList)-1]
+    for j in range(len(binList[0])-1,0,-1):
+      if (binList[0][j]==(binList[0][j-1]+1))&(binList[0][j]==(binList[0][j-2]+2)):
+        botBin=binList[0][j]
+        break
+
+    return(self.z[botBin]-buff,self.z[topBin]+buff)
+
+  ###########################################
+
   def meanNoise(self,i):
+    '''Calculate noise statistics'''
     statsLen=15
     noiseBins=int(statsLen/self.res)
     meanN=np.mean(self.wave[i][0:noiseBins])
+    stdev=np.std(self.wave[i][0:noiseBins])
     totE=np.sum(self.wave[i]-meanN)*self.res
-    return(totE,meanN)
+    return(totE,meanN,stdev)
  
 
   ###########################################
