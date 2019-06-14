@@ -179,7 +179,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVr
       exit(1);
     }else{
       /*find canopy portion*/
-      canopy=falloc(data->nBins,"canopy wave",0);
+      canopy=falloc((uint64_t)data->nBins,"canopy wave",0);
       for(i=0;i<data->nBins;i++)canopy[i]=data->wave[numb][i]-data->ground[numb][i];
       /*smooth ground if needed*/
       if((den->sWidth>0.001)||(den->psWidth>0.001)||(den->msWidth>0.001)){
@@ -191,7 +191,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVr
         smooGr=data->ground[numb];
       }
       /*add up and normalise*/
-      wave=falloc(data->nBins,"rescaled erflectance wave",0);
+      wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
       tot=0.0;
       for(i=0;i<data->nBins;i++){
         wave[i]=smooCan[i]+smooGr[i]/rhoVrhoG;
@@ -304,7 +304,7 @@ void setPhotonProb(photonStruct *photonCount)
   }while((y>0.00001)||((float)photonCount->pBins<photonCount->designval));  /*at least to mean and then to low prob*/
 
   /*allocate space*/
-  photonCount->prob=falloc(photonCount->pBins,"photon prob",0);
+  photonCount->prob=falloc((uint64_t)photonCount->pBins,"photon prob",0);
 
   /*set probabilities*/
   for(i=0;i<photonCount->pBins;i++)photonCount->prob[i]=poissonPDF((float)i,photonCount->designval);
@@ -335,7 +335,7 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
 
   /*determine total energy and adjust threshold*/
   tot=0.0;
-  cumul=falloc(nBins,"cumul",0);
+  cumul=falloc((uint64_t)nBins,"cumul",0);
   for(i=0;i<nBins;i++){
     tot+=jimlad[i];
     if(i>0)cumul[i]=cumul[i-1]+jimlad[i];

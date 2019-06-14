@@ -262,7 +262,7 @@ waveStruct *allocateGEDIwaves(control *dimage,dataStruct *data)
   waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)dimage->res);
   waves->nWaves=2;
   waves->wave=fFalloc(waves->nWaves,"waveform",0);
-  for(j=0;j<waves->nWaves;j++)waves->wave[j]=falloc(waves->nBins,"waveform",j+1);
+  for(j=0;j<waves->nWaves;j++)waves->wave[j]=falloc((uint64_t)waves->nBins,"waveform",j+1);
 
   return(waves);
 }/*allocateGEDIwaves*/
@@ -298,8 +298,8 @@ void setGediPulse(control *dimage)
     dimage->pulse->nBins+=2;  /*both sides of peak*/
   }while(y>=dimage->iThresh);
 
-  dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-  dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+  dimage->pulse->x=falloc((uint64_t)dimage->pulse->nBins,"pulse x",0);
+  dimage->pulse->y=falloc((uint64_t)dimage->pulse->nBins,"pulse y",0);
   dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
 
   max=-100.0;

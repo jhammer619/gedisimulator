@@ -214,7 +214,7 @@ float *makeWave(float slope,float pSig,float fSig,float A,int *nBins,float res)
   double gaussian(double,double,double);
 
   *nBins=20000;
-  wave=falloc(*nBins,"wave",0);
+  wave=falloc((uint64_t)(*nBins),"wave",0);
 
   /*determine footprint radius*/
   footRad=0.0;

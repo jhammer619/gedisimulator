@@ -188,10 +188,10 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
   }
 
 
-  hdf->zen=falloc(hdf->nWaves,"zen",0);
-  hdf->z0=falloc(hdf->nWaves,"z0",0);
-  hdf->z1023=falloc(hdf->nWaves,"z1023",0);
-  hdf->sigmean=falloc(hdf->nWaves,"sigmean",0);
+  hdf->zen=falloc((uint64_t)hdf->nWaves,"zen",0);
+  hdf->z0=falloc((uint64_t)hdf->nWaves,"z0",0);
+  hdf->z1023=falloc((uint64_t)hdf->nWaves,"z1023",0);
+  hdf->sigmean=falloc((uint64_t)hdf->nWaves,"sigmean",0);
   hdf->time=dalloc(hdf->nWaves,"time",0);
 
 

@@ -64,7 +64,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   float *detectorDrift(float *,int,float,float);
 
   /*allocate*/
-  data->noised=falloc(data->nBins,"noised wave",0);
+  data->noised=falloc((uint64_t)data->nBins,"noised wave",0);
 
   /*apply detecor drift if using*/
   tempWave=detectorDrift(data->wave[data->useType],data->nBins,gNoise->driftFact,res);
@@ -77,7 +77,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
     deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
   }else if(gNoise->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
-    tempNoise=falloc(data->nBins,"temp noised",0);
+    tempNoise=falloc((uint64_t)data->nBins,"temp noised",0);
     tot=0.0;
     for(i=0;i<data->nBins;i++)tot+=data->wave[data->useType][i]*res;
     reflScale=(data->cov*rhoc+(1.0-data->cov)*rhog)*tot/(gNoise->linkCov*rhoc+(1.0-gNoise->linkCov)*rhog);
@@ -250,7 +250,7 @@ float *digitiseWave(float *wave,int nBins,char bitRate,float maxDN,float tot)
   float *sampled=NULL;
   float resDN=0;
 
-  sampled=falloc(nBins,"sampled wave",0);
+  sampled=falloc((uint64_t)nBins,"sampled wave",0);
 
   /*number of bins*/
   nDN=1;
@@ -426,7 +426,7 @@ float *detectorDrift(float *wave,int nBins,float driftFact,float res)
   float cumul=0,tot=0;
 
   /*allocate*/
-  tempWave=falloc(nBins,"drifted wave",0);
+  tempWave=falloc((uint64_t)nBins,"drifted wave",0);
 
   /*do we need to apply drift?*/
   if(fabs(driftFact)>DRIFTTOL){

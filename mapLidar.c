@@ -362,7 +362,7 @@ imageStruct *allocateImage(control *dimage)
   fprintf(stdout,"Image will be %d by %d\n",image->nX,image->nY);
 
   /*allocate data arrays*/
-  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)image->jimlad=falloc(image->nX*image->nY,"jimlad",0);
+  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)image->jimlad=falloc((uint64_t)image->nX*(uint64_t)image->nY,"jimlad",0);
   else                                                    image->jimlad=NULL;
   if(dimage->drawCov){
     if(!(image->nCan=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){

@@ -181,7 +181,7 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
   meanWaves=fFalloc(2,"meanWaves",0);
   nIn=iIalloc(2,"nIn",0);
   for(i=0;i<2;i++){
-    meanWaves[i]=falloc((*meanBins),"meanWaves",i+1);
+    meanWaves[i]=falloc((uint64_t)(*meanBins),"meanWaves",i+1);
     nIn[i]=ialloc((*meanBins),"nIn",i+1);
     for(numb=0;numb<(*meanBins);numb++){
       meanWaves[i][numb]=0.0;
@@ -189,13 +189,13 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     }
   }
 
-  x=falloc(data->nBins,"x",0);
+  x=falloc((uint64_t)data->nBins,"x",0);
   for(i=0;i<data->nBins;i++)x[i]=(float)i*den.res;
 
   /*loop over waveforms*/
   for(numb=0;numb<data->nWaves;numb++){
     /*reverse waveform to ignore early reflectaion*/
-    temp=falloc(data->nBins,"temp wave",0);
+    temp=falloc((uint64_t)data->nBins,"temp wave",0);
     for(i=0;i<data->nBins;i++)temp[i]=data->wave[numb][data->nBins-(i+1)];
 
     /*denoise*/
@@ -380,7 +380,7 @@ float *copyLastFeature(float *wave,int nBins)
     }
   }
 
-  temp=falloc(nBins,"temp",0);
+  temp=falloc((uint64_t)nBins,"temp",0);
   for(i=0;i<nBins;i++){
     bin=nBins-(i+1);
     if((i>=sBin)&&(i<=eBin))temp[bin]=wave[i];
@@ -438,7 +438,7 @@ dataStruct *readData(char *namen)
   /*allocate space*/
   data->nBins=eCol-sCol;
   data->wave=fFalloc(data->nWaves,"waveforms",0);
-  for(i=0;i<data->nWaves;i++)data->wave[i]=falloc(data->nBins,"waveforms",i+1);
+  for(i=0;i<data->nWaves;i++)data->wave[i]=falloc((uint64_t)data->nBins,"waveforms",i+1);
 
   /*read data*/
   j=0;

@@ -338,8 +338,8 @@ void setGediGrid(control *dimage,lasFile **las,int i,gridStruct *grid)
   grid->canopy=fFalloc(grid->wX*grid->wY,"canopy",0);
   grid->ground=fFalloc(grid->wX*grid->wY,"ground",0);
   for(j=grid->wX*grid->wY-1;j>=0;j--){
-    grid->canopy[i]=falloc(grid->nBins,"canopy",j+1);
-    grid->ground[i]=falloc(grid->nBins,"ground",j+1);
+    grid->canopy[i]=falloc((uint64_t)grid->nBins,"canopy",j+1);
+    grid->ground[i]=falloc((uint64_t)grid->nBins,"ground",j+1);
   }
 
 
@@ -447,8 +447,8 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     data->retNumb=challoc((uint64_t)las->nPoints,"retNumb",0);
     data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
     data->grad=fFalloc(3,"grad",0);
-    for(i=0;i<3;i++)data->grad[i]=falloc(las->nPoints,"grad",i+1);
-    data->time=falloc(las->nPoints,"time",0);              /*time in picoseconds of this wave*/
+    for(i=0;i<3;i++)data->grad[i]=falloc((uint64_t)las->nPoints,"grad",i+1);
+    data->time=falloc((uint64_t)las->nPoints,"time",0);              /*time in picoseconds of this wave*/
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
       fprintf(stderr,"error in input filename structure.\n");
       exit(1);
@@ -900,7 +900,7 @@ void gediFromWaveform(dataStruct *data,uint32_t i,float rScale,waveStruct *waves
   }
 
   /*convolve with GEDI pulse*/
-  floWave=falloc((int)waveLen,"",0);
+  floWave=falloc((uint64_t)waveLen,"",0);
   for(j=0;j<(int)waveLen;j++)floWave[j]=(float)wave[j]-dimage->meanN;
   smoothed=smooth(dimage->pSigma,(int)waveLen,floWave,dimage->res);
   TIDY(floWave);
@@ -1005,15 +1005,15 @@ waveStruct *allocateGEDIwaves(control *dimage,dataStruct **data)
   waves->nWaves=8;
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
   for(j=0;j<waves->nWaves;j++){
-    waves->wave[j]=falloc(waves->nBins,"result waveform",j+1);
+    waves->wave[j]=falloc((uint64_t)waves->nBins,"result waveform",j+1);
     for(k=0;k<waves->nBins;k++)waves->wave[j][k]=0.0;
   }
   if(dimage->ground){
     waves->canopy=fFalloc(2,"canopy",0);
     waves->ground=fFalloc(2,"ground",0);
     for(j=0;j<2;j++){
-      waves->canopy[j]=falloc(waves->nBins,"canopy waveform",j+1);
-      waves->ground[j]=falloc(waves->nBins,"ground waveform",j+1);
+      waves->canopy[j]=falloc((uint64_t)waves->nBins,"canopy waveform",j+1);
+      waves->ground[j]=falloc((uint64_t)waves->nBins,"ground waveform",j+1);
       for(k=0;k<waves->nBins;k++)waves->canopy[j][k]=waves->ground[j][k]=0.0;
     }
   }
@@ -1191,8 +1191,8 @@ void setGediPulse(control *dimage)
     dimage->pulse->nBins+=2;  /*both sides of peak*/
   }while(y>=dimage->iThresh);
 
-  dimage->pulse->x=falloc(dimage->pulse->nBins,"pulse x",0);
-  dimage->pulse->y=falloc(dimage->pulse->nBins,"pulse y",0);
+  dimage->pulse->x=falloc((uint64_t)dimage->pulse->nBins,"pulse x",0);
+  dimage->pulse->y=falloc((uint64_t)dimage->pulse->nBins,"pulse y",0);
   dimage->pulse->centBin=(int)(dimage->pulse->nBins/2);
 
   max=-100.0;

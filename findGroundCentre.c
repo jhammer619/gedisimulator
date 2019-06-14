@@ -140,7 +140,7 @@ float **readData(char *inNamen,int *nBins,int useCol)
 
   /*allocate*/
   data=fFalloc(2,"data",0);
-  for(i=0;i<2;i++)data[i]=falloc(*nBins,"data",i+1);
+  for(i=0;i<2;i++)data[i]=falloc((uint64_t)(*nBins),"data",i+1);
 
   i=0;
   while(fgets(line,10000,ipoo)!=NULL){

@@ -245,7 +245,7 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
   if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+1);
   else                     nZ=1;
-  roughCorrel=falloc(nX*nX*nZ,"mean correlation",0);
+  roughCorrel=falloc((uint64_t)nX*(uint64_t)nX*(uint64_t)nZ,"mean correlation",0);
   fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
 
   /*open output if needed*/
@@ -684,10 +684,10 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   float *zShift=NULL;
 
   /*allocate space fgor correlation and CofG shift*/
-  correl=falloc(2*sim->nWaves,"correlation",0);
+  correl=falloc(2*(uint64_t)sim->nWaves,"correlation",0);
 
   /*apply datum offset*/
-  zShift=falloc(lvis->nBins,"shifted LVIS elevation",0);
+  zShift=falloc((uint64_t)lvis->nBins,"shifted LVIS elevation",0);
   for(i=0;i<lvis->nBins;i++)zShift[i]=(float)lvis->z[i]+zOff;
 
   /*total energies*/

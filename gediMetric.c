@@ -467,7 +467,7 @@ float groundInflection(float *wave,float *ground,int nBins)
   float gInfl=0,maxG=0;
   float *d2x=NULL;
 
-  d2x=falloc(nBins,"d2x",0);
+  d2x=falloc((uint64_t)nBins,"d2x",0);
 
   /*find maximum of ground return*/
   maxG=0.0;
@@ -747,10 +747,10 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   /*total energy. The sqrt(2.pi) can be normalised out*/
   tot=0.0;
   if(nGauss>0){  /*leave NULL if no Gaussians found to prevent memory leaks*/
-    energy=falloc(nGauss,"energy",0);
-    mu=falloc(nGauss,"mu",0);
-    A=falloc(nGauss,"A",0);
-    sig=falloc(nGauss,"sigma",0);
+    energy=falloc((uint64_t)nGauss,"energy",0);
+    mu=falloc((uint64_t)nGauss,"mu",0);
+    A=falloc((uint64_t)nGauss,"A",0);
+    sig=falloc((uint64_t)nGauss,"sigma",0);
   }
   for(i=0;i<nGauss;i++){
     mu[i]=gPar[3*i];
@@ -808,7 +808,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
     if(dimage->noise.linkNoise)metric->rhReal=findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*original was noiseless*/
     else                 metric->rhReal=findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH);  /*origina was noisy*/
   }else{
-    metric->rhReal=falloc(metric->nRH,"rhReal",0);
+    metric->rhReal=falloc((uint64_t)metric->nRH,"rhReal",0);
     for(i=0;i<metric->nRH;i++)metric->rhReal[i]=-1.0;
   }
 
@@ -905,7 +905,7 @@ float *halfEnergyLAIprofile(float *denoised,double *z,int nBins,float laiRes,flo
   totG*=2.0;
 
   /*canopy wave*/
-  canopy=falloc(nBins,"canopy waveform",0);
+  canopy=falloc((uint64_t)nBins,"canopy waveform",0);
   for(i=0;i<nBins;i++)canopy[i]=0.0;
   for(i=gBin;i>=0;i--){
     canopy[i]=denoised[i];
@@ -936,7 +936,7 @@ float *gaussLAIprofile(float *denoised,double *z,int nBins,float laiRes,float rh
   float *canopy=NULL;
 
   /*canopy waveform*/
-  canopy=falloc(nBins,"canopy only wave",0);
+  canopy=falloc((uint64_t)nBins,"canopy only wave",0);
   for(i=0;i<nBins;i++){
     if(z[i]>=gHeight){
       canopy[i]=denoised[i]-A*(float)gaussian(z[i],(double)sig,(double)mu);
@@ -968,7 +968,7 @@ float *trueLAIprofile(float *wave,float *ground,double *z,int nBins,float laiRes
   /*is there a ground to do this with?*/
   if(ground){
     /*Calculate canopy part*/
-    canopy=falloc(nBins,"canopy part",0);
+    canopy=falloc((uint64_t)nBins,"canopy part",0);
     totG=0.0;
     for(i=0;i<nBins;i++){
       totG+=ground[i];
@@ -979,7 +979,7 @@ float *trueLAIprofile(float *wave,float *ground,double *z,int nBins,float laiRes
     tLAI=findLAIprofile(canopy,totG,nBins,laiRes,laiBins,gElev,rhoRatio,z,maxLAIh);
   }else{  /*no ground, leave blank*/
     *laiBins=(int)(maxLAIh/laiRes+0.5)+1;
-    tLAI=falloc(*laiBins,"True LAI profile",0);
+    tLAI=falloc((uint64_t)(*laiBins),"True LAI profile",0);
     for(i=0;i<*laiBins;i++)tLAI[i]=-1.0;
   }
 
@@ -1010,7 +1010,7 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
   for(i=0;i<nBins;i++)totC+=canopy[i];
 
   /*make gap profile*/
-  lngap=falloc(nBins,"apparent foliage profile",0);
+  lngap=falloc((uint64_t)nBins,"apparent foliage profile",0);
   cumul=0.0;
   for(i=0;i<nBins;i++){
     cumul+=canopy[i];
@@ -1019,7 +1019,7 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
   }
 
   /*lai profile*/
-  laiProf=falloc(nBins,"apparent foliage profile",0);
+  laiProf=falloc((uint64_t)nBins,"apparent foliage profile",0);
   for(i=0;i<nBins;i++){
     if((i>0)&&(i<(nBins-1)))laiProf[i]=(-2.0*(lngap[i+1]-lngap[i-1])/2.0)/G;
     else                    laiProf[i]=0.0;
@@ -1028,7 +1028,7 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
 
   /*allocate and set blank*/
   *laiBins=(int)(maxLAIh/laiRes+0.5)+1;
-  tLAI=falloc(*laiBins,"True LAI profile",0);
+  tLAI=falloc((uint64_t)(*laiBins),"True LAI profile",0);
   for(i=0;i<(*laiBins);i++)tLAI[i]=0.0;
 
   /*bin up*/
@@ -1306,7 +1306,7 @@ float *blankRH(float rhRes,int *nRH)
   float *rh=NULL;
 
   *nRH=(int)(100.0/rhRes)+1;
-  rh=falloc(*nRH,"rh metrics",0);
+  rh=falloc((uint64_t)(*nRH),"rh metrics",0);
   for(i=0;i<*nRH;i++)rh[i]=-1.0;
 
   return(rh);
@@ -1377,7 +1377,7 @@ double inflGround(float *smoothed,double *z,int nBins)
   }
 
   /*determine derivatives*/
-  d2x=falloc(nBins,"d2x",0);
+  d2x=falloc((uint64_t)nBins,"d2x",0);
   for(i=1;i<(nBins-1);i++)d2x[i]=2.0*smoothed[i]-(smoothed[i+1]+smoothed[i-1]);
 
   /*loop through looking for first two inflection points*/
@@ -1500,7 +1500,7 @@ lvisL2struct *readLvisL2(char *namen)
     fprintf(stderr,"error in L2 shotN allocation.\n");
     exit(1);
   }
-  lvisL2->zG=falloc((int)lvisL2->numb,"L2 zG",0);
+  lvisL2->zG=falloc((uint64_t)lvisL2->numb,"L2 zG",0);
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){

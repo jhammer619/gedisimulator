@@ -178,7 +178,7 @@ void addNoise(dataStruct *data,control *dimage)
 
   if(dimage->linkNoise){   /*link margin basED NOISE*/
     /*Gaussian noise*/
-    tempNoise=falloc(data->nBins,"temp noised",0);
+    tempNoise=falloc((uint64_t)data->nBins,"temp noised",0);
     tot=0.0;
     for(i=0;i<data->nBins;i++)tot+=data->wave[i]*dimage->res;
     reflScale=(data->cov*rhoC+(1.0-data->cov)*rhoG)*tot/(dimage->linkCov*rhoC+(1.0-dimage->linkCov)*rhoG);
@@ -225,7 +225,7 @@ float *digitiseWave(float *wave,int nBins,char bitRate,float maxDN,float tot)
   float *sampled=NULL;
   float resDN=0;
 
-  sampled=falloc(nBins,"sampled wave",0);
+  sampled=falloc((uint64_t)nBins,"sampled wave",0);
 
   /*number of bins*/
   nDN=1;
@@ -462,7 +462,7 @@ float *addBackground(float *reflWave,int nBins,float rho,float solarI)
   int i=0;
   float *backWave=NULL;
 
-  backWave=falloc(nBins,"backWave",0);
+  backWave=falloc((uint64_t)nBins,"backWave",0);
 
   for(i=0;i<nBins;i++){
     backWave[i]=reflWave[i]+solarI;   /*I AM NOT CONVINCED BY THIS*/
@@ -486,7 +486,7 @@ float *scaleReflectance(float *wave,int nBins,float rho,float tran,float lPower)
   for(i=0;i<nBins;i++)tot+=wave[i];
 
   /*scale*/
-  refl=falloc(nBins,"refl",0);
+  refl=falloc((uint64_t)nBins,"refl",0);
   for(i=0;i<nBins;i++)refl[i]=wave[i]*(rho/tot)*tran*lPower;
 
 
@@ -521,9 +521,9 @@ dataStruct *readData(char *namen,control *dimage)
   data->nBins=0;
   while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))data->nBins++;
 
-  data->wave=falloc(data->nBins,"waveform",0);
+  data->wave=falloc((uint64_t)data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
-  if(dimage->ground)data->ground=falloc(data->nBins,"ground",0);
+  if(dimage->ground)data->ground=falloc((uint64_t)data->nBins,"ground",0);
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){

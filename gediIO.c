@@ -87,8 +87,8 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
     if(gediIO->ground)data->ground=fFalloc(data->nWaveTypes,"ground",0);
     data->z=dalloc(data->nBins,"z",0);
     for(i=0;i<data->nWaveTypes;i++){
-    data->wave[i]=falloc(data->nBins,"waveform",0);
-      if(gediIO->ground)data->ground[i]=falloc(data->nBins,"ground",0);
+    data->wave[i]=falloc((uint64_t)data->nBins,"waveform",0);
+      if(gediIO->ground)data->ground[i]=falloc((uint64_t)data->nBins,"ground",0);
     }
     data->useID=0;
     data->demGround=0;
@@ -198,7 +198,7 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
     if(data->res<=0.0)data->res=gediIO->res;
 
     /*add up energy*/
-    data->totE=falloc(data->nWaveTypes,"",0);
+    data->totE=falloc((uint64_t)data->nWaveTypes,"",0);
     for(ind=0;ind<data->nWaveTypes;ind++){
       data->totE[ind]=0.0;
       for(i=0;i<data->nBins;i++)data->totE[ind]+=data->wave[ind][i];
@@ -255,16 +255,16 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
   hdfData->nPbins=0;
   hdfData->pulse=NULL;
   /*per beam*/
-  hdfData->z0=falloc(hdfData->nWaves,"top elevations",0);       /*wave elevations*/
-  hdfData->zN=falloc(hdfData->nWaves,"bottom elevations",0);       /*wave elevations*/
+  hdfData->z0=falloc((uint64_t)hdfData->nWaves,"top elevations",0);       /*wave elevations*/
+  hdfData->zN=falloc((uint64_t)hdfData->nWaves,"bottom elevations",0);       /*wave elevations*/
   hdfData->lon=dalloc(hdfData->nWaves,"lon",0);     /*longitudes*/
   hdfData->lat=dalloc(hdfData->nWaves,"lat",0);    /*latitudes*/
-  hdfData->slope=falloc(hdfData->nWaves,"slope",0);    /*ground slope*/
-  hdfData->gElev=falloc(hdfData->nWaves,"ground elevation, CofG",0);    /*ground elevation, CofG*/
-  hdfData->demElev=falloc(hdfData->nWaves,"ground elevation, DEM",0);  /*ground elevation, DEM*/
-  hdfData->beamDense=falloc(hdfData->nWaves,"beamDense",0);/*beam density*/
-  hdfData->pointDense=falloc(hdfData->nWaves,"pointDense",0);/*point density*/
-  hdfData->zen=falloc(hdfData->nWaves,"zen",0);      /*scan angles, or mean angles*/
+  hdfData->slope=falloc((uint64_t)hdfData->nWaves,"slope",0);    /*ground slope*/
+  hdfData->gElev=falloc((uint64_t)hdfData->nWaves,"ground elevation, CofG",0);    /*ground elevation, CofG*/
+  hdfData->demElev=falloc((uint64_t)hdfData->nWaves,"ground elevation, DEM",0);  /*ground elevation, DEM*/
+  hdfData->beamDense=falloc((uint64_t)hdfData->nWaves,"beamDense",0);/*beam density*/
+  hdfData->pointDense=falloc((uint64_t)hdfData->nWaves,"pointDense",0);/*point density*/
+  hdfData->zen=falloc((uint64_t)hdfData->nWaves,"zen",0);      /*scan angles, or mean angles*/
 
   /*trim and copy data*/
   trimDataLength(data,hdfData);
@@ -345,8 +345,8 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
   hdfData->wave=fFalloc(hdfData->nTypeWaves,"waveforms",0);
   hdfData->ground=fFalloc(hdfData->nTypeWaves,"ground waves",0);
   for(ind=0;ind<hdfData->nTypeWaves;ind++){
-    hdfData->wave[ind]=falloc(hdfData->nWaves*hdfData->nBins[0],"waveforms",0);
-    hdfData->ground[ind]=falloc(hdfData->nWaves*hdfData->nBins[0],"ground waves",0);
+    hdfData->wave[ind]=falloc((uint64_t)hdfData->nWaves*(uint64_t)hdfData->nBins[0],"waveforms",0);
+    hdfData->ground[ind]=falloc((uint64_t)hdfData->nWaves*(uint64_t)hdfData->nBins[0],"ground waves",0);
   }
   hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"wave IDs",0);
 
@@ -856,7 +856,7 @@ void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int nUse,gediHDF 
   /*allocate space*/
   if(hdfData->nWaves==0){
     hdfData->wave=fFalloc(1,"wave",0);
-    hdfData->wave[0]=falloc(totBins,"wave",0);
+    hdfData->wave[0]=falloc((uint64_t)totBins,"wave",0);
     offset=0;
   }else{
     offset=hdfData->sInd[hdfData->nWaves];
@@ -937,12 +937,12 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
       exit(1);
     }
   }else{  /*allocate for the first time*/
-    hdfData->z0=falloc(numb,"z0",0);
-    hdfData->zN=falloc(numb,"zN",0);
+    hdfData->z0=falloc((uint64_t)numb,"z0",0);
+    hdfData->zN=falloc((uint64_t)numb,"zN",0);
     hdfData->lon=dalloc(numb,"lon",0);
     hdfData->lat=dalloc(numb,"lat",0);
     hdfData->waveID=challoc(numb,"waveID",0);
-    hdfData->zen=falloc(numb,"zen",0);
+    hdfData->zen=falloc((uint64_t)numb,"zen",0);
     hdfData->nBins=ialloc(numb,"nBins",0);
     if(!(hdfData->sInd=(uint64_t *)calloc(numb,sizeof(uint64_t)))){
       fprintf(stderr,"error in sInd allocation.\n");
@@ -1093,16 +1093,16 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 
   /*point to arrays rather than copy*/
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[0]=falloc(data->nBins,"waveform",0);
+  data->wave[0]=falloc((uint64_t)data->nBins,"waveform",0);
   memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]]),data->nBins*4);
   if(gediIO->ground){
     data->ground=fFalloc(data->nWaveTypes,"ground waveform",0);
-    data->ground[0]=falloc(data->nBins,"waveform",0);
+    data->ground[0]=falloc((uint64_t)data->nBins,"waveform",0);
     memcpy(data->ground[0],&(hdfGedi[0]->ground[data->useType][hdfGedi[0]->sInd[numb]]),data->nBins*4);
   }else data->ground=NULL;
 
   /*count energy*/
-  data->totE=falloc(data->nWaveTypes,"totE",0);
+  data->totE=falloc((uint64_t)data->nWaveTypes,"totE",0);
   data->totE[data->useType]=0.0;
   for(i=0;i<data->nBins;i++)data->totE[data->useType]+=data->wave[0][i];
 
@@ -1152,8 +1152,8 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
   data->nWaveTypes=1;
   data->useType=0;
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[0]=falloc(data->nBins,"waveform",0);
-  data->totE=falloc(data->nWaveTypes,"totE",0);
+  data->wave[0]=falloc((uint64_t)data->nBins,"waveform",0);
+  data->totE=falloc((uint64_t)data->nWaveTypes,"totE",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
   data->demGround=0;
@@ -1195,7 +1195,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
 
   /*analyse pulse*/
   if(gediIO->readPsigma){
-    tempPulse=falloc(hdfLvis[0]->pBins,"temp pulse",0);
+    tempPulse=falloc((uint64_t)hdfLvis[0]->pBins,"temp pulse",0);
     for(i=0;i<hdfLvis[0]->pBins;i++)tempPulse[i]=(float)hdfLvis[0]->pulse[numb][i];
     data->pSigma=pulseLenFromTX(tempPulse,hdfLvis[0]->pBins);
     TIDY(tempPulse);
@@ -1318,14 +1318,14 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
   data->useType=0;
   data->nWaveTypes=1;
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
-  data->wave[data->useType]=falloc(data->nBins,"waveform",0);
+  data->wave[data->useType]=falloc((uint64_t)data->nBins,"waveform",0);
   data->z=dalloc(data->nBins,"z",0);
   data->ground=NULL;
   data->demGround=0;
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
   data->usable=1;
-  data->totE=falloc(data->nWaveTypes,"totE",0);
+  data->totE=falloc((uint64_t)data->nWaveTypes,"totE",0);
 
   /*copy data to structure*/
   data->zen=lvis->data[numb].zen;
@@ -1422,7 +1422,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
     data->grad=fFalloc(las->nPoints,"grad",0);
     for(i=0;i<las->nPoints;i++)data->grad[i]=falloc(3,"grad",i+1);
-    data->time=falloc(las->nPoints,"time",0);              /*time in picoseconds of this wave*/
+    data->time=falloc((uint64_t)las->nPoints,"time",0);              /*time in picoseconds of this wave*/
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
       fprintf(stderr,"error in input filename structure.\n");
       exit(1);
@@ -1755,7 +1755,7 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
   /*allocate space*/
   gediRat->wavefront->front=fFalloc(gediRat->wavefront->nX,"wavefront",0);
   for(i=0;i<gediRat->wavefront->nX;i++){
-    gediRat->wavefront->front[i]=falloc(gediRat->wavefront->nY,"wavefront",j);
+    gediRat->wavefront->front[i]=falloc((uint64_t)gediRat->wavefront->nY,"wavefront",j);
     for(j=0;j<gediRat->wavefront->nY;j++)gediRat->wavefront->front[i][j]=-1.0;  /*mark as blank*/
   }/*allocation*/
 
@@ -2014,8 +2014,8 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
         gediIO->pulse->nBins+=2;  /*both sides of peak*/
       }while(y>=gediRat->iThresh);
 
-      gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
-      gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+      gediIO->pulse->x=falloc((uint64_t)gediIO->pulse->nBins,"pulse x",0);
+      gediIO->pulse->y=falloc((uint64_t)gediIO->pulse->nBins,"pulse y",0);
       gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);
 
       max=-100.0;
@@ -2037,8 +2037,8 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
       }
     }else{  /*dirac-delta*/
       gediIO->pulse->nBins=1;
-      gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
-      gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+      gediIO->pulse->x=falloc((uint64_t)gediIO->pulse->nBins,"pulse x",0);
+      gediIO->pulse->y=falloc((uint64_t)gediIO->pulse->nBins,"pulse y",0);
       gediIO->pulse->centBin=0;
 
       gediIO->pulse->x[0]=0.0;
@@ -2074,8 +2074,8 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   gediIO->pulse->nBins=0;
   while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))gediIO->pulse->nBins++;
 
-  gediIO->pulse->x=falloc(gediIO->pulse->nBins,"pulse x",0);
-  gediIO->pulse->y=falloc(gediIO->pulse->nBins,"pulse y",0);
+  gediIO->pulse->x=falloc((uint64_t)gediIO->pulse->nBins,"pulse x",0);
+  gediIO->pulse->y=falloc((uint64_t)gediIO->pulse->nBins,"pulse y",0);
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
@@ -2360,15 +2360,15 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   if(gediRat->readWave)waves->nWaves*=3;  /*if we are using full waveform*/
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
   for(j=0;j<waves->nWaves;j++){
-    waves->wave[j]=falloc(waves->nBins,"result waveform",j+1);
+    waves->wave[j]=falloc((uint64_t)waves->nBins,"result waveform",j+1);
     for(k=0;k<waves->nBins;k++)waves->wave[j][k]=0.0;
   }
   if(gediIO->ground){
     waves->canopy=fFalloc(waves->nWaves,"canopy",0);
     waves->ground=fFalloc(waves->nWaves,"ground",0);
     for(j=0;j<waves->nWaves;j++){
-      waves->canopy[j]=falloc(waves->nBins,"canopy waveform",j+1);
-      waves->ground[j]=falloc(waves->nBins,"ground waveform",j+1);
+      waves->canopy[j]=falloc((uint64_t)waves->nBins,"canopy waveform",j+1);
+      waves->ground[j]=falloc((uint64_t)waves->nBins,"ground waveform",j+1);
       for(k=0;k<waves->nBins;k++)waves->canopy[j][k]=waves->ground[j][k]=0.0;
     }
   }
@@ -2541,7 +2541,7 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   }
 
   /*convolve with GEDI pulse*/
-  floWave=falloc((int)waveLen,"",0);
+  floWave=falloc((uint64_t)waveLen,"",0);
   for(j=0;j<(int)waveLen;j++)floWave[j]=(float)wave[j]-gediRat->meanN;
   smoothed=smooth(gediIO->pSigma,(int)waveLen,floWave,gediIO->res);
   TIDY(floWave);
@@ -2729,10 +2729,10 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
     tempC=fFalloc(waves->nWaves,"temp canopy waves",0);
   }
   for(k=0;k<waves->nWaves;k++){
-    temp[k]=falloc(waves->nBins,"temp waves",i+1);
+    temp[k]=falloc((uint64_t)waves->nBins,"temp waves",i+1);
     if(gediIO->ground){
-      tempGr[k]=falloc(waves->nBins,"temp ground waves",i+1);
-      tempC[k]=falloc(waves->nBins,"temp camopy waves",i+1);
+      tempGr[k]=falloc((uint64_t)waves->nBins,"temp ground waves",i+1);
+      tempC[k]=falloc((uint64_t)waves->nBins,"temp camopy waves",i+1);
     }
     /*set to zero*/
     for(i=0;i<waves->nBins;i++){
@@ -2819,7 +2819,7 @@ void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,wa
 
   /*calculate gap fraction for each return*/
   for(i=0;i<gediIO->nFiles;i++){ /*file loop*/
-    data[i]->gap=falloc(data[i]->nPoints,"point gaps",i+1);
+    data[i]->gap=falloc((uint64_t)data[i]->nPoints,"point gaps",i+1);
     for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
       xBin=(int)((data[i]->x[j]-vox->bounds[0])/vox->res[0]+0.5);
       yBin=(int)((data[i]->y[j]-vox->bounds[1])/vox->res[1]+0.5);
@@ -2880,7 +2880,7 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
 
   /*convert images to waveform*/
   tempWave=fFalloc(2,"",0);
-  for(i=0;i<2;i++)tempWave[i]=falloc(rImage->nBins,"",i+1);
+  for(i=0;i<2;i++)tempWave[i]=falloc((uint64_t)rImage->nBins,"",i+1);
   waveFromImage(rImage,tempWave,1,gediIO->fSigma);
   for(i=0;i<rImage->nBins;i++)fprintf(stdout,"%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
   TTIDY((void **)tempWave,2);
