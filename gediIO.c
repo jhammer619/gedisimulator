@@ -767,10 +767,16 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
   /*reproject bounds if needed*/
   bounds=reprojectWaveBounds(&(gediIO->bounds[0]),gediIO->bEPSG,gediIO->wEPSG);
 
+  /*are bounds being used?*/
+  if(fabs(bounds[0]-bounds[1])<TOL){
+    bounds[0]=bounds[1]=-100000000.0;
+    bounds[2]=bounds[3]=100000000.0;
+  }
+
   /*loop over all footprints*/
   for(i=0;i<numb;i++){
-    if((tempLon[i]>=gediIO->bounds[0])&&(tempLon[i]<=gediIO->bounds[2])&&\
-       (tempLat[i]>=gediIO->bounds[1])&&(tempLat[i]<=gediIO->bounds[3])){
+    if((tempLon[i]>=bounds[0])&&(tempLon[i]<=bounds[2])&&\
+       (tempLat[i]>=bounds[1])&&(tempLat[i]<=bounds[3])){
       useInd=markInt(*nUse,useInd,i);
       (*nUse)++;
     }
