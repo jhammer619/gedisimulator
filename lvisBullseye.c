@@ -315,7 +315,7 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
 
 void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
-  int i=0,j=0,nPar=0;
+  int i=0,nPar=0;
   int status;
   float fSig=0;
   double size;
@@ -511,10 +511,10 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
     /*save to HDF5 file*/
     if(dimage->gediRat.useFootprint){
       /*apply z offset*/
-      waves->minZ+=zOff;
-      waves->maxZ+=zOff;
-      waves->gElev+=zOff;
-      waves->gElevSimp+=zOff;
+      waves->minZ-=zOff;
+      waves->maxZ-=zOff;
+      waves->gElev-=zOff;
+      waves->gElevSimp-=zOff;
       /*set waveID*/
       sprintf(waveID,"%u.%u.%d",lvis[k]->lfid,lvis[k]->shotN,k);
       /*load to HDF structure*/
