@@ -138,9 +138,13 @@ int main(int argc,char **argv)
   pCloudStruct **als=NULL;
   pCloudStruct **readMultiALS(control *,dataStruct **);
   void bullseyeCorrel(dataStruct **,pCloudStruct **,control *);
+  void setALSbounds(control *);
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
+
+  /*read ALS bounds if none defined*/
+  if(dimage->useBounds==0)setALSbounds(dimage);
 
   /*read LVIS data*/
   lvis=readMultiLVIS(dimage,&dimage->simIO.res);
@@ -992,14 +996,6 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
     }
   }/*file loop*/
 
-  /*offset vertical datum*/
-  /*if(fabs(dimage->origin[2])>0.001){
-    offset=(double)dimage->origin[2];
-    for(i=0;i<dimage->nLvis;i++){
-      for(j=0;j<lvis[i]->nBins;j++)lvis[i]->z[j]+=offset;
-    }
-  }*/
-
   /*res for simulations*/
   *res=0.0;
   for(i=0;i<dimage->nLvis;i++)*res+=lvis[i]->res;
@@ -1007,7 +1003,10 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
 
 
   fprintf(stdout,"Found %d LVIS\n",dimage->nLvis);
-  if(dimage->nLvis==0)exit(1);
+  if(dimage->nLvis==0){
+    fprintf(stderr,"No large-footprints found\n");
+    exit(1);
+  }
   return(lvis);
 }/*readMultiLVIS*/
 
@@ -1186,6 +1185,47 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
 
 
 /*####################################################*/
+/*set bounds from ALS data*/
+
+void setALSbounds(control *dimage)
+{
+  int i=0;
+  lasFile *las=NULL;
+  double buff=0;
+
+  /*set nonesense values*/
+  dimage->minX=dimage->minY=10000000000.0;
+  dimage->maxX=dimage->maxY=-10000000000.0;
+
+  /*loop over ALS files and read bounds from header*/
+  for(i=0;i<dimage->simIO.nFiles;i++){
+    las=readLasHead(dimage->simIO.inList[i],dimage->pBuffSize);
+
+    if(las->minB[0]<dimage->minX)dimage->minX=dimage->lvisIO.bounds[0]=las->minB[0];
+    if(las->minB[1]<dimage->minY)dimage->minY=dimage->lvisIO.bounds[1]=las->minB[1];
+    if(las->maxB[0]>dimage->maxX)dimage->maxX=dimage->lvisIO.bounds[2]=las->maxB[0];
+    if(las->maxB[1]>dimage->maxY)dimage->maxY=dimage->lvisIO.bounds[3]=las->maxB[1];
+
+    las=tidyLasFile(las);
+  }/*ALS file loop*/
+
+  /*add on a buffer for uncertainty*/
+  buff=(double)dimage->maxShift;
+  dimage->minX-=buff;
+  dimage->minY-=buff;
+  dimage->maxX+=buff;
+  dimage->maxY+=buff;
+  dimage->lvisIO.bounds[0]-=buff;
+  dimage->lvisIO.bounds[1]-=buff;
+  dimage->lvisIO.bounds[2]+=buff;
+  dimage->lvisIO.bounds[3]+=buff;
+
+  dimage->useBounds=1;
+  return;
+}/*setALSbounds*/
+
+
+/*####################################################*/
 /*read command line*/
 
 control *readCommands(int argc,char **argv)
@@ -1226,6 +1266,7 @@ control *readCommands(int argc,char **argv)
   dimage->minSense=0.0;
   dimage->leaveEmpty=0;
   dimage->opoo=NULL;
+  dimage->useBounds=0;   /*read bounds from ALS file*/
 
   /*octree*/
   dimage->gediRat.useOctree=1;
