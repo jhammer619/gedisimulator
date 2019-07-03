@@ -315,7 +315,7 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
 
 void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
-  int i=0,nPar=0;
+  int i=0,j=0,nPar=0;
   int status;
   float fSig=0;
   double size;
@@ -332,6 +332,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   optBits.dimage=dimage;
   optBits.denoised=denoised;
   optBits.coords=dimage->gediRat.coords;
+  dimage->gediRat.coords=NULL;
   optBits.nTypeWaves=nTypeWaves;
   optBits.lvis=lvis;
   optBits.als=als;
@@ -486,28 +487,39 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
   dimage->simIO.useFrac=dimage->simIO.useInt=0;
   dimage->simIO.nTypeWaves=(int)(dimage->simIO.useCount+dimage->simIO.useFrac+dimage->simIO.useInt);
   dimage->simIO.ground=1;
+  dimage->gediRat.doGrid=1;
+  dimage->gediRat.waveIDlist=NULL;
 
   /*allocate space*/
-  sprintf(waveID,"%u.%u",lvis[0]->lfid,lvis[0]->shotN);
+  sprintf(waveID,"%u.%u.100000000",lvis[0]->lfid,lvis[0]->shotN);
   hdfData=setUpHDF(&dimage->simIO,&dimage->gediRat,1,waveID,&hdfCount,1024);
 
-  /*apply optimum offset*/
-  dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
+  /*set to optimum sigma*/
   dimage->simIO.fSigma=fSig;
 
   /*simulate waveforms*/
   for(k=0;k<dimage->gediRat.gNx;k++){
     if((lvis[k]->zen>dimage->maxZen)||(lvis[k]->beamSense<dimage->minSense))continue;
     /*set one coordinate*/
-    updateGediCoord(&dimage->gediRat,k,0);
+    dimage->gediRat.coord[0]=coords[k][0]+xOff;
+    dimage->gediRat.coord[1]=coords[k][1]+yOff;
 
     /*simulate waves*/
     setGediFootprint(&dimage->gediRat,&dimage->simIO);
     waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
 
     /*save to HDF5 file*/
-    sprintf(waveID,"%u.%u",lvis[k]->lfid,lvis[k]->shotN);
-    packGEDIhdf(waves,hdfData,k,&dimage->simIO,&dimage->gediRat,&hdfCount,1,waveID);
+    if(dimage->gediRat.useFootprint){
+      /*apply z offset*/
+      waves->minZ+=zOff;
+      waves->maxZ+=zOff;
+      waves->gElev+=zOff;
+      waves->gElevSimp+=zOff;
+      /*set waveID*/
+      sprintf(waveID,"%u.%u.%d",lvis[k]->lfid,lvis[k]->shotN,k);
+      /*load to HDF structure*/
+      packGEDIhdf(waves,hdfData,k,&dimage->simIO,&dimage->gediRat,&hdfCount,1,waveID);
+    }
 
     /*tidy up*/
     if(waves){
@@ -519,7 +531,6 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
     TIDY(dimage->gediRat.lobe);
     TIDY(dimage->gediRat.nGrid);
   }/*waveform loop*/
-
 
   /*write HDF5 file*/
   hdfData->nWaves=hdfCount;  /*account for unusable footprints*/
