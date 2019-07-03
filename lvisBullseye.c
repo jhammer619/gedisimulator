@@ -57,13 +57,15 @@ typedef struct{
   gediIOstruct simIO;    /*input/output structure*/
   gediIOstruct lvisIO;   /*input/output structure*/
   gediRatStruct gediRat; /*simulator options*/
-  char outNamen[200];
-  int nLvis;           /*number of LVIS*/
+  char outNamen[200];    /*correlation output filename*/
+  char waveNamen[200];   /*waveform output filename*/
+  int nLvis;             /*number of LVIS*/
 
   /*options*/
   char useLvisHDF;     /*input data format switch*/
   char useLvisLGW;     /*input data format switch*/
   char useGediHDF;     /*input data format switch*/
+  char writeFinWave;   /*write out final waveforms switch*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
   float maxZen;        /*maximum LVIS zenith angle to use*/
@@ -119,7 +121,7 @@ typedef struct{
 
 float **getCorrelStats(control *,dataStruct **,pCloudStruct **,int *,double,double,double,double **,float **,int,char);
 float *waveCorrel(waveStruct *,float *,dataStruct *,gediIOstruct *,double);
-double findMeanCorr(const gsl_vector *, void *);
+double findMeanCorr(const gsl_vector *, void *);    /*error fuction for optimisation*/
 double **shiftPrints(double **,double,double,int);
 void fullBullseyePlot(control *,float **,int,dataStruct **,pCloudStruct **,float *);
 void simplexBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
@@ -315,6 +317,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
 {
   int i=0,nPar=0;
   int status;
+  float fSig=0;
   double size;
   size_t iter=0;
   const gsl_multimin_fminimizer_type *T=gsl_multimin_fminimizer_nmsimplex2;
@@ -322,6 +325,8 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   gsl_multimin_fminimizer *s=NULL;
   gsl_multimin_function minex_func;  /*optimiser options*/
   optStruct optBits;         /*to pass needed pieces to optimiser*/
+  void writeFinalWaves(control *,dataStruct **,pCloudStruct **,double **,float,float,float,float);
+
 
   /*load needed bits into structure*/
   optBits.dimage=dimage;
@@ -341,15 +346,14 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   gsl_vector_set(start,1,dimage->origin[1]);
   gsl_vector_set(start,2,dimage->origin[2]);
   if(dimage->findFsig)gsl_vector_set(start,3,dimage->simIO.fSigma);
-  minex_func.n =nPar;
-  minex_func.f=findMeanCorr;
+  minex_func.n=nPar;
+  minex_func.f=findMeanCorr;   /*the opimisation function*/
   minex_func.params =(void *)(&optBits);
 
-  /* Set initial step sizes to 1 */
+  /* Set initial step sizes to expected step over four*/
   ss=gsl_vector_alloc(nPar);
-  gsl_vector_set_all(ss,1.0);
+  gsl_vector_set_all(ss,dimage->shiftStep/4.0);
   if(dimage->findFsig)gsl_vector_set(ss,3,0.2);
-
 
   /*open output*/
   if(dimage->opoo==NULL){
@@ -388,6 +392,13 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   }
   fprintf(stdout,"Written to %s\n",dimage->outNamen);
 
+  /*output waveforms if needed*/
+  if(dimage->writeFinWave){
+    if(nPar==4)fSig=(float)gsl_vector_get (s->x,3);
+    else       fSig=dimage->simIO.fSigma;
+    writeFinalWaves(dimage,lvis,als,optBits.coords,(float)gsl_vector_get(s->x,0),(float)gsl_vector_get(s->x,1),(float)gsl_vector_get(s->x,2),fSig);
+  }
+
   /*tidy up*/
   gsl_vector_free(start);
   gsl_vector_free(ss);
@@ -403,7 +414,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
 
 
 /*####################################################*/
-/*function for optimisation*/
+/*Error function for optimisation*/
 
 double findMeanCorr(const gsl_vector *v, void *params)
 {
@@ -417,7 +428,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   pCloudStruct **als=NULL;
   optStruct *optBits=NULL;
 
-  /*unpack struvture*/
+  /*unpack structure*/
   optBits=(optStruct *)params;
   dimage=optBits->dimage;
   denoised=optBits->denoised;
@@ -458,6 +469,64 @@ double findMeanCorr(const gsl_vector *v, void *params)
   return(1.0-(double)meanCorrel);
 }/*findMeanCorr*/
 
+
+/*####################################################*/
+/*write out finale waveform file*/
+
+void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double **coords,float xOff,float yOff,float zOff,float fSig)
+{
+  int k=0;
+  int hdfCount=0;
+  waveStruct *waves=NULL;
+  gediHDF *hdfData=NULL;
+  char waveID[200];
+
+  /*how mamy types of simuation methods*/
+  dimage->simIO.useCount=1;
+  dimage->simIO.useFrac=dimage->simIO.useInt=0;
+  dimage->simIO.nTypeWaves=(int)(dimage->simIO.useCount+dimage->simIO.useFrac+dimage->simIO.useInt);
+  dimage->simIO.ground=1;
+
+  /*allocate space*/
+  sprintf(waveID,"%u.%u",lvis[0]->lfid,lvis[0]->shotN);
+  hdfData=setUpHDF(&dimage->simIO,&dimage->gediRat,1,waveID,&hdfCount,1024);
+
+  /*apply optimum offset*/
+  dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
+  dimage->simIO.fSigma=fSig;
+
+  /*simulate waveforms*/
+  for(k=0;k<dimage->gediRat.gNx;k++){
+    if((lvis[k]->zen>dimage->maxZen)||(lvis[k]->beamSense<dimage->minSense))continue;
+    /*set one coordinate*/
+    updateGediCoord(&dimage->gediRat,k,0);
+
+    /*simulate waves*/
+    setGediFootprint(&dimage->gediRat,&dimage->simIO);
+    waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
+
+    /*save to HDF5 file*/
+    sprintf(waveID,"%u.%u",lvis[k]->lfid,lvis[k]->shotN);
+    packGEDIhdf(waves,hdfData,k,&dimage->simIO,&dimage->gediRat,&hdfCount,1,waveID);
+
+    /*tidy up*/
+    if(waves){
+      TTIDY((void **)waves->wave,waves->nWaves);
+      TTIDY((void **)waves->canopy,dimage->simIO.nTypeWaves);
+      TTIDY((void **)waves->ground,dimage->simIO.nTypeWaves);
+      TIDY(waves);
+    }
+    TIDY(dimage->gediRat.lobe);
+    TIDY(dimage->gediRat.nGrid);
+  }/*waveform loop*/
+
+
+  /*write HDF5 file*/
+  hdfData->nWaves=hdfCount;  /*account for unusable footprints*/
+  writeGEDIhdf(hdfData,dimage->waveNamen,&(dimage->simIO));
+
+  return;
+}/*writeFinalWaves*/
 
 /*####################################################*/
 /*loop over full bullseye plot and write*/
@@ -569,7 +638,6 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     /*simulate waves*/
     setGediFootprint(&dimage->gediRat,&dimage->simIO);
     waves=makeGediWaves(&dimage->gediRat,&dimage->simIO,als);
-
 
     /*calculate correlation*/
     if(dimage->gediRat.useFootprint&&(dimage->gediRat.beamDense>=dimage->minDense)){
@@ -1266,7 +1334,8 @@ control *readCommands(int argc,char **argv)
   dimage->minSense=0.0;
   dimage->leaveEmpty=0;
   dimage->opoo=NULL;
-  dimage->useBounds=0;   /*read bounds from ALS file*/
+  dimage->useBounds=0;     /*read bounds from ALS file*/
+  dimage->writeFinWave=0;  /*don't write out the final waveforms*/
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -1481,8 +1550,12 @@ control *readCommands(int argc,char **argv)
         dimage->leaveEmpty=1;
       }else if(!strncasecmp(argv[i],"-writeSimProg",13)){
         dimage->writeSimProg=1;
+      }else if(!strncasecmp(argv[i],"-writeWaves",11)){
+        checkArguments(1,i,argc,"-writeWaves");
+        strcpy(dimage->waveNamen,argv[++i]);
+        dimage->writeFinWave=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          horizontal step size\n-maxVshift x;      vertical distance to search over\n-vStep z;          vertical step size\n-hOffset dx dy;         centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n-writeSimProg;    write progress of simplex to output\n\n# Octree\n-noOctree;      do not use an octree\n-octLevels n;   number of octree levels to use\n-nOctPix n;     number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n-leaveEmpty;     exit if there are no usable footprints\n\n");
+        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          horizontal step size\n-maxVshift x;     vertical distance to search over\n-vStep z;         vertical step size\n-hOffset dx dy;   centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-noFilt;          don't filter outliers from correlation\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n-writeSimProg;    write progress of simplex to output\n-writeWaves name;  write out final waveforms as HDF5 when using simplex\n\n# Octree\n-noOctree;       do not use an octree\n-octLevels n;    number of octree levels to use\n-nOctPix n;      number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n-leaveEmpty;     exit if there are no usable footprints\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

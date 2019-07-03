@@ -2305,6 +2305,164 @@ void intersectOctree(gediRatStruct *gediRat)
 
 
 /*##############################################*/
+/*copy waveform into HDF structure*/
+
+void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *gediIO,gediRatStruct *gediRat,int *hdfCount,char useID,char *waveID)
+{
+  int i=0,j=0,start=0,numb=0;
+  int nBins=0,idLength=0;
+  float *tot=NULL,*cumul=NULL;
+  float *thresh=NULL,buff=0;
+  char thisWaveID[300];
+
+  numb=*hdfCount;
+
+  /*trim waveform*/
+  buff=30.0;
+  /*find energies*/
+  tot=falloc((uint64_t)hdfData->nTypeWaves,"tot",0);
+  cumul=falloc((uint64_t)hdfData->nTypeWaves,"cumul",0);
+  for(j=0;j<hdfData->nTypeWaves;j++){
+    tot[j]=cumul[j]=0.0;
+    for(i=0;i<waves->nBins;i++)tot[j]+=waves->wave[j][i];
+  }
+  /*set threshols*/
+  thresh=falloc((uint64_t)hdfData->nTypeWaves,"thresh",0);
+  for(j=0;j<hdfData->nTypeWaves;j++)thresh[j]=0.01*tot[j];
+  TIDY(tot);
+  /*find waveform start*/
+  start=-1;
+  for(i=0;i<waves->nBins;i++){
+    for(j=0;j<hdfData->nTypeWaves;j++){
+      cumul[j]+=waves->wave[j][i];
+      if(cumul[j]>thresh[j]){
+        start=i;
+        break;
+      }
+    }
+    if(start>=0)break;
+  }/*waveform trimming*/
+  TIDY(cumul);
+  TIDY(thresh);
+
+  start-=buff/gediIO->res;
+  if(start<0)start=0;
+
+  /*copy data*/
+  hdfData->z0[numb]=waves->maxZ-(float)start*gediIO->res;
+  hdfData->zN[numb]=hdfData->z0[numb]-(float)hdfData->nBins[0]*gediIO->res;
+  if(gediRat->geoCoords){
+    hdfData->lon[numb]=gediRat->geoCoords[waveNumb][0];
+    hdfData->lat[numb]=gediRat->geoCoords[waveNumb][1];
+  }else{
+    hdfData->lon[numb]=gediRat->coord[0];
+    hdfData->lat[numb]=gediRat->coord[1];
+  }
+  hdfData->beamDense[numb]=gediRat->beamDense;
+  hdfData->pointDense[numb]=gediRat->pointDense;
+  hdfData->zen[numb]=waves->meanScanAng;;
+
+
+  /*ID*/
+  if(gediRat->doGrid)sprintf(thisWaveID,"%s.%d.%d",waveID,(int)gediRat->coord[0],(int)gediRat->coord[1]);
+  else if(gediRat->waveIDlist)strcpy(thisWaveID,gediRat->waveIDlist[waveNumb]);
+  else if(useID)strcpy(thisWaveID,waveID);
+  else                  sprintf(thisWaveID,"%d",numb);
+  idLength=(hdfData->idLength<((int)strlen(thisWaveID)+1))?hdfData->idLength:(int)strlen(thisWaveID)+1;
+  memcpy(&hdfData->waveID[numb*hdfData->idLength],thisWaveID,idLength);
+
+  /*waveform*/
+  nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
+  for(j=0;j<hdfData->nTypeWaves;j++){
+    memcpy(&hdfData->wave[j][numb*hdfData->nBins[0]],&waves->wave[j][start],nBins*sizeof(float));
+  }
+
+  /*ground variables if using*/
+  if(gediIO->ground){
+    hdfData->gElev[numb]=waves->gElevSimp;
+    hdfData->slope[numb]=waves->gSlopeSimp;
+    for(j=0;j<hdfData->nTypeWaves;j++){
+      memcpy(&hdfData->ground[j][numb*hdfData->nBins[0]],&waves->ground[j][start],nBins*sizeof(float));
+    }
+  }
+
+  /*increment counter*/
+  (*hdfCount)++;
+
+  return;
+}/*packGEDIhdf*/
+
+/*##############################################*/
+/*set up HDF structure and write header*/
+
+gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *waveID,int *hdfCount,int maxBins)
+{
+  int i=0;
+  gediHDF *hdfData=NULL;
+
+  /*set counter to zero*/
+  *hdfCount=0;
+
+  /*allocate space*/
+  if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
+    fprintf(stderr,"error control allocation.\n");
+    exit(1);
+  }
+
+  /*header*/
+  hdfData->nWaves=gediRat->gNx*gediRat->gNy;
+  hdfData->nBins=ialloc(1,"nBins",0);
+  hdfData->nBins[0]=(int)((float)maxBins*0.15/gediIO->res);
+  hdfData->nTypeWaves=gediIO->nTypeWaves;
+  hdfData->pSigma=gediIO->pSigma;
+  hdfData->fSigma=gediIO->fSigma;
+
+  /*max id label length*/
+  if(useID){
+    if(gediRat->doGrid){
+      hdfData->idLength=(int)strlen(waveID)+1+20;
+    }else if(gediRat->waveIDlist){
+      hdfData->idLength=-1;
+      for(i=0;i<hdfData->nWaves;i++){
+        if(((int)strlen(gediRat->waveIDlist[i])+1)>hdfData->idLength)hdfData->idLength=(int)strlen(gediRat->waveIDlist[i])+1;
+      }
+    }else hdfData->idLength=(int)strlen(waveID)+1;
+  }else hdfData->idLength=7;
+
+  if(gediIO->readPulse){
+    hdfData->pRes=gediIO->pRes;
+    hdfData->nPbins=gediIO->pulse->nBins;
+    hdfData->pulse=falloc((uint64_t)hdfData->nPbins,"hdf pulse",0);
+    memcpy(hdfData->pulse,gediIO->pulse->y,sizeof(float)*hdfData->nPbins);
+  }else{
+    hdfData->pulse=NULL;
+    hdfData->nPbins=0;
+  }
+
+  /*allocate arrays*/
+  hdfData->wave=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
+  for(i=0;i<hdfData->nTypeWaves;i++)hdfData->wave[i]=falloc((uint64_t)hdfData->nWaves*(uint64_t)hdfData->nBins[0],"hdf waveforms",i+1);
+  if(gediIO->ground){
+    hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf ground waveforms",0);
+    for(i=0;i<hdfData->nTypeWaves;i++)hdfData->ground[i]=falloc((uint64_t)hdfData->nWaves*(uint64_t)hdfData->nBins[0],"hdf ground waveforms",i+1);
+  }
+  hdfData->z0=falloc((uint64_t)hdfData->nWaves,"hdf z0",0);
+  hdfData->zN=falloc((uint64_t)hdfData->nWaves,"hdf zN",0);
+  hdfData->lon=dalloc(hdfData->nWaves,"hdf lon",0);
+  hdfData->lat=dalloc(hdfData->nWaves,"hdf lat",0);
+  hdfData->slope=falloc((uint64_t)hdfData->nWaves,"hdf slope",0);
+  hdfData->gElev=falloc((uint64_t)hdfData->nWaves,"hdf gElev",0);
+  hdfData->demElev=falloc((uint64_t)hdfData->nWaves,"hdf demElev",0);
+  hdfData->beamDense=falloc((uint64_t)hdfData->nWaves,"hdf beamDense",0);
+  hdfData->pointDense=falloc((uint64_t)hdfData->nWaves,"hdf pointDense",0);
+  hdfData->zen=falloc((uint64_t)hdfData->nWaves,"hdf zen",0);
+  hdfData->waveID=challoc(hdfData->nWaves*hdfData->idLength,"hdf waveID",0);
+
+  return(hdfData);
+}/*setUpHDF*/
+
+
+/*##############################################*/
 /*update footprint cordinate*/
 
 void updateGediCoord(gediRatStruct *gediRat,int i,int j)
