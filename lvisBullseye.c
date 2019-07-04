@@ -480,7 +480,7 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
   int hdfCount=0;
   waveStruct *waves=NULL;
   gediHDF *hdfData=NULL;
-  char waveID[200];
+  char waveID[500];
 
   /*how mamy types of simuation methods*/
   dimage->simIO.useCount=1;
@@ -491,7 +491,7 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
   dimage->gediRat.waveIDlist=NULL;
 
   /*allocate space*/
-  sprintf(waveID,"%u.%u.100000000",lvis[0]->lfid,lvis[0]->shotN);
+  sprintf(waveID,"%s.100000000",lvis[0]->waveID);
   hdfData=setUpHDF(&dimage->simIO,&dimage->gediRat,1,waveID,&hdfCount,1024);
 
   /*set to optimum sigma*/
@@ -515,10 +515,8 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
       waves->maxZ-=zOff;
       waves->gElev-=zOff;
       waves->gElevSimp-=zOff;
-      /*set waveID*/
-      sprintf(waveID,"%u.%u.%d",lvis[k]->lfid,lvis[k]->shotN,k);
       /*load to HDF structure*/
-      packGEDIhdf(waves,hdfData,k,&dimage->simIO,&dimage->gediRat,&hdfCount,1,waveID);
+      packGEDIhdf(waves,hdfData,k,&dimage->simIO,&dimage->gediRat,&hdfCount,1,lvis[k]->waveID);
     }
 
     /*tidy up*/
