@@ -356,14 +356,6 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   gsl_vector_set_all(ss,dimage->shiftStep/4.0);
   if(dimage->findFsig)gsl_vector_set(ss,3,0.2);
 
-  /*open output*/
-  if(dimage->opoo==NULL){
-    if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
-      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
-      exit(1);
-    }
-  }
-
   /*first run*/
   s=gsl_multimin_fminimizer_alloc(T,nPar);
   gsl_multimin_fminimizer_set(s,&minex_func,start,ss);
@@ -385,13 +377,22 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   }while((status==GSL_CONTINUE)&&(iter<dimage->maxIter));
 
   /*write results*/
-  for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
-  fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
-  if(dimage->opoo){
-    fclose(dimage->opoo);
-    dimage->opoo=NULL;
+  /*open output*/
+  if(dimage->nUsed>0){
+    if(dimage->opoo==NULL){
+      if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
+        fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+        exit(1);
+      }
+    }
+    for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
+    fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
+    if(dimage->opoo){
+      fclose(dimage->opoo);
+      dimage->opoo=NULL;
+    }
+    fprintf(stdout,"Written to %s\n",dimage->outNamen);
   }
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
 
   /*output waveforms if needed*/
   if(dimage->writeFinWave){
@@ -724,6 +725,10 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
         }
       }
     }
+
+    /*check that there is data*/
+    if(usedNew==0)return;
+
     newMean/=(float)usedNew;
     meanCofG/=(float)usedNew;
     stdev=0.0;
@@ -933,6 +938,7 @@ double **shiftPrints(double **coords,double xOff,double yOff,int numb)
 pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 {
   int i=0;
+  uint32_t totPoints=0;
   pCloudStruct **als=NULL;
   lasFile *las=NULL;
   void copyLvisCoords(gediRatStruct *,dataStruct **,int,int,int);
@@ -965,7 +971,15 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
     /*tidy up*/
     las=tidyLasFile(las);
+
+    totPoints+=als[i]->nPoints;
   }/*ALS file loop*/
+
+  /*is there data?*/
+  if(totPoints==0){
+    fprintf(stderr,"No ALS data contained\n");
+    exit(1);
+  }
 
   return(als);
 }/*readMultiALS*/
