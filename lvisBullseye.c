@@ -687,9 +687,7 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
   float mean=0,stdev=0;
   float newMean=0,meanCofG=0;
   float thresh=0;
-
-  fprintf(opoo,"%f %f",xOff,yOff);
-  if(dimage->maxVshift>0.0)fprintf(opoo," %f",zOff+dimage->origin[2]);  /*for backwards compatability*/
+  char writtenCoords=0;
 
   /*loop over types*/
   for(k=0;k<nTypes;k++){
@@ -727,7 +725,13 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
     }
 
     /*check that there is data*/
-    if(usedNew==0)return;
+    if(nUsed==0)return;
+
+    if(writtenCoords==0){
+      fprintf(opoo,"%f %f",xOff,yOff);
+      if(dimage->maxVshift>0.0)fprintf(opoo," %f",zOff+dimage->origin[2]);  /*for backwards compatability*/
+      writtenCoords=1;
+    }
 
     newMean/=(float)usedNew;
     meanCofG/=(float)usedNew;
