@@ -787,7 +787,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     CofGl+=truth[i]*zShift[i];
   }
   if(totL>0.0)CofGl/=totL;
-  else        CofGl=100000.0;  /*if on data, set this very large*/
+  else        CofGl=100000.0;  /*if no data, set this very large*/
 
   /*find lvis bounds*/
   thresh=0.0001*totL;
