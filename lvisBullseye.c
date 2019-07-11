@@ -500,7 +500,7 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
 
   /*simulate waveforms*/
   for(k=0;k<dimage->gediRat.gNx;k++){
-    if((lvis[k]->zen>dimage->maxZen)||(lvis[k]->beamSense<dimage->minSense))continue;
+    if((lvis[k]->zen>dimage->maxZen)||(lvis[k]->beamSense<=dimage->minSense))continue;
     /*set one coordinate*/
     dimage->gediRat.coord[0]=coords[k][0]+xOff;
     dimage->gediRat.coord[1]=coords[k][1]+yOff;
@@ -653,7 +653,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     if(dimage->gediRat.useFootprint&&(dimage->gediRat.beamDense>=dimage->minDense)){
       correl[*contN]=waveCorrel(waves,denoised[k],lvis[k],&dimage->simIO,zOff);
       (*contN)++;
-    }//else correl[*contN]=NULL;
+    }
 
     /*tidy up*/
     if(waves){
@@ -773,7 +773,7 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
   float stdevL=0,stdevS=0;
   float *zShift=NULL;
 
-  /*allocate space fgor correlation and CofG shift*/
+  /*allocate space for correlation and CofG shift*/
   correl=falloc(2*(uint64_t)sim->nWaves,"correlation",0);
 
   /*apply datum offset*/
@@ -786,7 +786,8 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
     totL+=truth[i];
     CofGl+=truth[i]*zShift[i];
   }
-  CofGl/=totL;
+  if(totL>0.0)CofGl/=totL;
+  else        CofGl=100000.0;  /*if on data, set this very large*/
 
   /*find lvis bounds*/
   thresh=0.0001*totL;
@@ -805,77 +806,80 @@ float *waveCorrel(waveStruct *sim,float *truth,dataStruct *lvis,gediIOstruct *si
 
   /*loop over three wave types*/
   for(k=0;k<sim->nWaves;k++){
-    smooSim=processFloWave(sim->wave[k],sim->nBins,simIO->den,1.0);
+    if(totL>0.0){  /*only if there is data in it*/
+      smooSim=processFloWave(sim->wave[k],sim->nBins,simIO->den,1.0);
 
-
-    totS=CofGs=0.0;
-    for(i=0;i<sim->nBins;i++){
-      totS+=smooSim[i];
-      z=(float)sim->maxZ-(float)i*simIO->res;
-      CofGs+=smooSim[i]*z;
-    }
-
-    thresh=0.0001*totS;
-    CofGs/=totS;
-    correl[2*k+1]=CofGl-CofGs;
-
-    /*find sim bounds*/
-    for(i=0;i<sim->nBins;i++){
-      if(smooSim[i]>thresh){
+      totS=CofGs=0.0;
+      for(i=0;i<sim->nBins;i++){
+        totS+=smooSim[i];
         z=(float)sim->maxZ-(float)i*simIO->res;
-        eSx=z;
-        break;
-      } 
-    }
-    for(i=sim->nBins-1;i>=0;i--){
-      if(smooSim[i]>thresh){
-        z=(float)sim->maxZ-(float)i*simIO->res;
-        sSx=z;
-        break;
+        CofGs+=smooSim[i]*z;
       }
-    }
 
-    startX=(sSx<sLx)?sSx:sLx;
-    endX=(eSx>eLx)?eSx:eLx;
-    numb=(int)(fabs(endX-startX)/simIO->res);
+      thresh=0.0001*totS;
+      if(totS>0.0)CofGs/=totS;
+      correl[2*k+1]=CofGl-CofGs;
 
-    /*means*/
-    meanS=meanL=0.0;
-    for(i=0;i<lvis->nBins;i++)if((zShift[i]>=startX)&&(zShift[i]<=endX))meanL+=truth[i];
-    for(i=0;i<sim->nBins;i++){
-      z=(float)sim->maxZ-(float)i*simIO->res;
-      if((z>=startX)&&(z<=endX))meanS+=smooSim[i];
-    }
-    meanL/=(float)numb;
-    meanS/=(float)numb;
-    /*stdev*/
-    stdevS=stdevL=0.0;
-    for(i=0;i<lvis->nBins;i++)if((zShift[i]>=startX)&&(zShift[i]<=endX))stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
-    for(i=0;i<sim->nBins;i++){
-      z=(float)sim->maxZ-(float)i*simIO->res;
-      if((z>=startX)&&(z<=endX))stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
-    }
-    stdevL=sqrt(stdevL/(float)numb);
-    stdevS=sqrt(stdevS/(float)numb);
-
-    /*shared variance*/
-    sumProd=0.0;
-    for(i=lvis->nBins-1;i>=0;i--){
-      if((zShift[i]<startX)||(zShift[i]>endX))continue;
-      minSepSq=100000.0;
-      for(j=0;j<sim->nBins;j++){
-        z=(float)sim->maxZ-(float)j*simIO->res;
-        if((z<startX)||(z>endX))continue;
-        sepSq=pow((z-zShift[i]),2.0);
-        if(sepSq<minSepSq){
-          minSepSq=sepSq;
-          bin=j;
+      /*find sim bounds*/
+      for(i=0;i<sim->nBins;i++){
+        if(smooSim[i]>thresh){
+          z=(float)sim->maxZ-(float)i*simIO->res;
+          eSx=z;
+          break;
+        } 
+      }
+      for(i=sim->nBins-1;i>=0;i--){
+        if(smooSim[i]>thresh){
+          z=(float)sim->maxZ-(float)i*simIO->res;
+          sSx=z;
+          break;
         }
       }
-      sumProd+=(truth[i]-meanL)*(smooSim[bin]-meanS);
-    }
-    correl[2*k]=(sumProd/(float)numb)/(stdevL*stdevS);
-    TIDY(smooSim);
+
+      startX=(sSx<sLx)?sSx:sLx;
+      endX=(eSx>eLx)?eSx:eLx;
+      numb=(int)(fabs(endX-startX)/simIO->res);
+
+      /*means*/
+      meanS=meanL=0.0;
+      for(i=0;i<lvis->nBins;i++)if((zShift[i]>=startX)&&(zShift[i]<=endX))meanL+=truth[i];
+      for(i=0;i<sim->nBins;i++){
+        z=(float)sim->maxZ-(float)i*simIO->res;
+        if((z>=startX)&&(z<=endX))meanS+=smooSim[i];
+      }
+     if(numb>0){
+        meanL/=(float)numb;
+        meanS/=(float)numb;
+      }
+      /*stdev*/
+      stdevS=stdevL=0.0;
+      for(i=0;i<lvis->nBins;i++)if((zShift[i]>=startX)&&(zShift[i]<=endX))stdevL+=(truth[i]-meanL)*(truth[i]-meanL);
+      for(i=0;i<sim->nBins;i++){
+        z=(float)sim->maxZ-(float)i*simIO->res;
+        if((z>=startX)&&(z<=endX))stdevS+=(smooSim[i]-meanS)*(smooSim[i]-meanS);
+      }
+      stdevL=sqrt(stdevL/(float)numb);
+      stdevS=sqrt(stdevS/(float)numb);
+
+      /*shared variance*/
+      sumProd=0.0;
+      for(i=lvis->nBins-1;i>=0;i--){
+        if((zShift[i]<startX)||(zShift[i]>endX))continue;
+        minSepSq=100000.0;
+        for(j=0;j<sim->nBins;j++){
+          z=(float)sim->maxZ-(float)j*simIO->res;
+          if((z<startX)||(z>endX))continue;
+          sepSq=pow((z-zShift[i]),2.0);
+          if(sepSq<minSepSq){
+            minSepSq=sepSq;
+            bin=j;
+          }
+        }
+        sumProd+=(truth[i]-meanL)*(smooSim[bin]-meanS);
+      }
+      correl[2*k]=(sumProd/(float)numb)/(stdevL*stdevS);
+      TIDY(smooSim);
+    }else correl[2*k]=0.0;
   }/*wave type loop*/
 
   /*tidy up*/
@@ -1358,7 +1362,7 @@ control *readCommands(int argc,char **argv)
   dimage->filtOutli=0;    /* do not filter outliers*/
   dimage->maxZen=100000.0;
   dimage->minDense=0.0;
-  dimage->minSense=0.0;
+  dimage->minSense=0.00000001;  /*a very small number*/
   dimage->leaveEmpty=0;
   dimage->opoo=NULL;
   dimage->useBounds=0;     /*read bounds from ALS file*/
