@@ -659,6 +659,8 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
   /*loop over beams and read all*/
   for(i=0;i<nBeams;i++){
+    /*does this beam exist in this file?*/
+
     /*open beam group*/
     group=H5Gopen2(file,beamList[i],H5P_DEFAULT);
 
