@@ -474,8 +474,8 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*is the file a simulation or real?*/
-  if(H5Gopen2(file,"BEAM0101",H5P_DEFAULT)>=0)readRealGediHDF(file,gediIO,namen,hdfData);
-  else                                        readSimGediHDF(file,gediIO,namen,hdfData);
+  if(H5Gget_objinfo(file,"BEAMDENSE", 0, NULL)>0)readRealGediHDF(file,gediIO,namen,hdfData);
+  else                                           readSimGediHDF(file,gediIO,namen,hdfData);
 
   /*close file*/
   if(H5Fclose(file)){
@@ -660,6 +660,10 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   /*loop over beams and read all*/
   for(i=0;i<nBeams;i++){
     /*does this beam exist in this file?*/
+    if(H5Gget_objinfo(file,beamList[i],0,NULL)>0){
+      i++;
+      continue;
+    }
 
     /*open beam group*/
     group=H5Gopen2(file,beamList[i],H5P_DEFAULT);
