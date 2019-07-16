@@ -1549,8 +1549,7 @@ lvisL2struct *readLvisL2(char *namen)
 /*dummy function if photon counting not included*/
 
 #ifndef USEPHOTON
-void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb)
-
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
 {
   fprintf(stderr,"This has been compiled without photon counting functions\n");
   exit(1);
