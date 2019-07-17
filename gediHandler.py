@@ -26,7 +26,7 @@ class gediData(object):
     if(filename):  # then read a file
       # check file format
       f=h5py.File(filename,'r')
-      if(list(f)[0]=='BEAM0000'):
+      if(list(f)[0]!='BEAMDENSE'):
         readReal=1
       else:
         readReal=0
