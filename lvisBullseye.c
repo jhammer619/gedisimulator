@@ -387,6 +387,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
     }
     fprintf(dimage->opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb\n");
     for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
+    if(dimage->findFsig==0)fprintf(dimage->opoo,"%f ",dimage->simIO.fSigma);
     fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
     if(dimage->opoo){
       fclose(dimage->opoo);
