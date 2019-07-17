@@ -385,7 +385,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
         exit(1);
       }
     }
-    fprintf(opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb\n");
+    fprintf(dimage->opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb\n");
     for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
     fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
     if(dimage->opoo){
