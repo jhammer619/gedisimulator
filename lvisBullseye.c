@@ -1355,9 +1355,9 @@ control *readCommands(int argc,char **argv)
 
   /*defaults*/
   strcpy(dimage->outNamen,"teast.correl");
-  dimage->useLvisHDF=1;
+  dimage->useLvisHDF=0;
   dimage->useLvisLGW=0;
-  dimage->useGediHDF=0;
+  dimage->useGediHDF=1;
   dimage->aEPSG=dimage->lvisIO.bEPSG=32632;
   dimage->lEPSG=dimage->lvisIO.wEPSG=4326;
   dimage->pBuffSize=(uint64_t)200000000;
@@ -1452,16 +1452,16 @@ control *readCommands(int argc,char **argv)
   /*read the command line*/
   for(i=1;i<argc;i++){
     if (*argv[i]=='-'){
-      if(!strncasecmp(argv[i],"-lvis",5)){
-        checkArguments(1,i,argc,"-lvis");
+      if((!strncasecmp(argv[i],"-lvis",5))||(!strncasecmp(argv[i],"-gedi",5))){
+        checkArguments(1,i,argc,"-lvis/-gedi");
         TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
         dimage->lvisIO.inList=NULL;
         dimage->lvisIO.nFiles=1;
         dimage->lvisIO.inList=chChalloc(dimage->lvisIO.nFiles,"input name list",0);
         dimage->lvisIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
         strcpy(dimage->lvisIO.inList[0],argv[i]);
-      }else if(!strncasecmp(argv[i],"-listLvis",9)){
-        checkArguments(1,i,argc,"-listLvis");
+      }else if((!strncasecmp(argv[i],"-listLvis",9))||(!strncasecmp(argv[i],"-listGedi",9))){
+        checkArguments(1,i,argc,"-listLvis/-listGedi");
         TTIDY((void **)dimage->lvisIO.inList,dimage->lvisIO.nFiles);
         dimage->lvisIO.inList=readInList(&dimage->lvisIO.nFiles,argv[++i]);
       }else if(!strncasecmp(argv[i],"-als",4)){
@@ -1494,6 +1494,10 @@ control *readCommands(int argc,char **argv)
         dimage->useLvisHDF=0;
         dimage->useLvisLGW=0;
         dimage->useGediHDF=1;
+      }else if(!strncasecmp(argv[i],"-readHDFlvis",11)){
+        dimage->useLvisHDF=1;
+        dimage->useLvisLGW=0;
+        dimage->useGediHDF=0;
       }else if(!strncasecmp(argv[i],"-aEPSG",6)){
         checkArguments(1,i,argc,"-aEPSG");
         dimage->aEPSG=dimage->lvisIO.bEPSG=atoi(argv[++i]);
@@ -1600,7 +1604,60 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->waveNamen,argv[++i]);
         dimage->writeFinWave=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\n-output name;     output filename\n-listAls list;    input file list for multiple als files\n-als file;        input als file\n-lvis file;       single input LVIS file\n-listLvis file;   list of multiple LVIS files\n-lgw;             LVIS is in lgw (default is LVIS hdf5)\n-readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)\n-lEPSG epsg;      LVIS projection\n-aEPSG epsg;      ALS projection\n-pSigma x;        pulse length, sigma in metres\n-fSigma x;        footprint width, sigma in metres\n-readPulse file;  pulse shape\n-pulseBefore;     apply pulse shape before binning to prevent aliasing\n-minDense x;      minimum ALS beam density to accept\n-minSense x;      minimum waveform beam sensitivity to accept\n-smooth sig;      smooth both waves before comparing\n-maxShift x;      horizontal distance to search over\n-step x;          horizontal step size\n-maxVshift x;     vertical distance to search over\n-vStep z;         vertical step size\n-hOffset dx dy;   centre of horizontal offsets\n-offset z;        vertical datum offset\n-bounds minX minY maxX maxY;    bounds to use, in ALS projection\n-noNorm;          don't correct sims for ALS densiy variations\n-norm;            correct sims for ALS densiy variations\n-decimate f;      decimate ALS point cloud by a factor, to save RAM\n-maxScanAng ang;  maximum scan angle, degrees\n-noFilt;          don't filter outliers from correlation (default)\n-filtOut;         filter outliers from correlation stats\n-allSimMeth;      use all simulation methods\n\n# Optimisation\n-simplex;         use simplex optimisation rather than doing the full bullseye plot\n-fixFsig;         fix fSigma in simplex\n-maxIter n;       maximum number of iterations\n-optTol x;        tolerance for optimisation\n-quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values\n-geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance\n-writeSimProg;    write progress of simplex to output\n-writeWaves name;  write out final waveforms as HDF5 when using simplex\n\n# Octree\n-noOctree;       do not use an octree\n-octLevels n;    number of octree levels to use\n-nOctPix n;      number of octree pixels along a side for the top level\n-maxZen zen;     maximum zenith angle to use, degrees\n-leaveEmpty;     exit if there are no usable footprints\n\n");
+        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\
+\n# Input-output\n\
+-output name;     output filename\n\
+-listAls list;    input file list for multiple als files\n\
+-als file;        input als file\n\
+-gedi file;       single input GEDI/LVIS file\n\
+-listGedi file;   list of multiple GEDI/LVIS files\n\
+-readHDFgedi;     read GEDI HDF5 input (default)\n\
+-lgw;             LVIS is in lgw (default is GEDI hdf5)\n\
+-readHDFlvis;     read GEDI HDF5 input (default is GEDI hdf5)\n\
+-bounds minX minY maxX maxY;    bounds to use, specified in ALS projection\n\
+-leaveEmpty;      exit if there are no usable footprints\n\
+-lEPSG epsg;      LVIS projection\n\
+-aEPSG epsg;      ALS projection\n\
+\n# Grid mode operation\n\
+-maxShift x;      grid mode, horizontal distance to search over\n\
+-step x;          grid mode, horizontal step size\n\
+-maxVshift x;     grid or geoError mode, vertical distance to search over\n\
+-vStep z;         grid or geoError mode, vertical step size\n\
+\n# Optimiser mode operation\n\
+-simplex;         use simplex optimisation rather than doing the full bullseye plot\n\
+-fixFsig;         fix fSigma in simplex\n\
+-geoError expError correlDist;   rapid geolocation, using expected geolocation error and correlation distance. Vertical shifts must be separatley defined\n\
+-quickGeo;        perform rapid geolocation using default error values\n\
+-optTol x;        tolerance for optimisation\n\
+-maxIter n;       maximum number of iterations\n\
+-writeSimProg;    write progress of simplex to output\n\
+-writeWaves name; write out final waveforms as HDF5 when using simplex\n\
+\n# Initial estimates. Will search around this point\n\
+-hOffset dx dy;   centre of horizontal offsets\n\
+-offset z;        vertical datum offset\n\
+\n# Waveform characteristics\n\
+-fSigma x;        footprint width, sigma in metres\n\
+-pSigma x;        Gaussian pulse length, sigma in metres\n\
+-readPulse file;  pulse shape, if not Gaussian\n\
+\n# Filters for input data\n\
+-minSense x;      minimum LVIS/GEDI beam sensitivity to accept\n\
+-maxZen zen;      maximum LVIS/GEDI zenith angle to use, degrees\n\
+-maxScanAng ang;  maximum ALS scan angle, degrees\n\
+-minDense x;      minimum ALS beam density to accept\n\
+-decimate f;      decimate ALS point cloud by a factor, to save RAM\n\
+-noFilt;          don't filter outliers from correlation (default)\n\
+-filtOut;         filter outliers from correlation stats\n\
+-smooth sig;      smooth both waves before comparing\n\
+\n# Simulator settings. For simulator validation only\n\
+-noNorm;          don't correct sims for ALS densiy variations\n\
+-norm;            correct sims for ALS densiy variations\n\
+-allSimMeth;      use all simulation methods\n\
+-pulseBefore;     apply pulse shape before binning to prevent aliasing\n\
+\n# Octree to speed searching of ALS data. Not fully operational\n\
+-noOctree;       do not use an octree\n\
+-octLevels n;    number of octree levels to use\n\
+-nOctPix n;      number of octree pixels along a side for the top level\n\
+\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);

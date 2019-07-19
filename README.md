@@ -351,52 +351,69 @@ It requires the large-footprint system pulse shape (either a Gaussian width or a
 
 If the full grid is used, it outputs an ASCII file with the correlation for each x, y and z offset. If it uses a simplex it outputs the single optimum offset.
 
-
-#### Input output and switches
+#### Input-output options
     -output name;     output filename
-    -listAls list;    input file list for multiple ALS files
-    -als file;        input ALS file
-    -lvis file;       single input LVIS file
-    -listLvis file;   list of multiple LVIS files
-    -lgw;             LVIS is in lgw (default is LVIS hdf5)
-    -readHDFgedi;     read GEDI HDF5 input (default is LVIS hdf5)
+    -listAls list;    input file list for multiple als files
+    -als file;        input als file
+    -gedi file;       single input GEDI/LVIS file
+    -listGedi file;   list of multiple GEDI/LVIS files
+    -readHDFgedi;     read GEDI HDF5 input (default)
+    -lgw;             LVIS is in lgw (default is GEDI hdf5)
+    -readHDFlvis;     read GEDI HDF5 input (default is GEDI hdf5)
+    -bounds minX minY maxX maxY;    bounds to use, specified in ALS projection
+    -leaveEmpty;      exit if there are no usable footprints
     -lEPSG epsg;      LVIS projection
     -aEPSG epsg;      ALS projection
-    -pSigma x;        pulse length, sigma in metres
-    -fSigma x;        footprint width, sigma in metres
-    -readPulse file;  pulse shape
-    -pulseBefore;     apply pulse shape before binning to prevent aliasing
-    -minDense x;      minimum ALS beam density to accept
-    -minSense x;      minimum waveform beam sensitivity to accept
-    -smooth sig;      smooth both waves before comparing
-    -maxShift x;      horizontal distance to search over
-    -step x;          vertical step size
-    -maxVshift x;      vertical distance to search over
-    -vStep z;          vertical step size
-    -hOffset dx dy;         centre of horizontal offsets
-    -offset z;        vertical datum offset
-    -bounds minX minY maxX maxY;    bounds to use, in ALS projection
-    -noNorm;          don't correct sims for ALS density variations
-    -noFilt;          don't filter outliers from correlation
-    -allSimMeth;      use all simulation methods
 
-##### Optimisation
+#### Grid mode operation
+    -maxShift x;      grid mode, horizontal distance to search over
+    -step x;          grid mode, horizontal step size
+    -maxVshift x;     grid or geoError mode, vertical distance to search over
+    -vStep z;         grid or geoError mode, vertical step size
+
+#### Optimiser mode operation
     -simplex;         use simplex optimisation rather than doing the full bullseye plot
-    -maxIter n;       maximum number of iterations
+    -fixFsig;         fix fSigma in simplex
+    -geoError expError correlDist;   rapid geolocation, using expected geolocation error and correlation distance. Vertical shifts must be separatley defined
+    -quickGeo;        perform rapid geolocation using default error values
     -optTol x;        tolerance for optimisation
-    -quickGeo;        perform a rapid geolocation of initial GEDI data, using default error values
-    -geoError expError correlDist;       perform a rapid geolocation of initial GEDI data, providing an expected geolocation error and an expected correlation distance
+    -maxIter n;       maximum number of iterations
+    -writeSimProg;    write progress of simplex to output
+    -writeWaves name; write out final waveforms as HDF5 when using simplex
 
-##### Octree
-    -noOctree;      do not use an octree
-    -octLevels n;   number of octree levels to use
-    -nOctPix n;     number of octree pixels along a side for the top level
-    -maxZen zen;     maximum zenith angle to use, degrees
+#### Initial estimates. Will search around this point
+    -hOffset dx dy;   centre of horizontal offsets
+    -offset z;        vertical datum offset
 
+#### Waveform characteristics
+    -fSigma x;        footprint width, sigma in metres
+    -pSigma x;        Gaussian pulse length, sigma in metres
+    -readPulse file;  pulse shape, if not Gaussian
+
+#### Filters for input data
+    -minSense x;      minimum LVIS/GEDI beam sensitivity to accept
+    -maxZen zen;      maximum LVIS/GEDI zenith angle to use, degrees
+    -maxScanAng ang;  maximum ALS scan angle, degrees
+    -minDense x;      minimum ALS beam density to accept
+    -decimate f;      decimate ALS point cloud by a factor, to save RAM
+    -noFilt;          don't filter outliers from correlation (default)
+    -filtOut;         filter outliers from correlation stats
+    -smooth sig;      smooth both waves before comparing
+
+#### Simulator settings. For simulator validation only
+    -noNorm;          don't correct sims for ALS densiy variations
+    -norm;            correct sims for ALS densiy variations
+    -allSimMeth;      use all simulation methods
+    -pulseBefore;     apply pulse shape before binning to prevent aliasing
+
+#### Octree to speed searching of ALS data. Not fully operational
+    -noOctree;       do not use an octree
+    -octLevels n;    number of octree levels to use
+    -nOctPix n;      number of octree pixels along a side for the top level
 
 
 ## mapLidar ##
-Generates a geotiff from las file properties, combining multiple files.
+Generates a geotiff from las file properties, combining multiple files. Can also print a list of file bounds or calculate beam and point density.
 
 ## lasPoints ##
 Extracts a point cloud as a pts for a bounding box within a collection of las files.
