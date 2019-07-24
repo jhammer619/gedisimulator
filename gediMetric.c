@@ -81,7 +81,8 @@ typedef struct{
 
 
 /*####################################*/
-/*emtpy structure if photon counting not provided*/
+/*empty structure if photon counting not provided*/
+
 #ifndef USEPHOTON
 typedef struct{
   void *nothing;
@@ -232,6 +233,12 @@ int main(int argc,char **argv)
 
   /*set link noise if needed*/
   dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->gediIO.linkPsig,dimage->gediIO.linkFsig,rhoC,rhoG);
+ 
+  /*set photon rates if needed*/
+  #ifdef USEPHOTON
+  if(dimage->ice2)setPhotonRates(&dimage->photonCount);
+  #endif
+
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -1675,6 +1682,8 @@ control *readCommands(int argc,char **argv)
   dimage->photonCount.prob=NULL;
   dimage->photonCount.pBins=0;
   dimage->photonCount.H=200.0;
+  dimage->photonCount.nPhotC=dimage->photonCount.designval;
+  dimage->photonCount.nPhotG=-1.0;     /*blank number*/
   dimage->photonCount.noise_mult=0.1;
   dimage->photonCount.rhoVrhoG=1.0;
   dimage->photonCount.writeHDF=0;  /*write ASCII by default*/
@@ -1894,6 +1903,12 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-rhoVrhoG",9)){
         checkArguments(1,i,argc,"-rhoVrhoG");
         dimage->photonCount.rhoVrhoG=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-nPhotG",7)){
+        checkArguments(1,i,argc,"-nPhotG");
+        dimage->photonCount.nPhotG=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-nPhotC",8)){
+        checkArguments(1,i,argc,"-nPhotC");
+        dimage->photonCount.nPhotC=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-photHDF",8)){
         dimage->photonCount.writeHDF=1;
       #endif
@@ -1973,6 +1988,8 @@ void writeHelp()
 -photonWind x;    window length for photon counting search, metres\n\
 -noiseMult x;     noise multiplier for photon-counting\n\
 -rhoVrhoG x;      ratio of canopy to ground reflectance at this wavelength. Not different from rhoV and rhoG\n\
+-nPhotC n;        mean number of canopy photons (replaces nPhotons and rhoVrhoG)\n\
+-nPhotG n;        mean number of ground photons (replaces nPhotons and rhoVrhoG)\n\
 -photHDF;         write photon-counting output in HDF5\n");
   #endif
   fprintf(stdout,"\nDenoising:\n\

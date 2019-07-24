@@ -47,10 +47,13 @@ typedef struct{
 /*poton counting structure*/
 
 typedef struct{
+  /*photon rates*/
   float designval;     /*mean number of photons per footprint*/
   float *prob;         /*probability of each number of photons occuring*/
   int pBins;           /*number of probability bins*/
   float rhoVrhoG;      /*ratio of canopy to ground reflectance for weighting*/
+  float nPhotC;        /*mean number of canopy photons per footprint*/
+  float nPhotG;        /*mean number of ground photons per footprint*/
   /*noise*/
   float noise_mult;    /*noise scaling factor*/
   float H;             /*search window length, metres*/
@@ -61,6 +64,12 @@ typedef struct{
   /*HDF file*/
   photonHDF *hdf;      /*HDF file, if needed*/
 }photonStruct;
+
+
+/*###########################################################*/
+/*global functions*/
+
+void setPhotonRates(photonStruct *);
 
 /*###########################################################*/
 

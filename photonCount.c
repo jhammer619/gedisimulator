@@ -66,7 +66,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   float minZ=0,maxZ=0;
   float *thisGr=NULL;
   float *wave=NULL;
-  float *adjustPhotonProb(float *,dataStruct *,denPar *,float,noisePar *,int);
+  float *adjustPhotonProb(float *,dataStruct *,denPar *,noisePar *,int,photonStruct *);
   void setPhotonProb(photonStruct *);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
   char testPhotonGround(dataStruct *,float);
@@ -98,7 +98,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   noiseInt=photonNoiseIntensity(data->cov);
 
   /*rescale waveform for reflectance*/
-  wave=adjustPhotonProb(denoised,data,den,photonCount->rhoVrhoG,noise,data->useType);
+  wave=adjustPhotonProb(denoised,data,den,noise,data->useType,photonCount);
 
   /*generate signal photons*/
   for(i=0;i<nPhotons;i++){
@@ -164,7 +164,7 @@ char testPhotonGround(dataStruct *data,float d)
 /*########################################################*/
 /*adjust waveform to account for refl difference*/
 
-float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVrhoG,noisePar *noise,int numb)
+float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *noise,int numb,photonStruct *phot)
 {
   int i=0;
   float tot=0;
@@ -172,7 +172,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVr
   float *smooGr=NULL,*smooCan=NULL;
 
   /*is any adjustment needed*/
-  if(fabs(1.0-rhoVrhoG)<TOL)wave=denoised;
+  if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
   else{
     if(den->varNoise||noise->linkNoise){
       fprintf(stderr,"Not able to readjust denoised waveforms just yet\n");
@@ -194,7 +194,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,float rhoVr
       wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
       tot=0.0;
       for(i=0;i<data->nBins;i++){
-        wave[i]=smooCan[i]+smooGr[i]/rhoVrhoG;
+        wave[i]=smooCan[i]*phot->rhoVrhoG+smooGr[i]/phot->rhoVrhoG;
         tot+=wave[i];
       }
       if(fabs(1.0-tot)>TOL){
@@ -358,6 +358,20 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
 
   return(x);
 }/*pickArrayElement*/
+
+
+/*########################################################*/
+/*set photon rates*/
+
+void setPhotonRates(photonStruct *photonCount)
+{
+  /*do we need to?*/
+  if(photonCount->nPhotG>0.0){
+    photonCount->designval=(photonCount->nPhotC+photonCount->nPhotG)/2.0;
+    photonCount->rhoVrhoG=photonCount->nPhotC/photonCount->nPhotG;
+  }
+  return;
+}/*setPhotonRates*/
 
 
 /*the end*/
