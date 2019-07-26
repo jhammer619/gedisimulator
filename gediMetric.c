@@ -609,11 +609,11 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
     fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
     fprintf(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+27,14+4*metric->nRH+1+dimage->bayesGround+28);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+2*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+3*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
-    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%dt%d,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+4*metric->laiBins,i*(int)dimage->laiRes,(i+1)*(int)dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+2*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
@@ -1602,6 +1602,9 @@ control *readCommands(int argc,char **argv)
   dimage->opooMet=NULL;
   dimage->opooGauss=NULL;
   dimage->hdfGedi=NULL;
+  dimage->gediIO.useBeam[0]=dimage->gediIO.useBeam[1]=dimage->gediIO.useBeam[2]=dimage->gediIO.useBeam[3]=\
+    dimage->gediIO.useBeam[4]=dimage->gediIO.useBeam[5]=dimage->gediIO.useBeam[6]=dimage->gediIO.useBeam[7]=1;    /*read all waves*/
+
   /*scan settings*/
   dimage->gediIO.pSigma=0.764331; /*pulse length*/
   dimage->gediIO.fSigma=5.5;      /*footprint width*/
@@ -1888,6 +1891,15 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.den->corrDrift=1;
         dimage->gediIO.den->varDrift=0;
         dimage->gediIO.den->fixedDrift=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-beamList",9)){
+        checkArguments(1,i,argc,"-beamList");
+        setBeamsToUse(&(dimage->gediIO.useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-skipBeams",10)){
+        checkArguments(1,i,argc,"-skipBeams");
+        setBeamsToSkip(&(dimage->gediIO.useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-readBeams",10)){
+        checkArguments(1,i,argc,"-readBeams");
+        setBeamsToRead(&(dimage->gediIO.useBeam[0]),argv[++i]);
       #ifdef USEPHOTON
       }else if(!strncasecmp(argv[i],"-photonCount",12)){
         dimage->ice2=1;
@@ -1950,6 +1962,9 @@ void writeHelp()
 -readHDFgedi;     read GEDI simulator HDF5 input\n\
 -level2 name;     level2 filename for LVIS ZG\n\
 -bounds minX minY maxX maxY;    only analyse data within bounds\n\
+-beamList 11111111; 0/1 for whether or not to use beams 1-8\n\
+-skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n\
+-readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\
 \nSwitches\n\
 -ground;          read true ground from file\n\
 -useInt;          use discrete intensity instead of count\n\

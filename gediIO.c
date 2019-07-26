@@ -640,7 +640,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   double *tempLon=NULL,*tempLat=NULL;
   double *meanCoord(double *,double *,int);
   char **beamList=NULL;
-  char **setGEDIbeamList(int *);
+  char **setGEDIbeamList(int *,char *);
   void updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
   void unwrapRealGEDI(uint16_t *,uint64_t *,int,int,gediHDF *,int *);
@@ -648,7 +648,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
 
   /*set the list of beams*/
-  beamList=setGEDIbeamList(&nBeams);
+  beamList=setGEDIbeamList(&nBeams,gediIO->useBeam);
   hdfData->nWaves=0;
   hdfData->varBins=1;  /*variable bin length*/
   gediIO->ground=0;    /*no truth with real data*/
@@ -992,26 +992,111 @@ double *meanCoord(double *temp1,double *temp2,int numb)
 /*####################################################*/
 /*set list of GEDI beams*/
 
-char **setGEDIbeamList(int *nBeams)
+char **setGEDIbeamList(int *nBeams,char *useBeam)
 {
-  int i=0;
+  int i=0,count=0;
   char **beamList=NULL;
+  char tempBeam[8][9];
 
-  *nBeams=8;
+  /*temporary list of all beams*/
+  strcpy(tempBeam[0],"BEAM0000");
+  strcpy(tempBeam[1],"BEAM0001");
+  strcpy(tempBeam[2],"BEAM0010");
+  strcpy(tempBeam[3],"BEAM0011");
+  strcpy(tempBeam[4],"BEAM0101");
+  strcpy(tempBeam[5],"BEAM0110");
+  strcpy(tempBeam[6],"BEAM1000");
+  strcpy(tempBeam[7],"BEAM1011");
+
+  /*how many beams shall we use?*/
+  *nBeams=0;
+  for(i=0;i<8;i++)if(useBeam[i])(*nBeams)++;
+
+  /*allocate*/
   beamList=chChalloc(*nBeams,"beam list",0);
   for(i=0;i<(*nBeams);i++)beamList[i]=challoc(9,"beam list",i+1);
 
-  strcpy(beamList[0],"BEAM0000");
-  strcpy(beamList[1],"BEAM0001");
-  strcpy(beamList[2],"BEAM0010");
-  strcpy(beamList[3],"BEAM0011");
-  strcpy(beamList[4],"BEAM0101");
-  strcpy(beamList[5],"BEAM0110");
-  strcpy(beamList[6],"BEAM1000");
-  strcpy(beamList[7],"BEAM1011");
+  /*copy over*/
+  count=0;
+  for(i=0;i<8;i++){
+    if(useBeam[i]){
+      strcpy(beamList[count],tempBeam[i]);
+      count++;
+    }
+  }
 
   return(beamList);
 }/*setGEDIbeamList*/
+
+
+/*####################################################*/
+/*read an 8 bit strong and turn into an array*/
+
+void setBeamsToUse(char *useBeam,char *instruction)
+{ 
+  int i=0,count=0;
+  char temp[1];
+
+  /*count down for efficiency*/
+  count=7;
+  for(i=strlen(instruction)-1;i>=0;i--){
+    if((!strncasecmp(&(instruction[i]),"0",1))||(!strncasecmp(&(instruction[i]),"1",1))){
+      temp[0]=instruction[i];
+      useBeam[count]=atoi(&(temp[0]));
+      fprintf(stdout,"%d %d\n",i,useBeam[i]);
+      count--;
+    }
+  } 
+  return;
+}/*setBeamsToRead*/
+
+
+/*####################################################*/
+/*read list of beams to skip*/
+
+void setBeamsToSkip(char *useBeam,char *instruction)
+{
+  int i=0;
+  char temp[1];
+
+  /*default is all*/
+  for(i=0;i<8;i++)useBeam[i]=1;
+
+  for(i=strlen(instruction)-1;i>=0;i--){
+    if((!strncasecmp(&(instruction[i]),"1",1))||(!strncasecmp(&(instruction[i]),"2",1))||\
+       (!strncasecmp(&(instruction[i]),"3",1))||(!strncasecmp(&(instruction[i]),"4",1))||\
+       (!strncasecmp(&(instruction[i]),"5",1))||(!strncasecmp(&(instruction[i]),"6",1))||\
+       (!strncasecmp(&(instruction[i]),"7",1))||(!strncasecmp(&(instruction[i]),"8",1))){
+      temp[0]=instruction[i];
+      useBeam[atoi(&(temp[0]))]=0;
+    }
+  } 
+  return;
+}/*setBeamsToSkip*/
+
+
+/*####################################################*/
+/*read list of beams to read*/
+
+void setBeamsToRead(char *useBeam,char *instruction)
+{
+  int i=0;
+  char temp[1];
+
+  /*default is none*/
+  for(i=0;i<8;i++)useBeam[i]=0;
+
+  for(i=strlen(instruction)-1;i>=0;i--){
+    if((!strncasecmp(&(instruction[i]),"1",1))||(!strncasecmp(&(instruction[i]),"2",1))||\
+       (!strncasecmp(&(instruction[i]),"3",1))||(!strncasecmp(&(instruction[i]),"4",1))||\
+       (!strncasecmp(&(instruction[i]),"5",1))||(!strncasecmp(&(instruction[i]),"6",1))||\
+       (!strncasecmp(&(instruction[i]),"7",1))||(!strncasecmp(&(instruction[i]),"8",1))){
+      temp[0]=instruction[i];
+      useBeam[atoi(&(temp[0]))]=1;
+    }
+  }
+  return;
+}/*setBeamsToSkip*/
 
 
 /*####################################################*/

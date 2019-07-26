@@ -119,6 +119,7 @@ typedef struct{
   char ground;      /*read separateground wave or not*/
   char dontTrustGround; /*don't trust ground included with waveforms*/
   char readPsigma;   /*read psigma from files or not*/
+  char useBeam[8];   /*which beams to use in real data*/
 
   /*denoising parameters*/
   denPar *den;   /*for denoising*/
@@ -320,6 +321,9 @@ void writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
 void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 void packGEDIhdf(waveStruct *,gediHDF *,int,gediIOstruct *,gediRatStruct *,int *,char,char *);
+void setBeamsToUse(char *,char *);
+void setBeamsToSkip(char *,char *);
+void setBeamsToRead(char *,char *);
 wFrontStruct *copyFrontFilename(char *);
 float waveformTrueCover(dataStruct *,gediIOstruct *,float);
 float findBlairSense(dataStruct *,gediIOstruct *);

@@ -1389,6 +1389,8 @@ control *readCommands(int argc,char **argv)
   dimage->lvisIO.useCount=1;
   dimage->lvisIO.ground=0;
   dimage->lvisIO.nMessages=200;
+  dimage->lvisIO.useBeam[0]=dimage->lvisIO.useBeam[1]=dimage->lvisIO.useBeam[2]=dimage->lvisIO.useBeam[3]=\
+    dimage->lvisIO.useBeam[4]=dimage->lvisIO.useBeam[5]=dimage->lvisIO.useBeam[6]=dimage->lvisIO.useBeam[7]=1;  /*read all waves*/
 
   /*LVIS denoising*/
   setDenoiseDefault(dimage->lvisIO.den);
@@ -1603,6 +1605,15 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-writeWaves");
         strcpy(dimage->waveNamen,argv[++i]);
         dimage->writeFinWave=1;
+      }else if(!strncasecmp(argv[i],"-beamList",9)){
+        checkArguments(1,i,argc,"-beamList");
+        setBeamsToUse(&(dimage->lvisIO.useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-skipBeams",10)){
+        checkArguments(1,i,argc,"-skipBeams");
+        setBeamsToSkip(&(dimage->lvisIO.useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-readBeams",10)){
+        checkArguments(1,i,argc,"-readBeams");
+        setBeamsToRead(&(dimage->lvisIO.useBeam[0]),argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
         fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\
 \n# Input-output\n\
@@ -1618,6 +1629,9 @@ control *readCommands(int argc,char **argv)
 -leaveEmpty;      exit if there are no usable footprints\n\
 -lEPSG epsg;      LVIS projection\n\
 -aEPSG epsg;      ALS projection\n\
+-beamList 11111111; 0/1 for whether or not to use beams 1-8\n\
+-skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n\
+-readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\
 \n# Grid mode operation\n\
 -maxShift x;      grid mode, horizontal distance to search over\n\
 -step x;          grid mode, horizontal step size\n\
