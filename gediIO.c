@@ -1025,7 +1025,6 @@ char **setGEDIbeamList(int *nBeams,char *useBeam)
     }
   }
 
-fprintf(stdout,"Reading %d\n",*nBeams);
   return(beamList);
 }/*setGEDIbeamList*/
 
