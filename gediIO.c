@@ -1025,6 +1025,7 @@ char **setGEDIbeamList(int *nBeams,char *useBeam)
     }
   }
 
+fprintf(stdout,"Reading %d\n",*nBeams);
   return(beamList);
 }/*setGEDIbeamList*/
 
@@ -1043,7 +1044,6 @@ void setBeamsToUse(char *useBeam,char *instruction)
     if((!strncasecmp(&(instruction[i]),"0",1))||(!strncasecmp(&(instruction[i]),"1",1))){
       temp[0]=instruction[i];
       useBeam[count]=atoi(&(temp[0]));
-      fprintf(stdout,"%d %d\n",i,useBeam[i]);
       count--;
     }
   } 
@@ -1068,7 +1068,7 @@ void setBeamsToSkip(char *useBeam,char *instruction)
        (!strncasecmp(&(instruction[i]),"5",1))||(!strncasecmp(&(instruction[i]),"6",1))||\
        (!strncasecmp(&(instruction[i]),"7",1))||(!strncasecmp(&(instruction[i]),"8",1))){
       temp[0]=instruction[i];
-      useBeam[atoi(&(temp[0]))]=0;
+      useBeam[atoi(&(temp[0]))-1]=0;
     }
   } 
   return;
@@ -1092,7 +1092,7 @@ void setBeamsToRead(char *useBeam,char *instruction)
        (!strncasecmp(&(instruction[i]),"5",1))||(!strncasecmp(&(instruction[i]),"6",1))||\
        (!strncasecmp(&(instruction[i]),"7",1))||(!strncasecmp(&(instruction[i]),"8",1))){
       temp[0]=instruction[i];
-      useBeam[atoi(&(temp[0]))]=1;
+      useBeam[atoi(&(temp[0]))-1]=1;
     }
   }
   return;
