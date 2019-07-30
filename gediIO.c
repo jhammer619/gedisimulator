@@ -578,11 +578,11 @@ void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   /*allocate waveform space*/
   hdfData->wave=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
   if(gediIO->ground)hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
-  if(!(hdfData->sInd=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
+  if(!(hdfData->sInd=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
     fprintf(stderr,"error in sInd buffer allocation.\n");
     exit(1);
   }
-  for(i=0;i<nWaves;i++)hdfData->sInd[i]=(uint64_t)i*(uint64_t)hdfData->nBins[0];
+  for(i=0;i<hdfData->nWaves;i++)hdfData->sInd[i]=(uint64_t)i*(uint64_t)hdfData->nBins[0];
 
   /*read data*/
   if(gediIO->useInt){
