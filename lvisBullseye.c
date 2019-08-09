@@ -587,7 +587,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
     for(j=0;j<nX;j++){  /*y loop*/
       yOff=(double)(j-nX/2)*(double)dimage->shiftStep+dimage->origin[1];
       for(m=0;m<nZ;m++){  /*z loop*/
-        if(nZ>1)zOff=(double)(m-nZ/2)*(double)dimage->vShiftStep;   /*datum offset has already been applied*/
+        if(nZ>1)zOff=(double)(m-nZ/2)*(double)dimage->vShiftStep+dimage->origin[2];   /*datum offset has already been applied*/
         else    zOff=dimage->origin[2];
         /*get correlation stats*/
         correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
