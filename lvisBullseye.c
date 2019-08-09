@@ -113,6 +113,7 @@ typedef struct{
   double **coords;
   dataStruct **lvis;
   pCloudStruct **als;
+  float deltaCofG;
 }optStruct;
 
 
@@ -249,8 +250,10 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   /*perform rough bullseye run*/
   /*allocate space*/
   nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+0.5);
+  if(nX<=0)nX=1;
   if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+0.5);
   else                     nZ=1;
+  if(nZ<=0)nZ=1;
   roughCorrel=falloc((uint64_t)nX*(uint64_t)nX*(uint64_t)nZ,"mean correlation",0);
   fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
 
@@ -372,7 +375,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
     /*write progress if needed*/
     if(dimage->writeSimProg){
       for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
-      fprintf(dimage->opoo,"%f %d simplex\n",1.0-(float)s->fval,dimage->nUsed);
+      fprintf(dimage->opoo,"%f %d simplex %f\n",1.0-(float)s->fval,dimage->nUsed,optBits.deltaCofG);
     }
   }while((status==GSL_CONTINUE)&&(iter<dimage->maxIter));
 
@@ -425,6 +428,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   int i=0,nTypeWaves=0,contN=0;
   float **denoised=NULL;
   float **correl=NULL,meanCorrel=0;
+  float meanCofG=0;
   double xOff=0,yOff=0,zOff=0;
   double **coords=NULL;
   control *dimage=NULL;
@@ -454,12 +458,19 @@ double findMeanCorr(const gsl_vector *v, void *params)
   correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
 
   /*get mean correlation*/
-  meanCorrel=0.0;
-  for(i=0;i<contN;i++)meanCorrel+=correl[i][0];
-  if(contN>0)meanCorrel/=(float)contN;
+  meanCorrel=meanCofG=0.0;
+  for(i=0;i<contN;i++){
+    meanCorrel+=correl[i][0];
+    meanCofG+=correl[i][1];
+  }
+  if(contN>0){
+    meanCorrel/=(float)contN;
+    meanCofG/=(float)contN;
+  }
 
   /*record number used*/
   dimage->nUsed=contN;
+  optBits->deltaCofG=meanCofG;
 
   /*tidy up*/
   TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
@@ -574,8 +585,10 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
 
   /*calculate number of steps*/
   nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+0.5);
+  if(nX<=0)nX=1;
   if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+0.5);
   else                     nZ=1;
+  if(nZ<=0)nZ=1;
 
   /*save original coordinates*/
   coords=dimage->gediRat.coords;
@@ -1589,8 +1602,8 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-quickGeo",9)){
         dimage->largeErr=1;
         dimage->fullBull=0;
-        dimage->maxShift=100.0;    /*expected geolocation error, plus a bit*/
-        dimage->shiftStep=20.0;    /*expected width of correlation hole*/
+        dimage->maxShift=40.0;    /*expected geolocation error, plus a bit*/
+        dimage->shiftStep=7.0;    /*expected width of correlation hole*/
       }else if(!strncasecmp(argv[i],"-geoError",9)){
         checkArguments(2,i,argc,"-geoError");
         dimage->largeErr=1;  
