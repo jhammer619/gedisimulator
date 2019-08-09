@@ -1678,12 +1678,14 @@ control *readCommands(int argc,char **argv)
 -beamList 11111111; 0/1 for whether or not to use beams 1-8\n\
 -skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n\
 -readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\
-\n# Grid mode operation\n\
--maxShift x;      grid mode, horizontal distance to search over\n\
--step x;          grid mode, horizontal step size\n\
+\n# Multi-mode options\n\
+-solveCofG;       use centre of gravity to match vertical offsets\n\
 -maxVshift x;     grid or geoError mode, vertical distance to search over\n\
 -vStep z;         grid or geoError mode, vertical step size\n\
-\n# Optimiser mode operation\n\
+\n# Grid mode operation (multi-mode also applies)\n\
+-maxShift x;      grid mode, horizontal distance to search over\n\
+-step x;          grid mode, horizontal step size\n\
+\n# Optimiser mode operation (multi-mode also applies)\n\
 -simplex;         use simplex optimisation rather than doing the full bullseye plot\n\
 -fixFsig;         fix fSigma in simplex\n\
 -geoError expError correlDist;   rapid geolocation, using expected geolocation error and correlation distance. Vertical shifts must be separatley defined\n\
