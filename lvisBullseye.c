@@ -65,7 +65,7 @@ typedef struct{
   char useLvisHDF;     /*input data format switch*/
   char useLvisLGW;     /*input data format switch*/
   char useGediHDF;     /*input data format switch*/
-  char writeFinWave;   /*write out final waveforms switch*/
+  char solveCofG;      /*use deltaCofG as offset switch*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
   float maxZen;        /*maximum LVIS zenith angle to use*/
@@ -88,6 +88,7 @@ typedef struct{
   float optTol;        /*tolerance*/
   int nUsed;           /*number of footprints used in optimum*/
   char writeSimProg;   /*write simplex progress switch*/
+  char writeFinWave;   /*write out final waveforms switch*/
 
   /*for large geolocation errors*/
   char largeErr;       /*switch for large error method*/
@@ -205,6 +206,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   int nTypeWaves=0;
   float **denoiseAllLvis(dataStruct **,control *);
   void rapidGeolocation(control *,float **,int,dataStruct **,pCloudStruct **);
+  void correctCofG(control *,float **,int,dataStruct **,pCloudStruct **);
   float **denoised=NULL;
 
   /*how mamy types of simuation methods*/
@@ -215,6 +217,9 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
 
   /*denoise LVIS*/
   denoised=denoiseAllLvis(lvis,dimage);
+
+  /*correct for deltaCofG?*/
+  if(dimage->solveCofG)correctCofG(dimage,denoised,nTypeWaves,lvis,als);
 
   /*are we doing the full bullseye plot?*/
   if(dimage->fullBull){
@@ -235,6 +240,29 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   }
   return;
 }/*bullseyeCorrel*/
+
+
+/*####################################################*/
+/*correct datum offset by CofG difference*/
+
+void correctCofG(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
+{
+  int i=0,contN=0;
+  float **correl=NULL;
+  double meanCofG=0;
+  
+  /*get correlaion for central guess*/
+  correl=getCorrelStats(dimage,lvis,als,&contN,dimage->origin[0],dimage->origin[1],dimage->origin[2],dimage->gediRat.coords,denoised,nTypeWaves,dimage->leaveEmpty);
+  
+  /*mean CofG difference*/
+  meanCofG=0.0;
+  for(i=0;i<contN;i++)meanCofG+=correl[i][1];
+  meanCofG/=(float)contN;
+  dimage->origin[2]+=meanCofG;
+
+  TTIDY((void *)correl,contN);
+  return;
+}/*correctCofG*/
 
 
 /*####################################################*/
@@ -388,10 +416,10 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
         exit(1);
       }
     }
-    fprintf(dimage->opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb\n");
+    fprintf(dimage->opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb, 7 deltaCofG\n");
     for(i=0;i<nPar;i++)fprintf(dimage->opoo,"%f ",(float)gsl_vector_get (s->x,i));
     if(dimage->findFsig==0)fprintf(dimage->opoo,"%f ",dimage->simIO.fSigma);
-    fprintf(dimage->opoo,"%f %d\n",1.0-(float)s->fval,dimage->nUsed);
+    fprintf(dimage->opoo,"%f %d %f\n",1.0-(float)s->fval,dimage->nUsed,optBits.deltaCofG);
     if(dimage->opoo){
       fclose(dimage->opoo);
       dimage->opoo=NULL;
@@ -1382,6 +1410,7 @@ control *readCommands(int argc,char **argv)
   dimage->opoo=NULL;
   dimage->useBounds=0;     /*read bounds from ALS file*/
   dimage->writeFinWave=0;  /*don't write out the final waveforms*/
+  dimage->solveCofG=0;     /*use deltsCofG to estimate vertical offset*/
 
   /*octree*/
   dimage->gediRat.useOctree=1;
@@ -1423,7 +1452,7 @@ control *readCommands(int argc,char **argv)
   dimage->fullBull=1;        /*do full bullseye plot*/
   dimage->largeErr=0;        /*don't do a large error search*/
   dimage->findFsig=1;
-  dimage->maxIter=100;
+  dimage->maxIter=300;
   dimage->optTol=0.01;
   dimage->writeSimProg=0;
 
@@ -1616,6 +1645,8 @@ control *readCommands(int argc,char **argv)
         dimage->leaveEmpty=1;
       }else if(!strncasecmp(argv[i],"-writeSimProg",13)){
         dimage->writeSimProg=1;
+      }else if(!strncasecmp(argv[i],"-solveCofG",10)){
+        dimage->solveCofG=1;     /*use deltsCofG to estimate vertical offset*/
       }else if(!strncasecmp(argv[i],"-writeWaves",11)){
         checkArguments(1,i,argc,"-writeWaves");
         strcpy(dimage->waveNamen,argv[++i]);
