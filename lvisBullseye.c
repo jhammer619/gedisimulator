@@ -248,8 +248,8 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
 
   /*perform rough bullseye run*/
   /*allocate space*/
-  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
-  if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+1);
+  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+0.5);
+  if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+0.5);
   else                     nZ=1;
   roughCorrel=falloc((uint64_t)nX*(uint64_t)nX*(uint64_t)nZ,"mean correlation",0);
   fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,roughCorrel);
@@ -573,8 +573,8 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
   }/*open output file and write header*/
 
   /*calculate number of steps*/
-  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+1);
-  if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+1);
+  nX=(int)(2.0*dimage->maxShift/dimage->shiftStep+0.5);
+  if(dimage->maxVshift>0.0)nZ=(int)(2.0*dimage->maxVshift/dimage->vShiftStep+0.5);
   else                     nZ=1;
 
   /*save original coordinates*/
