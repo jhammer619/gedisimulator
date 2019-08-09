@@ -258,7 +258,7 @@ void correctCofG(control *dimage,float **denoised,int nTypeWaves,dataStruct **lv
   meanCofG=0.0;
   for(i=0;i<contN;i++)meanCofG+=correl[i][1];
   meanCofG/=(float)contN;
-  dimage->origin[2]+=meanCofG;
+  dimage->origin[2]-=meanCofG;
 
   TTIDY((void *)correl,contN);
   return;
