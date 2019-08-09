@@ -1604,6 +1604,8 @@ control *readCommands(int argc,char **argv)
         dimage->fullBull=0;
         dimage->maxShift=40.0;    /*expected geolocation error, plus a bit*/
         dimage->shiftStep=7.0;    /*expected width of correlation hole*/
+        dimage->maxVshift=30.0;    /*expected geolocation error, plus a bit*/
+        dimage->vShiftStep=2.0;
       }else if(!strncasecmp(argv[i],"-geoError",9)){
         checkArguments(2,i,argc,"-geoError");
         dimage->largeErr=1;  
