@@ -3441,13 +3441,14 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   if(data->noised)wave=data->noised;
   else            wave=data->wave[data->useType];
 
-  /*determine noise stats for sensitivity metric*/
+  /*determine noise stats for sensitivity metric. Note this is using the threshold to get the mean and stdev*/
   meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res));
   stdev-=meanN;
 
   /*total energy*/
   totE=0.0;
   for(i=0;i<data->nBins;i++)totE+=wave[i]-meanN;
+  totE*=gediIO->res;
   wave=NULL;
 
   if(stdev>0.0){

@@ -1633,7 +1633,7 @@ control *readCommands(int argc,char **argv)
   dimage->noise.missGround=0;
   dimage->noise.linkNoise=0;
   dimage->noise.driftFact=0.0;
-  dimage->gediIO.linkPsig=0.764331; /*pulse length*/
+  dimage->gediIO.linkPsig=dimage->gediIO.pSigma; /*pulse length*/
   dimage->gediIO.linkFsig=5.5;      /*footprint width*/
   dimage->noise.trueSig=5.0;
   dimage->noise.deSig=0.0; //0.1; //4.0*0.15/2.355;
