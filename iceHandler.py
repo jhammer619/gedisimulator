@@ -14,6 +14,56 @@ if __name__ == '__main__':
   import argparse
 
 
+
+########################################
+
+class ice2(object):
+  '''
+  Handles real ICESat-2 data
+  '''
+
+  #################################
+
+  def __init__(self,namen,epsg=4326,minX=-100000000,maxX=100000000,minY=-1000000000,maxY=100000000):
+    '''Class initialiser'''
+    self.readPhotons(namen,epsg=epsg,minX=minX,maxX=maxX,minY=minY,maxY=maxY)
+
+  #################################
+
+  def readPhotons(self,namen,epsg=4326,minX=-100000000,maxX=100000000,minY=-1000000000,maxY=100000000):
+    '''Read ICESat-2 HDF5 file'''
+    f=h5py.File(namen,'r')
+    lon=np.array(f['gt1l']['heights']['lon_ph'])
+    lat=np.array(f['gt1l']['heights']['lat_ph'])
+    z=np.array(f['gt1l']['heights']['h_ph'])
+    # reproject
+    if(epsg!=4326):
+      inProj=Proj(init="epsg:4326")
+      outProj=Proj(init="epsg:"+str(epsg))
+      x,y=transform(inProj, outProj, lon, lat)
+    else:
+      x=lon
+      y=lat
+    # filter if needed
+    useInds=np.where((x>=minX)&(x<=maxX)&(y>=minY)&(y<=maxY))
+    if(len(useInds)>0):
+      useInds=useInds[0]
+      self.x=x[useInds]
+      self.y=y[useInds]
+      self.z=z[useInds]
+
+  #################################
+
+  def writeCoords(self,outNamen="test.pts"):
+    '''Write out coordinates and photons'''
+    f=open(outNamen,'w')
+    for i in range(0,len(self.x)):
+      line=str(self.x[i])+" "+str(self.y[i])+" "+str(self.z[i])+"\n"
+      f.write(line)
+    f.close()
+    print("Written to",outNamen)
+
+
 ########################################
 
 class iceSim(object):
