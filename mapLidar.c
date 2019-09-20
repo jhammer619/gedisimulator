@@ -58,6 +58,7 @@ typedef struct{
   char drawHeight;    /*height.elevation image switch*/
   char drawDens;      /*draw ensity images*/
   char findDens;      /*find point and footprint density*/
+  char drawVegVol;    /*draw volume of vegetation, can set height thesholds*/
   char drawCov;       /*draw canopy cover switch*/
   char writeBounds;   /*write out file bounds*/
   uint64_t pBuffSize; /*point buffer rading size in bytes*/
@@ -72,6 +73,11 @@ typedef struct{
   float res;
   float maxDN;
   uint16_t epsg;
+
+  /*heigth bounds for volume*/
+  float minVolH;      /*minimum height to do volume over*/
+  float maxVolH;      /*maximum height to do volume over*/
+  uint16_t maxVint; /*maximum vegetatiob intensity*/
 }control;
 
 
@@ -135,7 +141,7 @@ int main(int argc,char **argv)
   }
 
   /*create imge if needed*/
-  if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens||dimage->drawCov){
+  if(dimage->drawInt||dimage->drawHeight||dimage->findDens||dimage->drawDens||dimage->drawCov||dimage->drawVegVol){
     /*allocate image array*/
     image=allocateImage(dimage);
 
@@ -153,7 +159,7 @@ int main(int argc,char **argv)
   }
 
   /*write image*/
-  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)writeImage(dimage,image);
+  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)writeImage(dimage,image);
   if(dimage->writeBounds)fprintf(stdout,"Written to %s\n",dimage->bNamen);
 
 
@@ -222,6 +228,7 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
   int xBin=0,yBin=0;
   uint32_t j=0;
   double x=0,y=0,z=0;
+  void testVegVol(float *,float,uint64_t,control *,uint64_t *,unsigned char);
 
   if(las->epsg==0)las->epsg=dimage->epsg;
 
@@ -243,13 +250,30 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
       place=yBin*image->nX+xBin;
       if(dimage->drawInt)image->jimlad[place]+=(float)las->refl;
       else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
+      else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
       if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
       if(dimage->drawCov&&(las->classif!=2))image->nCan[place]++;
-      image->nIn[place]++;
+
+      if(dimage->drawVegVol==0)image->nIn[place]++;
     }
   }/*point loop*/
   return;
 }/*collateImage*/
+
+
+/*##################################################*/
+/*build up vegetation volume*/
+
+void testVegVol(float *value,float z,uint64_t refl,control *dimage,uint64_t *nIn,unsigned char classif)
+{
+
+  if((refl<dimage->maxVint)&&(classif!=2)){
+    if(z>(*value))(*value)=z;
+    (*nIn)=1;
+  }
+
+  return;
+}/*testVegVol*/
 
 
 /*##################################################*/
@@ -270,6 +294,9 @@ void finishImage(control *dimage,imageStruct *image)
         image->jimlad[i]/=(float)image->nIn[i];
         if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
         if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
+      }else if(dimage->drawVegVol){
+        if((image->jimlad[i]>=dimage->minVolH)&&(image->jimlad[i]<=dimage->maxVolH))image->jimlad[i]=image->jimlad[i]*dimage->res*dimage->res;
+        else                                                                        image->jimlad[i]=0.0;
       }
       if(dimage->drawCov)image->jimlad[i]=((float)image->nCan[i]/(float)image->nIn[i])*100.0;
       if(dimage->findDens){
@@ -362,8 +389,8 @@ imageStruct *allocateImage(control *dimage)
   fprintf(stdout,"Image will be %d by %d\n",image->nX,image->nY);
 
   /*allocate data arrays*/
-  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov)image->jimlad=falloc((uint64_t)image->nX*(uint64_t)image->nY,"jimlad",0);
-  else                                                    image->jimlad=NULL;
+  if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)image->jimlad=falloc((uint64_t)image->nX*(uint64_t)image->nY,"jimlad",0);
+  else                                                                        image->jimlad=NULL;
   if(dimage->drawCov){
     if(!(image->nCan=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){
       fprintf(stderr,"error in canopy allocation\n");
@@ -490,8 +517,21 @@ control *readCommands(int argc,char **argv)
         checkArguments(4,i,argc,"-bounds");
         dimage->findBounds=0;
         for(j=0;j<4;j++)dimage->bounds[j]=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-vegVol",7)){
+        dimage->drawVegVol=1;
+        dimage->charImage=0;
+        dimage->drawInt=dimage->drawCov=dimage->drawHeight=0;
+      }else if(!strncasecmp(argv[i],"-maxVh",6)){
+        checkArguments(1,i,argc,"-maxVh");
+        dimage->maxVolH=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-minVh",6)){
+        checkArguments(1,i,argc,"-minVh");
+        dimage->minVolH=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-maxVint",8)){
+        checkArguments(1,i,argc,"-maxVint");
+        dimage->maxVint=(uint16_t)atoi(argv[++i]);   
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
