@@ -284,37 +284,41 @@ void finishImage(control *dimage,imageStruct *image)
   int i=0;
   int nContP=0,nContF=0;
   float meanPoint=0,meanFoot=0;
+  void processHedges(imageStruct *,control *);
+
 
   /*normalise and find bounds*/
   meanPoint=meanFoot=0.0;
   nContP=nContF=0;
-  for(i=image->nX*image->nY-1;i>=0;i--){
-    if(image->nIn[i]>0){
-      if(dimage->drawInt||dimage->drawHeight){
-        image->jimlad[i]/=(float)image->nIn[i];
-        if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
-        if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
-      }else if(dimage->drawVegVol){
-        if((image->jimlad[i]>=dimage->minVolH)&&(image->jimlad[i]<=dimage->maxVolH))image->jimlad[i]=image->jimlad[i]*dimage->res*dimage->res;
-        else                                                                        image->jimlad[i]=0.0;
-      }
-      if(dimage->drawCov)image->jimlad[i]=((float)image->nCan[i]/(float)image->nIn[i])*100.0;
-      if(dimage->findDens){
-        if(image->nIn[i]>(uint64_t)image->maxPoint)image->maxPoint=image->nIn[i];
-        if(image->nFoot[i]>(uint64_t)image->maxFoot)image->maxFoot=image->nFoot[i];
-        if(image->nIn[i]>0){
-          meanPoint+=(float)image->nIn[i];
-          nContP++;
+  if(!dimage->drawVegVol){
+    for(i=image->nX*image->nY-1;i>=0;i--){
+      if(image->nIn[i]>0){
+        if(dimage->drawInt||dimage->drawHeight){
+          image->jimlad[i]/=(float)image->nIn[i];
+          if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
+          if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
         }
-        if(image->nFoot[i]>0){
-          meanFoot+=(float)image->nFoot[i];
-          nContF++;
+        if(dimage->drawCov)image->jimlad[i]=((float)image->nCan[i]/(float)image->nIn[i])*100.0;
+        if(dimage->findDens){
+          if(image->nIn[i]>(uint64_t)image->maxPoint)image->maxPoint=image->nIn[i];
+          if(image->nFoot[i]>(uint64_t)image->maxFoot)image->maxFoot=image->nFoot[i];
+          if(image->nIn[i]>0){
+            meanPoint+=(float)image->nIn[i];
+            nContP++;
+          }
+          if(image->nFoot[i]>0){
+            meanFoot+=(float)image->nFoot[i];
+            nContF++;
+          }
         }
+      }else{  /*mark as missing data*/
+        if(dimage->drawCov)image->jimlad[i]=255.0;
       }
-    }else{  /*mark as missing data*/
-      if(dimage->drawCov)image->jimlad[i]=255.0;
     }
   }
+
+  /*process for hedges only*/
+  if(dimage->drawVegVol)processHedges(image,dimage);
 
   if(!dimage->drawDens)TIDY(image->nIn);
   if(dimage->findDens){
@@ -348,6 +352,56 @@ void finishImage(control *dimage,imageStruct *image)
   }
   return;
 }/*finishImage*/
+
+
+/*##################################################*/
+/*processing to try and extract hedges*/
+
+void processHedges(imageStruct *image,control *dimage)
+{
+  int i=0,j=0,place=0;
+  int ii=0,jj=0,w=0;
+  int nAbove=0,nBelow=0,nRight=0;
+  float *newJim=NULL;
+
+  newJim=falloc(image->nX*image->nY,"new jim",0);
+
+  w=2;
+
+  /*loop over image*/
+  for(i=0;i<image->nX;i++){
+    for(j=0;j<image->nY;j++){
+      place=i+j*image->nX;
+      nAbove=nBelow=nRight=0;
+      if((image->jimlad[place]>=dimage->minVolH)&&(image->jimlad[place]<=dimage->maxVolH)&&(image->nIn[place]>0)){
+        /*loop over focal area*/
+        for(ii=i-w;ii<=i+w;ii++){
+          if((ii<0)||(ii>=image->nX))continue;
+          for(jj=j-w;jj<=j+w;jj++){
+            if((jj<0)||(jj>=image->nY))continue;
+            place=ii+jj*image->nX;
+            if(image->nIn[place]>0){
+              if(image->jimlad[place]>dimage->maxVolH)nAbove++;
+              else if(image->jimlad[place]<dimage->minVolH)nBelow++;
+              else nRight++;
+            }
+          }
+        }
+
+        place=i+j*image->nX;
+        if((nRight>0)&&(nAbove<18)&&(nBelow>=0))newJim[place]=image->jimlad[place]*dimage->res*dimage->res;
+        else                                   newJim[place]=0.0;
+//newJim[place]=image->jimlad[place]*dimage->res*dimage->res;
+      }else newJim[place]=0.0;
+    }
+  }
+
+
+  for(i=image->nX*image->nY-1;i>=0;i--)image->jimlad[i]=newJim[i]*1.78;
+  TIDY(newJim);
+
+  return;
+}/*processHedges*/
 
 
 /*##################################################*/
