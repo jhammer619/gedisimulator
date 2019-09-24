@@ -133,8 +133,8 @@ gediHDF *noiseGEDI(control *dimage)
       data->cov=waveformTrueCover(data,&dimage->gediIO,rhoRatio);
       /*add noise*/
       addNoise(data,&dimage->noise,dimage->linkFsig,dimage->linkPsig,data->res,rhoC,rhoG);
-     /*copy back*/
-      memcpy(&allHDF->wave[j][i*hdfGedi->nBins],data->noised,data->nBins*sizeof(float));
+      /*copy back*/
+      memcpy(&allHDF->wave[j][i*hdfGedi->nBins[0]],data->noised,data->nBins*sizeof(float));
       data=tidyData(data,dimage->readHDFgedi);
     }
     hdfGedi=tidyGediHDF(hdfGedi);
