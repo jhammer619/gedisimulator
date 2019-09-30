@@ -1037,8 +1037,8 @@ float *findLAIprofile(float *canopy,float totG,int nBins,float laiRes,int *laiBi
   /*lai profile*/
   laiProf=falloc((uint64_t)nBins,"apparent foliage profile",0);
   for(i=0;i<nBins;i++){
-    if((i>0)&&(i<(nBins-1)))laiProf[i]=(-2.0*(lngap[i+1]-lngap[i-1])/2.0)/G;
-    else                    laiProf[i]=0.0;
+    if(i<(nBins-1))laiProf[i]=(-1.0*(lngap[i+1]-lngap[i]))/G;
+    else           laiProf[i]=0.0;
   }
   TIDY(lngap);
 
