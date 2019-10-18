@@ -643,9 +643,8 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   char **setGEDIbeamList(int *,char *);
   void updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
-  void unwrapRealGEDI(uint16_t *,uint64_t *,int,int,gediHDF *,int *);
   void setGEDIwaveID(gediHDF *,int,uint64_t *,int *,char *);
-
+  void readGEDIwaveform(hid_t,int *,uint64_t *,int *,gediHDF *,int *);
 
   /*set the list of beams*/
   beamList=setGEDIbeamList(&nBeams,gediIO->useBeam);
@@ -710,10 +709,9 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       for(j=0;j<nUse;j++)hdfData->nBins[j+hdfData->nWaves]=(int)nBins[useInd[j]];
       TIDY(nBins);
       sInds=read1dUint64HDF5(group,"rx_sample_start_index",&numb);
-      tempI=read1dUint16HDF5(group,"rxwaveform",&nSamps);
-      /*unpack and pad all waves to have the same number of bins*/
-      unwrapRealGEDI(tempI,sInds,nSamps,nUse,hdfData,useInd);
-      TIDY(tempI);
+      readGEDIwaveform(group,&nSamps,sInds,nUse,hdfData,useInd);
+
+
       TIDY(sInds);
 
       /*calculate zenith angles from elevations*/
@@ -739,6 +737,38 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   }
   return;
 }/*readRealGediHDF*/
+
+
+/*####################################################*/
+/*read a real GEDI waveform*/
+
+void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int *nUse,gediHDF *hdfData,int *useInd)
+{
+  uint16_t *tempI=NULL;
+  float *tempF=NULL;
+  hid_t dset,dtype;
+  herr_t status;
+  void unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
+
+  /*read data dtype*/
+  dset=H5Dopen2(group,"rxwaveform",H5P_DEFAULT);
+  dtype=H5Dget_type(dset);
+  status=H5Dclose(dset);
+
+  /*checkdata type and read in to appropriate array*/
+  if((dtype==H5T_NATIVE_USHORT)||(dtype==H5T_STD_I16BE)||(dtype==H5T_STD_I16LE)){
+    tempI=read1dUint16HDF5(group,"rxwaveform",nSamps);
+  }else{
+    tempF=read1dFloatHDF5(group,"rxwaveform",nSamps);
+  }
+
+  /*unpack and pad all waves to have the same number of bins*/
+  unwrapRealGEDI(tempI,tempF,sInds,*nSamps,nUse,hdfData,useInd);
+
+  TIDY(tempI);
+  TIDY(tempF);
+  return;
+}/*readGEDIwaveform*/
 
 
 /*####################################################*/
@@ -849,7 +879,7 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
 /*####################################################*/
 /*unwrap real GEDI data*/
 
-void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int nUse,gediHDF *hdfData,int *useInd)
+void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int nUse,gediHDF *hdfData,int *useInd)
 {
   int i=0,j=0,ind=0;
   uint64_t totBins=0;
@@ -883,7 +913,8 @@ void unwrapRealGEDI(uint16_t *tempI,uint64_t *sInds,int nSamps,int nUse,gediHDF 
     ind=i+hdfData->nWaves;
     for(j=0;j<hdfData->nBins[ind];j++){
       tPlace=sInds[useInd[i]]+(uint64_t)j;
-      hdfData->wave[0][offset]=(float)tempI[tPlace];
+      if(tempI)hdfData->wave[0][offset]=(float)tempI[tPlace];
+      else     hdfData->wave[0][offset]=tempF[tPlace];
       offset++;
     }
   }
