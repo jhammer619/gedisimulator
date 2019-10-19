@@ -909,13 +909,23 @@ void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int 
   }
 
   /*copy data*/
-  for(i=0;i<nUse;i++){
-    ind=i+hdfData->nWaves;
-    for(j=0;j<hdfData->nBins[ind];j++){
-      tPlace=sInds[useInd[i]]+(uint64_t)j;
-      if(tempI)hdfData->wave[0][offset]=(float)tempI[tPlace];
-      else     hdfData->wave[0][offset]=tempF[tPlace];
-      offset++;
+  if(tempI){   /*reading uint16 or float?*/
+    for(i=0;i<nUse;i++){
+      ind=i+hdfData->nWaves;
+      for(j=0;j<hdfData->nBins[ind];j++){
+        tPlace=sInds[useInd[i]]+(uint64_t)j;
+        hdfData->wave[0][offset]=(float)tempI[tPlace];
+        offset++;
+      }
+    }
+  }else{
+    for(i=0;i<nUse;i++){
+      ind=i+hdfData->nWaves;
+      for(j=0;j<hdfData->nBins[ind];j++){
+        tPlace=sInds[useInd[i]]+(uint64_t)j;
+        hdfData->wave[0][offset]=tempF[tPlace];
+        offset++;
+      }
     }
   }
 
