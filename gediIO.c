@@ -632,7 +632,6 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   int *useInd=NULL,nUse=0;
   int *usableGEDIfootprints(double *,double *,int,int *,gediIOstruct *);
   uint16_t *nBins=NULL;
-  uint16_t *tempI=NULL;
   uint64_t *sInds=NULL;
   uint64_t *shotN=NULL;
   hid_t group=0,group2=0;
@@ -644,7 +643,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   void updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
   void setGEDIwaveID(gediHDF *,int,uint64_t *,int *,char *);
-  void readGEDIwaveform(hid_t,int *,uint64_t *,int *,gediHDF *,int *);
+  void readGEDIwaveform(hid_t,int *,uint64_t *,int,gediHDF *,int *);
 
   /*set the list of beams*/
   beamList=setGEDIbeamList(&nBeams,gediIO->useBeam);
@@ -742,7 +741,7 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 /*####################################################*/
 /*read a real GEDI waveform*/
 
-void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int *nUse,gediHDF *hdfData,int *useInd)
+void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *hdfData,int *useInd)
 {
   uint16_t *tempI=NULL;
   float *tempF=NULL;
