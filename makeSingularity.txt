@@ -88,5 +88,7 @@ make THIS=lasPoints
 mv lasPoints /usr/bin/
 make THIS=addNoiseHDF
 mv addNoiseHDF /usr/bin/
+make THIS=lgw2hdf
+mv lgw2hdf /usr/bin/
 popd
 
