@@ -146,6 +146,7 @@ double findMeanCorr(const gsl_vector *, void *);    /*error fuction for optimisa
 double **shiftPrints(double **,double,double,int);
 void fullBullseyePlot(control *,float **,int,dataStruct **,pCloudStruct **,float *);
 void simplexBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
+gsl_siman_params_t annealParams;  /*annealing control structure*/
 
 
 /*########################################################################*/
@@ -615,7 +616,7 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
 
 void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
-  gsl_siman_params_t params;  /*control structure*/
+  const gsl_rng_type *T;
   gsl_rng *r;
   annealStruct p;             /*data to pass to optimiser*/
   double annealErr(void *);
@@ -625,13 +626,18 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 
   /*set control structure*/
-  params.n_tries=100;
-  params.iters_fixed_T=10;
-  params.step_size=50.0;
-  params.k=2.0;
-  params.t_initial=0.04;
-  params.mu_t=1.0;
-  params.t_min=0.000001;
+  annealParams.n_tries=100;
+  annealParams.iters_fixed_T=10;
+  annealParams.step_size=50.0;
+  annealParams.k=2.0;
+  annealParams.t_initial=0.04;
+  annealParams.mu_t=1.0;
+  annealParams.t_min=0.000001;
+
+  /*gsl internal bits*/
+  gsl_rng_env_setup();
+  T=gsl_rng_default;
+  r=gsl_rng_alloc(T);
 
   /*initial estimates*/
   p.dimage=dimage;
@@ -646,7 +652,9 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
   /*call simulated annleaing function*/
   gsl_siman_solve(r,(void *)(&p),annealErr,copyAnneal,annealDist,\
-                  printAnnealPos,NULL,NULL,NULL,sizeof(annealStruct),params);
+                  printAnnealPos,NULL,NULL,NULL,sizeof(annealStruct),annealParams);
+
+  gsl_rng_free (r);
 
   return;
 }/*annealBullseye*/

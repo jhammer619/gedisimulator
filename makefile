@@ -30,4 +30,3 @@ install:
 		mv $(HOME)/bin/$(ARCH)/$(THIS) $(HOME)/bin/$(ARCH)/$(THIS).old
 		cp $(THIS) $(HOME)/bin/$(ARCH)/$(THIS)
 
-
