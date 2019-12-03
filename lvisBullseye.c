@@ -147,6 +147,7 @@ double **shiftPrints(double **,double,double,int);
 void fullBullseyePlot(control *,float **,int,dataStruct **,pCloudStruct **,float *);
 void simplexBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
 gsl_siman_params_t annealParams;  /*annealing control structure*/
+annealStruct globAnneal;          /*global anneal structure to pass data to simulated annealing*/
 
 
 /*########################################################################*/
@@ -618,7 +619,7 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 {
   const gsl_rng_type *T;
   gsl_rng *r;
-  annealStruct p;             /*data to pass to optimiser*/
+  double p[3];
   double annealErr(void *);
   void printAnnealPos(void *);
   double annealDist(void *,void *);
@@ -639,20 +640,22 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   T=gsl_rng_default;
   r=gsl_rng_alloc(T);
 
+  /*data to pass to annealing function*/
+  globAnneal.dimage=dimage;
+  globAnneal.lvis=lvis;
+  globAnneal.als=als;
+  globAnneal.coords=dimage->gediRat.coords;
+  globAnneal.denoised=denoised;
+  globAnneal.nTypeWaves=nTypeWaves;
+
   /*initial estimates*/
-  p.dimage=dimage;
-  p.lvis=lvis;
-  p.als=als;
-  p.xOff=dimage->origin[0];
-  p.yOff=dimage->origin[1];
-  p.zOff=dimage->origin[2];
-  p.coords=dimage->gediRat.coords;
-  p.denoised=denoised;
-  p.nTypeWaves=nTypeWaves;
+  p[0]=dimage->origin[0];
+  p[1]=dimage->origin[1];
+  p[2]=dimage->origin[2];
 
   /*call simulated annleaing function*/
-  gsl_siman_solve(r,(void *)(&p),annealErr,copyAnneal,annealDist,\
-                  printAnnealPos,NULL,NULL,NULL,sizeof(annealStruct),annealParams);
+  gsl_siman_solve(r,(void *)p,annealErr,copyAnneal,annealDist,\
+                  printAnnealPos,NULL,NULL,NULL,sizeof(double)*3,annealParams);
 
   gsl_rng_free (r);
 
@@ -665,21 +668,21 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 void copyAnneal(const gsl_rng *r,void *xp,double step_size)
 {
-  annealStruct *p1=NULL,p2;
+  double *p1=NULL,p2[3];
   double u=0;
 
   /*recast old structure*/
-  p1=(annealStruct *)xp;
+  p1=(double *)xp;
 
   u=gsl_rng_uniform(r);
-  p2.xOff=p1->xOff+u*2.0*step_size-step_size;
+  p2[0]=p1[0]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
-  p2.yOff=p1->yOff+u*2.0*step_size-step_size;
+  p2[1]=p1[1]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
-  p2.zOff=p1->zOff+u*2.0*step_size-step_size;
+  p2[2]=p1[2]+u*2.0*step_size-step_size;
 
   /*copy memory*/
-  memcpy(p1,&p2,sizeof(p2));
+  memcpy(p1,&p2,sizeof(double)*3);
   return;
 }/*copyAnneal*/
 
@@ -690,12 +693,12 @@ void copyAnneal(const gsl_rng *r,void *xp,double step_size)
 double annealDist(void *xp,void *yp)
 {
   double dist=0;
-  annealStruct *p1=NULL,*p2=NULL;
+  double *p1=NULL,*p2=NULL;
 
-  p1=(annealStruct *)xp;
-  p2=(annealStruct *)yp;
+  p1=(double *)xp;
+  p2=(double *)yp;
 
-  dist=sqrt(pow(p1->xOff-p2->xOff,2.0)+pow(p1->yOff-p2->yOff,2.0)+pow(p1->zOff-p2->zOff,2.0));
+  dist=sqrt(pow(p1[0]-p2[0],2.0)+pow(p1[1]-p2[1],2.0)+pow(p1[2]-p2[2],2.0));
 
   return(dist);
 }/*annealDist*/
@@ -706,10 +709,10 @@ double annealDist(void *xp,void *yp)
 
 void printAnnealPos(void *xp)
 {
-  annealStruct *p=NULL;
+  double *p=NULL;
 
-  p=(annealStruct *)xp;
-  fprintf(stdout,"Testing %f %f %f\n",p->xOff,p->yOff,p->zOff);
+  p=(double *)xp;
+  fprintf(stdout,"Testing %f %f %f\n",p[0],p[1],p[2]);
 
   return;
 }/*printAnnealPos*/
@@ -728,23 +731,25 @@ double annealErr(void *xp)
   float **correl=NULL;
   double xOff=0,yOff=0,zOff=0;
   double **coords=NULL;
-  annealStruct *p=NULL;
+  double *p=NULL;
   control *dimage=NULL;
   dataStruct **lvis=NULL;
   pCloudStruct **als=NULL;
 
 
   /*unpack parameters*/
-  p=(annealStruct *)xp;
-  dimage=p->dimage;
-  lvis=p->lvis;
-  als=p->als;
-  xOff=p->xOff;
-  yOff=p->yOff;
-  zOff=p->zOff;
-  coords=p->coords;
-  denoised=p->denoised;
-  nTypeWaves=p->nTypeWaves;
+  p=(double *)xp;
+  xOff=p[0];
+  yOff=p[1];
+  zOff=p[2];
+
+  /*unpack data*/
+  dimage=globAnneal.dimage;
+  lvis=globAnneal.lvis;
+  als=globAnneal.als;
+  coords=globAnneal.coords;
+  denoised=globAnneal.denoised;
+  nTypeWaves=globAnneal.nTypeWaves;
 
   /*get correlation stats*/
   correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
@@ -763,8 +768,8 @@ double annealErr(void *xp)
   }
 
   /*save progress*/
-  p->meanCorrel=meanCorrel;
-  p->deltaCofG=deltaCofG;
+  globAnneal.meanCorrel=meanCorrel;
+  globAnneal.deltaCofG=deltaCofG;
 
   /*repack params*/
   dimage=NULL;
