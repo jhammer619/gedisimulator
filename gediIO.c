@@ -709,8 +709,6 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       TIDY(nBins);
       sInds=read1dUint64HDF5(group,"rx_sample_start_index",&numb);
       readGEDIwaveform(group,&nSamps,sInds,nUse,hdfData,useInd);
-
-
       TIDY(sInds);
 
       /*calculate zenith angles from elevations*/
@@ -745,9 +743,12 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
 {
   uint16_t *tempI=NULL;
   float *tempF=NULL;
-  hid_t dset,dtype;
+  hid_t dset,dtype,dlen,space_id;
+  hsize_t size;
   herr_t status;
   void unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
+  char *namen=NULL;
+  int charLen=0;
 
   /*read data dtype*/
   dset=H5Dopen2(group,"rxwaveform",H5P_DEFAULT);
@@ -755,11 +756,16 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
   status=H5Dclose(dset);
 
   /*checkdata type and read in to appropriate array*/
-  if((dtype==H5T_NATIVE_USHORT)||(dtype==H5T_STD_I16BE)||(dtype==H5T_STD_I16LE)){
+  if(H5Tequal(dtype,H5T_NATIVE_USHORT)||H5Tequal(dtype,H5T_NATIVE_UINT16)){
     tempI=read1dUint16HDF5(group,"rxwaveform",nSamps);
-  }else{
+  }else if(H5Tequal(dtype,H5T_NATIVE_FLOAT)||H5Tequal(dtype,H5T_STD_I32BE)||H5Tequal(dtype,H5T_STD_I32LE)||\
+            H5Tequal(dtype,H5T_IEEE_F32BE)||H5Tequal(dtype,H5T_IEEE_F32LE)||H5Tequal(dtype,H5T_INTEL_I32)||H5Tequal(dtype,H5T_INTEL_B32)){
     tempF=read1dFloatHDF5(group,"rxwaveform",nSamps);
+  }else{
+    fprintf(stderr,"rxwaveform data type not recognised\n");
+    exit(1);
   }
+  status=H5Tclose(dtype);
 
   /*unpack and pad all waves to have the same number of bins*/
   unwrapRealGEDI(tempI,tempF,sInds,*nSamps,nUse,hdfData,useInd);
@@ -1191,7 +1197,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   float zTop=0;
   dataStruct *data=NULL;
 
-  /*read data if needed*/
+  /*read data from file if needed*/
   if(*hdfGedi==NULL){
     *hdfGedi=readGediHDF(namen,gediIO);
     gediIO->nFiles=hdfGedi[0]->nWaves;
