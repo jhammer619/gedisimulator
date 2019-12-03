@@ -108,6 +108,18 @@ typedef struct{
 
 
 /*###########################################################*/
+/*noise false positive and negative thresholds*/
+
+typedef struct{
+  double *threshN;   /*noise threhsold in terms of sigma*/
+  double *threshS;   /*signal threhsold in terms of sigma*/
+  double *probNoise; /*false positive rate*/
+  double *probMiss;  /*false negative rate*/
+  int nThreshes;    /*number of different thresholds saved*/
+}noiseThreshStruct;
+
+
+/*###########################################################*/
 /*GEDI IO options*/
 
 typedef struct{
@@ -128,6 +140,7 @@ typedef struct{
   /*for noise levels*/
   float linkFsig; /*footprint width to calculate link margin from*/
   float linkPsig; /*pulse width to calculate link margin from*/
+  noiseThreshStruct noiseSigs; /*noise false positive and negative thresholds*/
 
   /*lidar parameters*/
   float pFWHM;     /*pulse width in ns*/

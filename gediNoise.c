@@ -155,15 +155,20 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   float thisLink=0;
   double nNsig=0,nSsig=0;
   float threshS=0,threshN=0;
-  void gaussThresholds(double,double,double,double,double *,double *);
+  void gaussThresholds(double,double,double,double,double *,double *,noiseThreshStruct *);
   char direction=0;
+  noiseThreshStruct noiseSigs;
+
+  /*make a blank noise threshold structure*/
+  noiseSigs.nThreshes=0;
+  noiseSigs.threshN=noiseSigs.threshS=noiseSigs.probNoise=noiseSigs.probMiss=NULL;
 
   /*initial guess*/
   sig=groundAmp/2.0;
   step=groundAmp/10.0;
 
   /*determine threshold in terms of standard deviations*/
-  gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
+  gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig,&noiseSigs);
 
   direction=0;
   minErr=0.00015;
@@ -197,45 +202,69 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
 /*####################################################################################################*/
 /*calculate Gaussian thresholds for normaly distributed noise*/
 
-void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS)
+void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS,noiseThreshStruct *noiseSigs)
 {
+  int i=0;
   double x=0,y=0;
   double cumul=0,tot=0;
-  char foundS=0,foundN=0;
   double probN=0,probS=0;
+  double *markDo(int,double *,double);
+  char foundS=0,foundN=0;
+  char beenCalc=0;         /*has this level already been calculated or not?*/
 
-  probN=1.0-probNoise/(30.0/0.15);
-  probS=1.0-probMiss;
-
-  /*determine start*/
-  x=0.0;
-  tot=0.0;
-  do{
-    y=gaussian(x,sig,0.0);
-    if(fabs(x)>res)tot+=2.0*y;
-    else           tot+=y;
-    x-=res;
-  }while(y>=YTOL);
-  tot*=res;
-
-  do{
-    y=gaussian(x,sig,0.0);
-    cumul+=y*res/tot;
-
-    if(foundS==0){
-      if(cumul>=probS){
-        foundS=1;
-        *threshS=x;
-      }
+  /*do we need to calculate, or has it already been done?*/
+  for(i=0;i<noiseSigs->nThreshes;i++){
+    if((fabs(probNoise-noiseSigs->probNoise[i])<DRIFTTOL)&&(fabs(probMiss-noiseSigs->probMiss[i])<DRIFTTOL)){
+      beenCalc=1;
+      *threshN=noiseSigs->threshN[i];
+      *threshS=noiseSigs->threshS[i];
+      break;
     }
-    if(foundN==0){
-      if(cumul>=probN){
-        foundN=1;
-        *threshN=x;
+  }
+
+  /*does this need calculating*/
+  if(beenCalc==0){
+    probN=1.0-probNoise/(30.0/0.15);
+    probS=1.0-probMiss;
+
+    /*determine start*/
+    x=0.0;
+    tot=0.0;
+    do{
+      y=gaussian(x,sig,0.0);
+      if(fabs(x)>res)tot+=2.0*y;
+      else           tot+=y;
+      x-=res;
+    }while(y>=YTOL);
+    tot*=res;
+
+    /*numerical integration and look for threshold crossings*/
+    do{
+      y=gaussian(x,sig,0.0);
+      cumul+=y*res/tot;
+
+      if(foundS==0){
+        if(cumul>=probS){
+          foundS=1;
+          *threshS=x;
+        }
       }
-    }
-    x+=res;
-  }while((foundS==0)||(foundN==0));
+      if(foundN==0){
+        if(cumul>=probN){
+          foundN=1;
+          *threshN=x;
+        }
+      }
+      x+=res;
+    }while((foundS==0)||(foundN==0));
+
+    /*save the new thresholds*/
+    noiseSigs->probNoise=markDo(noiseSigs->nThreshes,noiseSigs->probNoise,probNoise);
+    noiseSigs->probMiss=markDo(noiseSigs->nThreshes,noiseSigs->probMiss,probMiss);
+    noiseSigs->threshN=markDo(noiseSigs->nThreshes,noiseSigs->threshN,*threshN);
+    noiseSigs->threshS=markDo(noiseSigs->nThreshes,noiseSigs->threshS,*threshS);
+    noiseSigs->nThreshes++;
+  }
   return;
 }/*gaussThresholds*/
 

@@ -188,6 +188,14 @@ int main(int argc,char **argv)
       TTIDY((void **)dimage->simIO.gFit->pulse,2);
       TIDY(dimage->simIO.gFit);
     }
+    TIDY(dimage->simIO.noiseSigs.threshN);
+    TIDY(dimage->simIO.noiseSigs.threshS);
+    TIDY(dimage->simIO.noiseSigs.probNoise);
+    TIDY(dimage->simIO.noiseSigs.probMiss);
+    TIDY(dimage->lvisIO.noiseSigs.threshN);
+    TIDY(dimage->lvisIO.noiseSigs.threshS);
+    TIDY(dimage->lvisIO.noiseSigs.probNoise);
+    TIDY(dimage->lvisIO.noiseSigs.probMiss);
     TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
     TTIDY((void **)dimage->gediRat.waveIDlist,dimage->gediRat.gNx);
     TIDY(dimage->gediRat.nGrid);
@@ -1491,6 +1499,17 @@ control *readCommands(int argc,char **argv)
   dimage->simIO.den->meanN=0.0;
   dimage->simIO.den->thresh=0.0;
   dimage->simIO.den->minWidth=0.0;
+  /*noise threshold arrays*/
+  dimage->simIO.noiseSigs.threshN=NULL;   /*noise threhsold in terms of sigma*/
+  dimage->simIO.noiseSigs.threshS=NULL;   /*signal threhsold in terms of sigma*/
+  dimage->simIO.noiseSigs.probNoise=NULL; /*false positive rate*/
+  dimage->simIO.noiseSigs.probMiss=NULL;  /*false negative rate*/
+  dimage->simIO.noiseSigs.nThreshes=0;    /*number of different thresholds saved*/
+  dimage->lvisIO.noiseSigs.threshN=NULL;  /*noise threhsold in terms of sigma*/
+  dimage->lvisIO.noiseSigs.threshS=NULL;  /*signal threhsold in terms of sigma*/
+  dimage->lvisIO.noiseSigs.probNoise=NULL;/*false positive rate*/
+  dimage->lvisIO.noiseSigs.probMiss=NULL; /*false negative rate*/
+  dimage->lvisIO.noiseSigs.nThreshes=0;   /*number of different thresholds saved*/
 
 
   /*read the command line*/

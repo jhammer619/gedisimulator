@@ -356,6 +356,10 @@ int main(int argc,char **argv)
     if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)TTIDY((void **)dimage->gediIO.inList,1);
     else                                        TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
     dimage->gediIO.inList=NULL;
+    TIDY(dimage->gediIO.noiseSigs.threshN);
+    TIDY(dimage->gediIO.noiseSigs.threshS);
+    TIDY(dimage->gediIO.noiseSigs.probNoise);
+    TIDY(dimage->gediIO.noiseSigs.probMiss);
     if(dimage->opooMet){
       fclose(dimage->opooMet);
       dimage->opooMet=NULL;
@@ -783,7 +787,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   /*Blair sensitivity*/
   metric->blairSense=findBlairSense(data,&dimage->gediIO);
 
-  /*smooth waveform for fonding ground by max and inflection*/
+  /*smooth waveform for finding ground by max and inflection*/
   setDenoiseDefault(&den);
   den.varNoise=0;
   den.meanN=0;
@@ -841,7 +845,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
     TIDY(canWave);
   }
 
-
   /*lai profiles*/
   if(dimage->noCanopy==0){
     if(data->ground)metric->tLAI=trueLAIprofile(data->wave[data->useType],data->ground[data->useType],z,nBins,dimage->laiRes,dimage->rhoRatio,data->gElev,dimage->maxLAIh,&metric->laiBins);
@@ -884,7 +887,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
     metric->bayGround=bayesGround(wave,nBins,dimage,metric,z,data);
     metric->covHalfB=halfCover(denoised,z,nBins,metric->bayGround,dimage->rhoRatio);
   }
-
 
   /*tidy up arrays*/
   TIDY(A);
@@ -1680,6 +1682,12 @@ control *readCommands(int argc,char **argv)
   dimage->bThresh=0.001;
   dimage->noise.hNoise=0.0;
   dimage->noise.offset=94.0;
+  /*noise threshold arrays*/
+  dimage->gediIO.noiseSigs.threshN=NULL;     /*noise threhsold in terms of sigma*/
+  dimage->gediIO.noiseSigs.threshS=NULL;     /*signal threhsold in terms of sigma*/
+  dimage->gediIO.noiseSigs.probNoise=NULL; /*false positive rate*/
+  dimage->gediIO.noiseSigs.probMiss=NULL;  /*false negative rate*/
+  dimage->gediIO.noiseSigs.nThreshes=0;    /*number of different thresholds saved*/
   /*projection, not yet used*/
   dimage->gediIO.wEPSG=4326;  /*waveforms*/
   dimage->gediIO.bEPSG=4326;  /*bounds*/

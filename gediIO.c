@@ -3472,7 +3472,7 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   float probNoise=0,probMiss=0;
   float *wave=NULL;
   void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
-  void gaussThresholds(double,double,double,double,double *,double *);
+  void gaussThresholds(double,double,double,double,double *,double *,noiseThreshStruct *);
 
   /*set sigma*/
   if(data->fSigma>0.0)gediIO->linkFsig=data->fSigma;
@@ -3494,7 +3494,7 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   if(stdev>0.0){
     probNoise=0.05;
     probMiss=0.1;
-    gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig);
+    gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig,&gediIO->noiseSigs);
 
     slope=2.0*M_PI/180.0;
     tanSlope=sin(slope)/cos(slope);

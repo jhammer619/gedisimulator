@@ -31,8 +31,8 @@
 
 
 /*tolerances*/
-#define XRES 0.0000025
-#define YTOL 0.000000001   /*for determining Gaussian thresholds*/
+#define XRES 0.000025
+#define YTOL 0.00001   /*for determining Gaussian thresholds*/
 
 
 /*#######################################*/
