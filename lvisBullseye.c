@@ -13,7 +13,7 @@
 #include "gediIO.h"
 #include "ogr_srs_api.h"
 #include "gsl/gsl_multimin.h"
-
+#include "siman/gsl_siman.h"
 
 
 /*#############################*/
@@ -83,6 +83,7 @@ typedef struct{
 
   /*bullseye optimisation*/
   char fullBull;       /*do the full bullseye. If not, do simplex*/
+  char anneal;         /*do simulated annealing*/
   char findFsig;       /*solve for fSigma*/
   int maxIter;         /*maximum number of interations*/
   float optTol;        /*tolerance*/
@@ -105,7 +106,25 @@ typedef struct{
 
 
 /*########################################################################*/
-/*structure containg data for optimisation*/
+/*structure containg data for simulated annealing*/
+
+typedef struct{
+  control *dimage;
+  dataStruct **lvis;
+  pCloudStruct **als;
+  double xOff;
+  double yOff;
+  double zOff;
+  double **coords;
+  float **denoised;
+  int nTypeWaves;
+  float meanCorrel;
+  float deltaCofG;
+}annealStruct;
+
+
+/*########################################################################*/
+/*structure containg data for simplex optimisation*/
 
 typedef struct{
   control *dimage;
@@ -215,6 +234,7 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   float **denoiseAllLvis(dataStruct **,control *);
   void rapidGeolocation(control *,float **,int,dataStruct **,pCloudStruct **);
   void correctCofG(control *,float **,int,dataStruct **,pCloudStruct **);
+  void annealBullseye(control *,float **,int,dataStruct **,pCloudStruct **);
   float **denoised=NULL;
 
   /*how mamy types of simuation methods*/
@@ -232,6 +252,8 @@ void bullseyeCorrel(dataStruct **lvis,pCloudStruct **als,control *dimage)
   /*are we doing the full bullseye plot?*/
   if(dimage->fullBull){
     fullBullseyePlot(dimage,denoised,nTypeWaves,lvis,als,NULL);
+  }else if(dimage->anneal){ /*do a simulated annealing*/
+    annealBullseye(dimage,denoised,nTypeWaves,lvis,als);
   }else if(dimage->largeErr){ /*do a rough bullseye followed by a simplex*/
     rapidGeolocation(dimage,denoised,nTypeWaves,lvis,als);
   }else{ /*do simplex*/
@@ -360,10 +382,10 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   double size;
   size_t iter=0;
   const gsl_multimin_fminimizer_type *T=gsl_multimin_fminimizer_nmsimplex2;
-  gsl_vector *start=NULL,*ss=NULL;    /*initial conditions*/
+  gsl_vector *start=NULL,*ss=NULL;   /*initial conditions*/
   gsl_multimin_fminimizer *s=NULL;
   gsl_multimin_function minex_func;  /*optimiser options*/
-  optStruct optBits;         /*to pass needed pieces to optimiser*/
+  optStruct optBits;                 /*to pass needed pieces to optimiser*/
   void writeFinalWaves(control *,dataStruct **,pCloudStruct **,double **,float,float,float,float);
 
 
@@ -405,7 +427,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
 
     status=gsl_multimin_fminimizer_iterate(s);
     if(status)break;
-    size=gsl_multimin_fminimizer_size (s);
+    size=gsl_multimin_fminimizer_size(s);
     status=gsl_multimin_test_size(size,dimage->optTol);
 
     /*write progress if needed*/
@@ -587,6 +609,168 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
   return;
 }/*writeFinalWaves*/
 
+
+/*####################################################*/
+/*simulated annealing*/
+
+void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
+{
+  gsl_siman_params_t params;  /*control structure*/
+  gsl_rng *r;
+  annealStruct p;             /*data to pass to optimiser*/
+  double annealErr(void *);
+  void printAnnealPos(void *);
+  double annealDist(void *,void *);
+  void copyAnneal(const gsl_rng *r,void *,double);
+
+
+  /*set control structure*/
+  params.n_tries=100;
+  params.iters_fixed_T=10;
+  params.step_size=50.0;
+  params.k=2.0;
+  params.t_initial=0.04;
+  params.mu_t=1.0;
+  params.t_min=0.000001;
+
+  /*initial estimates*/
+  p.dimage=dimage;
+  p.lvis=lvis;
+  p.als=als;
+  p.xOff=dimage->origin[0];
+  p.yOff=dimage->origin[1];
+  p.zOff=dimage->origin[2];
+  p.coords=dimage->gediRat.coords;
+  p.denoised=denoised;
+  p.nTypeWaves=nTypeWaves;
+
+  /*call simulated annleaing function*/
+  gsl_siman_solve(r,(void *)(&p),annealErr,copyAnneal,annealDist,\
+                  printAnnealPos,NULL,NULL,NULL,sizeof(annealStruct),params);
+
+  return;
+}/*annealBullseye*/
+
+
+/*####################################################*/
+/*copy an annealing structure*/
+
+void copyAnneal(const gsl_rng *r,void *xp,double step_size)
+{
+  annealStruct *p1=NULL,p2;
+  double u=0;
+
+  /*recast old structure*/
+  p1=(annealStruct *)xp;
+
+  u=gsl_rng_uniform(r);
+  p2.xOff=p1->xOff+u*2.0*step_size-step_size;
+  u=gsl_rng_uniform(r);
+  p2.yOff=p1->yOff+u*2.0*step_size-step_size;
+  u=gsl_rng_uniform(r);
+  p2.zOff=p1->zOff+u*2.0*step_size-step_size;
+
+  /*copy memory*/
+  memcpy(p1,&p2,sizeof(p2));
+  return;
+}/*copyAnneal*/
+
+
+/*####################################################*/
+/*distance between two annealing estimates*/
+
+double annealDist(void *xp,void *yp)
+{
+  double dist=0;
+  annealStruct *p1=NULL,*p2=NULL;
+
+  p1=(annealStruct *)xp;
+  p2=(annealStruct *)yp;
+
+  dist=sqrt(pow(p1->xOff-p2->xOff,2.0)+pow(p1->yOff-p2->yOff,2.0)+pow(p1->zOff-p2->zOff,2.0));
+
+  return(dist);
+}/*annealDist*/
+
+
+/*####################################################*/
+/*print annealing position*/
+
+void printAnnealPos(void *xp)
+{
+  annealStruct *p=NULL;
+
+  p=(annealStruct *)xp;
+  fprintf(stdout,"Testing %f %f %f\n",p->xOff,p->yOff,p->zOff);
+
+  return;
+}/*printAnnealPos*/
+
+
+/*####################################################*/
+/*returns energy for simulated annealing*/
+
+double annealErr(void *xp)
+{
+  int i=0,contN=0;
+  int nTypeWaves;
+  float **denoised=NULL;
+  float meanCorrel=0;
+  float deltaCofG=0;
+  float **correl=NULL;
+  double xOff=0,yOff=0,zOff=0;
+  double **coords=NULL;
+  annealStruct *p=NULL;
+  control *dimage=NULL;
+  dataStruct **lvis=NULL;
+  pCloudStruct **als=NULL;
+
+
+  /*unpack parameters*/
+  p=(annealStruct *)xp;
+  dimage=p->dimage;
+  lvis=p->lvis;
+  als=p->als;
+  xOff=p->xOff;
+  yOff=p->yOff;
+  zOff=p->zOff;
+  coords=p->coords;
+  denoised=p->denoised;
+  nTypeWaves=p->nTypeWaves;
+
+  /*get correlation stats*/
+  correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
+
+  /*find mean correlation*/
+  meanCorrel=deltaCofG=0.0;
+  for(i=0;i<contN;i++){
+    meanCorrel+=correl[i][1];
+    deltaCofG+=correl[i][0];
+  }
+  if(contN>0){
+    meanCorrel/=(float)contN;
+    deltaCofG/=(float)contN;
+  }else{
+    meanCorrel=-1.0;
+  }
+
+  /*save progress*/
+  p->meanCorrel=meanCorrel;
+  p->deltaCofG=deltaCofG;
+
+  /*repack params*/
+  dimage=NULL;
+  lvis=NULL;
+  als=NULL;
+  coords=NULL;
+  denoised=NULL;
+  p=NULL;
+  TTIDY((void **)correl,contN);
+
+  return(1.0-(double)meanCorrel);
+}/*annealErr*/
+
+
 /*####################################################*/
 /*loop over full bullseye plot and write*/
 
@@ -630,7 +814,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
   coords=dimage->gediRat.coords;
   dimage->gediRat.coords=NULL;
 
-  /*loop over shifts and get correltion*/
+  /*loop over shifts and get correlation*/
   for(i=0;i<nX;i++){  /*x loop*/
     xOff=(double)(i-nX/2)*(double)dimage->shiftStep+dimage->origin[0];
     for(j=0;j<nX;j++){  /*y loop*/
@@ -1463,6 +1647,7 @@ control *readCommands(int argc,char **argv)
   dimage->maxIter=300;
   dimage->optTol=0.01;
   dimage->writeSimProg=0;
+  dimage->anneal=0;
 
   /*all data*/
   dimage->minX=-100000000.0;
@@ -1633,6 +1818,11 @@ control *readCommands(int argc,char **argv)
         dimage->simIO.useCount=dimage->simIO.useInt=dimage->simIO.useFrac=1;
       }else if(!strncasecmp(argv[i],"-simplex",8)){
         dimage->fullBull=0;
+        dimage->anneal=0;
+      }else if(!strncasecmp(argv[i],"-anneal",7)){
+        dimage->fullBull=0;
+        dimage->largeErr=0;
+        dimage->anneal=1;
       }else if(!strncasecmp(argv[i],"-fixFsig",8)){
         dimage->findFsig=0;
       }else if(!strncasecmp(argv[i],"-maxIter",8)){
@@ -1706,6 +1896,7 @@ control *readCommands(int argc,char **argv)
 -step x;          grid mode, horizontal step size\n\
 \n# Optimiser mode operation (multi-mode also applies)\n\
 -simplex;         use simplex optimisation rather than doing the full bullseye plot\n\
+-anneal;          use simulated annealing optimisation\n\
 -fixFsig;         fix fSigma in simplex\n\
 -geoError expError correlDist;   rapid geolocation, using expected geolocation error and correlation distance. Vertical shifts must be separatley defined\n\
 -quickGeo;        perform rapid geolocation using default error values\n\
