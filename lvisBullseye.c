@@ -627,13 +627,13 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 
   /*set control structure*/
-  annealParams.n_tries=700;
+  annealParams.n_tries=100;
   annealParams.iters_fixed_T=80;
-  annealParams.step_size=10.0;
+  annealParams.step_size=dimage->maxShift;
   annealParams.k=1.0;
-  annealParams.t_initial=0.008;
-  annealParams.mu_t=1.1;
-  annealParams.t_min=0.000002;
+  annealParams.t_initial=0.01;
+  annealParams.mu_t=1.2;
+  annealParams.t_min=0.00002;
 
   /*gsl internal bits*/
   gsl_rng_env_setup();
