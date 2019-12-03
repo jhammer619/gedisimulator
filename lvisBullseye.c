@@ -618,8 +618,8 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
 void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
   const gsl_rng_type *T;
-  gsl_rng *r;
-  double p[3];
+  gsl_rng *r=NULL;
+  double *p=NULL;
   double annealErr(void *);
   void printAnnealPos(void *);
   double annealDist(void *,void *);
@@ -627,13 +627,13 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 
   /*set control structure*/
-  annealParams.n_tries=100;
-  annealParams.iters_fixed_T=10;
-  annealParams.step_size=50.0;
-  annealParams.k=2.0;
-  annealParams.t_initial=0.04;
-  annealParams.mu_t=1.0;
-  annealParams.t_min=0.000001;
+  annealParams.n_tries=700;
+  annealParams.iters_fixed_T=80;
+  annealParams.step_size=10.0;
+  annealParams.k=1.0;
+  annealParams.t_initial=0.008;
+  annealParams.mu_t=1.1;
+  annealParams.t_min=0.000002;
 
   /*gsl internal bits*/
   gsl_rng_env_setup();
@@ -649,6 +649,7 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   globAnneal.nTypeWaves=nTypeWaves;
 
   /*initial estimates*/
+  p=dalloc(3,"annealing parameters",0);
   p[0]=dimage->origin[0];
   p[1]=dimage->origin[1];
   p[2]=dimage->origin[2];
@@ -656,8 +657,8 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   /*call simulated annleaing function*/
   gsl_siman_solve(r,(void *)p,annealErr,copyAnneal,annealDist,\
                   printAnnealPos,NULL,NULL,NULL,sizeof(double)*3,annealParams);
-
   gsl_rng_free (r);
+  TIDY(p);
 
   return;
 }/*annealBullseye*/
@@ -668,21 +669,22 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 void copyAnneal(const gsl_rng *r,void *xp,double step_size)
 {
-  double *p1=NULL,p2[3];
+  double *p1=NULL,*p2=NULL;
   double u=0;
 
   /*recast old structure*/
   p1=(double *)xp;
+  p2=dalloc(3,"new params anneal",0);
 
   u=gsl_rng_uniform(r);
   p2[0]=p1[0]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
   p2[1]=p1[1]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
-  p2[2]=p1[2]+u*2.0*step_size-step_size;
+  p2[2]=p1[2]+(u*2.0*step_size-step_size)/50.0;
 
-  /*copy memory*/
-  memcpy(p1,&p2,sizeof(double)*3);
+  memcpy(xp,(void *)p2,3*sizeof(double));
+  p2=p1=NULL;
   return;
 }/*copyAnneal*/
 
@@ -712,7 +714,7 @@ void printAnnealPos(void *xp)
   double *p=NULL;
 
   p=(double *)xp;
-  fprintf(stdout,"Testing %f %f %f\n",p[0],p[1],p[2]);
+  fprintf(stdout," %f %f %f correl %f deltaCofG %f\n",p[0],p[1],p[2],globAnneal.meanCorrel,globAnneal.deltaCofG);
 
   return;
 }/*printAnnealPos*/
@@ -724,7 +726,7 @@ void printAnnealPos(void *xp)
 double annealErr(void *xp)
 {
   int i=0,contN=0;
-  int nTypeWaves;
+  int nTypeWaves=0;
   float **denoised=NULL;
   float meanCorrel=0;
   float deltaCofG=0;
@@ -757,8 +759,8 @@ double annealErr(void *xp)
   /*find mean correlation*/
   meanCorrel=deltaCofG=0.0;
   for(i=0;i<contN;i++){
-    meanCorrel+=correl[i][1];
-    deltaCofG+=correl[i][0];
+    meanCorrel+=correl[i][0];
+    deltaCofG+=correl[i][1];
   }
   if(contN>0){
     meanCorrel/=(float)contN;
@@ -880,7 +882,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
   waveStruct *waves=NULL;
 
   /*progress report*/
-  fprintf(stdout,"Testing x %.2f y %.2f z %.2f fSig %.2f\n",xOff,yOff,zOff,dimage->simIO.fSigma);
+  if(globAnneal.dimage==NULL)fprintf(stdout,"Testing x %.2f y %.2f z %.2f fSig %.2f\n",xOff,yOff,zOff,dimage->simIO.fSigma);
 
   /*shift prints*/
   dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
@@ -1661,6 +1663,11 @@ control *readCommands(int argc,char **argv)
   dimage->optTol=0.01;
   dimage->writeSimProg=0;
   dimage->anneal=0;
+  globAnneal.dimage=NULL;
+  globAnneal.lvis=NULL;
+  globAnneal.als=NULL;
+  globAnneal.coords=NULL;
+  globAnneal.denoised=NULL;
 
   /*all data*/
   dimage->minX=-100000000.0;
