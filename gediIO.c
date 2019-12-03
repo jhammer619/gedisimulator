@@ -743,8 +743,7 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
 {
   uint16_t *tempI=NULL;
   float *tempF=NULL;
-  hid_t dset,dtype,dlen,space_id;
-  hsize_t size;
+  hid_t dset,dtype;
   herr_t status;
   void unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
   char *namen=NULL;
