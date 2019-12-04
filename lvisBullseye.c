@@ -624,6 +624,7 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   void printAnnealPos(void *);
   double annealDist(void *,void *);
   void copyAnneal(const gsl_rng *r,void *,double);
+  void writeAnnealResult(control *,double *, annealStruct *);
 
 
   /*set control structure*/
@@ -660,8 +661,37 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   gsl_rng_free (r);
   TIDY(p);
 
+  /*write the results*/
+  writeAnnealResult(dimage,p,&globAnneal);
+
   return;
 }/*annealBullseye*/
+
+
+/*####################################################*/
+/*write result of annealing*/
+
+void writeAnnealResult(control *dimage,double *p, annealStruct *anneal)
+{
+
+  if(dimage->nUsed>0){
+    if(dimage->opoo==NULL){
+      if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
+        fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+        exit(1);
+      }
+    }
+    fprintf(dimage->opoo,"# 1 dx, 2 dy, 3 dz, 4 fSigma, 5 correl, 6 numb, 7 deltaCofG\n");
+    fprintf(dimage->opoo,"%.3f %.3f %.3f %f %f %d %f\n",p[0],p[1],p[2],dimage->simIO.fSigma,\
+                         anneal->meanCorrel,dimage->nUsed,anneal->deltaCofG);
+    if(dimage->opoo){
+      fclose(dimage->opoo);
+      dimage->opoo=NULL;
+    }
+    fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  }
+  return;
+}/*writeAnnealResult*/
 
 
 /*####################################################*/
@@ -714,7 +744,7 @@ void printAnnealPos(void *xp)
   double *p=NULL;
 
   p=(double *)xp;
-  fprintf(stdout," %f %f %f correl %f deltaCofG %f\n",p[0],p[1],p[2],globAnneal.meanCorrel,globAnneal.deltaCofG);
+  fprintf(stdout," %f %f %f correl %f deltaCofG %f ",p[0],p[1],p[2],globAnneal.meanCorrel,globAnneal.deltaCofG);
 
   return;
 }/*printAnnealPos*/
