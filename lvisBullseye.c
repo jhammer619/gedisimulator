@@ -624,8 +624,11 @@ void writeFinalWaves(control *dimage,dataStruct **lvis,pCloudStruct **als,double
 
 void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct **lvis,pCloudStruct **als)
 {
+  int i=0,contN=0;
   const gsl_rng_type *T;
   gsl_rng *r=NULL;
+  float **correl=NULL;
+  float meanCorrel=0,deltaCofG=0;
   double *p=NULL;
   double annealErr(void *);
   void printAnnealPos(void *);
@@ -666,6 +669,25 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   gsl_siman_solve(r,(void *)p,annealErr,copyAnneal,annealDist,\
                   printAnnealPos,NULL,NULL,NULL,sizeof(double)*3,annealParams);
   gsl_rng_free (r);
+
+  /*calculate optimum correlation*/
+  correl=getCorrelStats(dimage,lvis,als,&contN,p[0],p[1],p[2],dimage->gediRat.coords,denoised,nTypeWaves,dimage->leaveEmpty);
+
+  /*find mean correlation*/
+  meanCorrel=deltaCofG=0.0;
+  for(i=0;i<contN;i++){
+    meanCorrel+=correl[i][0];
+    deltaCofG+=correl[i][1];
+  }
+  if(contN>0){
+    meanCorrel/=(float)contN;
+    deltaCofG/=(float)contN;
+  }else{
+    meanCorrel=-1.0;
+  }
+  TTIDY((void **)correl,contN);
+  globAnneal.meanCorrel=meanCorrel;
+  globAnneal.deltaCofG=deltaCofG;
 
   /*write the results*/
   writeAnnealResult(dimage,p,&globAnneal);
