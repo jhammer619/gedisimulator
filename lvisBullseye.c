@@ -659,10 +659,10 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   gsl_siman_solve(r,(void *)p,annealErr,copyAnneal,annealDist,\
                   printAnnealPos,NULL,NULL,NULL,sizeof(double)*3,annealParams);
   gsl_rng_free (r);
-  TIDY(p);
 
   /*write the results*/
   writeAnnealResult(dimage,p,&globAnneal);
+  TIDY(p);
 
   return;
 }/*annealBullseye*/
@@ -802,6 +802,7 @@ double annealErr(void *xp)
   /*save progress*/
   globAnneal.meanCorrel=meanCorrel;
   globAnneal.deltaCofG=deltaCofG;
+  globAnneal.dimage->nUsed=contN;
 
   /*repack params*/
   dimage=NULL;
