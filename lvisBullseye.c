@@ -90,6 +90,13 @@ typedef struct{
   int nUsed;           /*number of footprints used in optimum*/
   char writeSimProg;   /*write simplex progress switch*/
   char writeFinWave;   /*write out final waveforms switch*/
+  /*simulated annealing*/
+  int annealNtries;
+  int anealItersfixed_T;
+  float annealK;
+  float annealTinitial;
+  float annealMu;
+  float annealTmin;
 
   /*for large geolocation errors*/
   char largeErr;       /*switch for large error method*/
@@ -628,13 +635,13 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
 
 
   /*set control structure*/
-  annealParams.n_tries=100;
-  annealParams.iters_fixed_T=80;
+  annealParams.n_tries=dimage->annealNtries;
+  annealParams.iters_fixed_T=dimage->anealItersfixed_T;
   annealParams.step_size=dimage->maxShift;
-  annealParams.k=1.0;
-  annealParams.t_initial=0.01;
-  annealParams.mu_t=1.2;
-  annealParams.t_min=0.00002;
+  annealParams.k=dimage->annealK;
+  annealParams.t_initial=dimage->annealTinitial;
+  annealParams.mu_t=dimage->annealMu;
+  annealParams.t_min=dimage->annealTmin;
 
   /*gsl internal bits*/
   gsl_rng_env_setup();
@@ -1693,12 +1700,19 @@ control *readCommands(int argc,char **argv)
   dimage->maxIter=300;
   dimage->optTol=0.01;
   dimage->writeSimProg=0;
+  /*simulated annealing*/
   dimage->anneal=0;
   globAnneal.dimage=NULL;
   globAnneal.lvis=NULL;
   globAnneal.als=NULL;
   globAnneal.coords=NULL;
   globAnneal.denoised=NULL;
+  dimage->annealNtries=100;
+  dimage->anealItersfixed_T=500;
+  dimage->annealK=1.0;
+  dimage->annealTinitial=0.01;
+  dimage->annealMu=1.2;
+  dimage->annealTmin=0.00002;
 
   /*all data*/
   dimage->minX=-100000000.0;
@@ -1874,6 +1888,24 @@ control *readCommands(int argc,char **argv)
         dimage->fullBull=0;
         dimage->largeErr=0;
         dimage->anneal=1;
+      }else if(!strncasecmp(argv[i],"-nTriesAnneal",13)){
+        checkArguments(1,i,argc,"-nTriesAnneal");
+        dimage->annealNtries=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-itersFixedT",13)){
+        checkArguments(1,i,argc,"-itersFixedT");
+        dimage->anealItersfixed_T=atoi(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-kAnneal",8)){
+        checkArguments(1,i,argc,"-kAnneal");
+        dimage->annealK=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-tInitial",9)){
+        checkArguments(1,i,argc,"-tInitial");
+        dimage->annealTinitial=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-muAnneal",9)){
+        checkArguments(1,i,argc,"-muAnneal");
+        dimage->annealMu=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-tMinAnneal",11)){
+        checkArguments(1,i,argc,"-tMinAnneal");
+        dimage->annealTmin=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-fixFsig",8)){
         dimage->findFsig=0;
       }else if(!strncasecmp(argv[i],"-maxIter",8)){
@@ -1955,6 +1987,12 @@ control *readCommands(int argc,char **argv)
 -maxIter n;       maximum number of iterations\n\
 -writeSimProg;    write progress of simplex to output\n\
 -writeWaves name; write out final waveforms as HDF5 when using simplex\n\
+-nTriesAnneal n;  how many points do we try before stepping?\n\
+-itersFixedT n;   how many iterations for each T?\n\
+-kAnneal x;       Boltzmann constant for annealing\n\
+-tInitial x;A     initial annealing temperature\n\
+-muAnneal x;      damping factor for temperature\n\
+-tMinAnneal x;    minimum annealing temperature\n\
 \n# Initial estimates. Will search around this point\n\
 -hOffset dx dy;   centre of horizontal offsets\n\
 -offset z;        vertical datum offset\n\
