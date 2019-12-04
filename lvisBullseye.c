@@ -656,6 +656,7 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   globAnneal.lvis=lvis;
   globAnneal.als=als;
   globAnneal.coords=dimage->gediRat.coords;
+  dimage->gediRat.coords=NULL;
   globAnneal.denoised=denoised;
   globAnneal.nTypeWaves=nTypeWaves;
 
@@ -671,6 +672,7 @@ void annealBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct *
   gsl_rng_free (r);
 
   /*calculate optimum correlation*/
+  dimage->gediRat.coords=globAnneal.coords;
   correl=getCorrelStats(dimage,lvis,als,&contN,p[0],p[1],p[2],dimage->gediRat.coords,denoised,nTypeWaves,dimage->leaveEmpty);
 
   /*find mean correlation*/
