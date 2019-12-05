@@ -731,18 +731,20 @@ void writeAnnealResult(control *dimage,double *p, annealStruct *anneal)
 void copyAnneal(const gsl_rng *r,void *xp,double step_size)
 {
   double *p1=NULL,*p2=NULL;
-  double u=0;
+  double u=0,zStep=0;
 
   /*recast old structure*/
   p1=(double *)xp;
   p2=dalloc(3,"new params anneal",0);
+
+  zStep=1.0;  /*hard wire z to have 1 m steps*/
 
   u=gsl_rng_uniform(r);
   p2[0]=p1[0]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
   p2[1]=p1[1]+u*2.0*step_size-step_size;
   u=gsl_rng_uniform(r);
-  p2[2]=p1[2]+(u*2.0*step_size-step_size)/50.0;
+  p2[2]=p1[2]+u*2.0*zStep-zStep;
 
   memcpy(xp,(void *)p2,3*sizeof(double));
   p2=p1=NULL;
