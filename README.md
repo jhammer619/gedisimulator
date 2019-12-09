@@ -18,7 +18,7 @@ The programs are:
 
 **lasPoints**: outputs .pts files from .las files for selected areas.
 
-**lvisBullseye**: produces the correlation bullseye plots of ALS to full-waveform data following Blair and Hofton (1999).
+**lvisBullseye**: collocates GEDI or LVIS to ALS data, following Blair and Hofton (1999).
 
 **addNoiseHDF**: Reads waveform data from HDF5 files and adds noise of a chosen level.
 
@@ -373,6 +373,7 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
 
 #### Optimiser mode operation
     -simplex;         use simplex optimisation rather than doing the full bullseye plot
+    -anneal;          use simulated annealing optimisation
     -fixFsig;         fix fSigma in simplex
     -geoError expError correlDist;   rapid geolocation, using expected geolocation error and correlation distance. Vertical shifts must be separatley defined
     -quickGeo;        perform rapid geolocation using default error values
@@ -380,6 +381,12 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
     -maxIter n;       maximum number of iterations
     -writeSimProg;    write progress of simplex to output
     -writeWaves name; write out final waveforms as HDF5 when using simplex
+    -nTriesAnneal n;  how many points do we try before stepping?
+    -itersFixedT n;   how many iterations for each T?
+    -kAnneal x;       Boltzmann constant for annealing
+    -tInitial x;A     initial annealing temperature
+    -muAnneal x;      damping factor for temperature
+    -tMinAnneal x;    minimum annealing temperature
 
 #### Initial estimates. Will search around this point
     -hOffset dx dy;   centre of horizontal offsets
@@ -400,6 +407,11 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
     -filtOut;         filter outliers from correlation stats
     -smooth sig;      smooth both waves before comparing
 
+#### GEDI beam selection
+    -beamList 11111111; 0/1 for whether or not to use beams 1-8 on GEDI
+    -skipBeams n;     list of GEDI beam numbers to skip. No spaces between (eg 123)
+    -readBeams n;     list of GEDI beam numbers to read. No spaces between (eg 123)
+
 #### Simulator settings. For simulator validation only
     -noNorm;          don't correct sims for ALS densiy variations
     -norm;            correct sims for ALS densiy variations
@@ -415,15 +427,36 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
 ## mapLidar ##
 Generates a geotiff from las file properties, combining multiple files. Can also print a list of file bounds or calculate beam and point density.
 
+
+#### Options
+    -input name;     lasfile input filename
+    -output name;    output filename
+    -inList list;    input file list for multiple files
+    -res res;        image resolution, in metres
+    -bounds minX minY maxX maxY;     user defined image bounds
+    -float;          output as float
+    -height;         draw height image
+    -cover;          draw canopy cover map
+    -noInt;          no image
+    -findDens;       find point and footprint density
+    -epsg n;         geolocation code if not read from file
+    -writeBound n;   write file bounds to a file
+    -pBuff s;        point reading buffer size in Gbytes
+    -printNpoint;    print number of points in each file
+
+
 ## lasPoints ##
 Extracts a point cloud as a pts for a bounding box within a collection of las files.
 
 
 ### Contribution guidelines ###
 
-* Writing tests
-* Code review
-* Other guidelines
+Please talk to svenhancock@gmail.com to suggest edits.
+
+
+### License ###
+
+Gnu Public License
 
 ### Who do I talk to? ###
 
