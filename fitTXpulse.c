@@ -396,6 +396,60 @@ float *copyLastFeature(float *wave,int nBins)
 
 dataStruct *readData(char *namen)
 {
+  char isHDF=0;
+  char checkFiletype(char *);
+  dataStruct *readAsciiData(char *);
+  dataStruct *data=NULL;
+
+
+  /*determine input filetype*/
+  isHDF=checkFiletype(namen);
+
+  /*read data*/
+  if(isHDF){
+fprintf(stderr,"HDF reader not quite ready yet\n");
+exit(1);
+  }else{ /*ascii*/
+    data=readData(namen);
+  }
+
+  return(data);
+}/*readData*/
+
+
+/*############################################################*/
+/*determine filetype*/
+
+char checkFiletype(char *namen)
+{
+  char isHDF=0;
+  char *token=NULL;
+  char *lastTok=NULL;
+
+  /*get string ending*/
+  token=strtok(namen,".");
+  while(token){
+    lastTok=token;
+    token=strtok(NULL," ");
+  }
+
+  /*determine type*/
+  if((!strncasecmp(lastTok,"h5",2))||(!strncasecmp(lastTok,"hdf",3)))isHDF=1;
+  else                                                               isHDF=0;
+
+  /*tidy up*/
+  token=NULL;
+  lastTok=NULL;
+
+  return(isHDF);
+}/*checkFiletype*/
+
+
+/*############################################################*/
+/*read ASCII data*/
+
+dataStruct *readAsciiData(char *namen)
+{
   int i=0,j=0,bin=0;
   int sCol=0,eCol=0;
   dataStruct *data=NULL;

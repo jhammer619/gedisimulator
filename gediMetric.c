@@ -150,7 +150,7 @@ typedef struct{
 
 
 /*###########################################################*/
-/*Bayseian groiund structure*/
+/*Bayseian ground structure*/
 
 typedef struct{
   double gHeight;   /*ground elevation*/
