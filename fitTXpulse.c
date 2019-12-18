@@ -399,6 +399,7 @@ dataStruct *readData(char *namen)
   char isHDF=0;
   char checkFiletype(char *);
   dataStruct *readAsciiData(char *);
+  dataStruct *readHDFdata(char *);
   dataStruct *data=NULL;
 
 
@@ -409,8 +410,9 @@ dataStruct *readData(char *namen)
   if(isHDF){
 fprintf(stderr,"HDF reader not quite ready yet\n");
 exit(1);
+    data=readHDFdata(namen);
   }else{ /*ascii*/
-    data=readData(namen);
+    data=readAsciiData(namen);
   }
 
   return(data);
@@ -443,6 +445,19 @@ char checkFiletype(char *namen)
 
   return(isHDF);
 }/*checkFiletype*/
+
+
+/*############################################################*/
+/*read HDF5 data*/
+
+dataStruct *readHDFdata(char *namen)
+{
+  dataStruct *data=NULL;
+
+// >>> x=np.array(f['BEAM0001']['txwaveform'])
+
+  return(data);
+}/*readHDFdata*/
 
 
 /*############################################################*/
@@ -516,7 +531,7 @@ dataStruct *readAsciiData(char *namen)
     ipoo=NULL;
   }
   return(data);
-}/*readData*/
+}/*readAsciiData*/
 
 
 /*############################################################*/
