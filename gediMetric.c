@@ -571,6 +571,7 @@ float groundOverlap(float *wave,float *ground,int nBins)
 void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,float *denoised,float *processed,char *inNamen)
 {
   int i=0,j=0;
+  int offset=0;
   char waveNamen[500];
   char namen[420];
   float gauss(float,float,float);
@@ -612,14 +613,21 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
     fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
+    offset=24;
+    if(dimage->hdfGedi->solarElev){
+      fprintf(dimage->opooMet,", %d solarElev,",14+4*metric->nRH+1+dimage->bayesGround+offset);
+      offset++;
+    }
     if(dimage->noCanopy==0){
-      fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+24,14+4*metric->nRH+1+dimage->bayesGround+25,14+4*metric->nRH+1+dimage->bayesGround+26);
-      fprintf(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+27,14+4*metric->nRH+1+dimage->bayesGround+28);
-      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+2*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+26+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset+1,14+4*metric->nRH+1+dimage->bayesGround+offset+3);
+      offset+=3;
+      fprintf(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset);
+      offset+=2;
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+2*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
     }
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
@@ -665,6 +673,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
+  if(dimage->hdfGedi->solarElev)fprintf(dimage->opooMet," %f",dimage->hdfGedi->solarElev[numb]);
   if(dimage->noCanopy==0){
     fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
     fprintf(dimage->opooMet," %f %f",metric->FHDcanGauss,metric->FHDcanGhist);

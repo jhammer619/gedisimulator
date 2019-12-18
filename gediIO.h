@@ -290,6 +290,7 @@ typedef struct{
   float *beamDense;/*beam density*/
   float *pointDense;/*point density*/
   float *zen;      /*scan angles, or mean angles*/
+  float *solarElev;/*solar elevation angle*/
   uint64_t *sInd;  /*start indices of waveforms*/
 }gediHDF;
 
