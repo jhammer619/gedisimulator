@@ -3,10 +3,14 @@
 #include "string.h"
 #include "math.h"
 #include "stdint.h"
+#include "hdf5.h"
 #include "tools.h"
 #include "tools.c"
 #include "libLasRead.h"
 #include "libLasProcess.h"
+#include "libOctree.h"
+#include "libLidarHDF.h"
+#include "gediIO.h"
 
 
 
@@ -47,14 +51,15 @@
 /*control structure*/
 
 typedef struct{
-  char inNamen[200];
-  char outNamen[200];
+  char inNamen[400];
+  char outNamen[400];
   int meanBins;
   float inRes;     /*input resolution*/
   float oRes;      /*output resolution*/
   int minN;
   char txStats;    /*write TX stats switch*/
   char statsNamen[200];
+  char useBeam[8]; /*use beam or not switch*/
 }control;
 
 
@@ -64,8 +69,8 @@ typedef struct{
 typedef struct{
   int nWaves;   /*number of waveforms*/
   float **wave; /*waveforms*/
-  int nBins;   /*number of bins per waveform*/
-}dataStruct;
+  int nBins;    /*number of bins per waveform*/
+}pulseData;
 
 
 /*############################################################*/
@@ -75,9 +80,9 @@ int main(int argc,char **argv)
 {
   control *dimage=NULL;
   control *readCommands(int,char **);
-  dataStruct *data=NULL;
-  dataStruct *readData(char *);
-  float **fitPulseGauss(dataStruct *,int *,float,float,int,float *,control *);
+  pulseData *data=NULL;
+  pulseData *readData(char *,control *);
+  float **fitPulseGauss(pulseData *,int *,float,float,int,float *,control *);
   float **meanWaves=NULL,meanSig=0;
   void writeResults(float **,int,float,char *,float);
 
@@ -86,7 +91,7 @@ int main(int argc,char **argv)
   dimage=readCommands(argc,argv);
 
   /*read data*/
-  data=readData(dimage->inNamen);
+  data=readData(dimage->inNamen,dimage);
 
   /*perform fits*/
   meanWaves=fitPulseGauss(data,&dimage->meanBins,dimage->oRes,dimage->inRes,dimage->minN,&meanSig,dimage);
@@ -136,7 +141,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen,float mea
 /*############################################################*/
 /*fit Gaussian to pulse*/
 
-float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int minN,float *meanSig,control *dimage)
+float **fitPulseGauss(pulseData *data,int *meanBins,float oRes,float inRes,int minN,float *meanSig,control *dimage)
 {
   int i=0,numb=0,nGauss=0;
   int **nIn=NULL,bin=0;
@@ -189,11 +194,12 @@ float **fitPulseGauss(dataStruct *data,int *meanBins,float oRes,float inRes,int 
     }
   }
 
-  x=falloc((uint64_t)data->nBins,"x",0);
-  for(i=0;i<data->nBins;i++)x[i]=(float)i*den.res;
 
   /*loop over waveforms*/
   for(numb=0;numb<data->nWaves;numb++){
+    /*set range*/
+    x=falloc((uint64_t)data->nBins,"x",0);
+    for(i=0;i<data->nBins;i++)x[i]=(float)i*den.res;
     /*reverse waveform to ignore early reflectaion*/
     temp=falloc((uint64_t)data->nBins,"temp wave",0);
     for(i=0;i<data->nBins;i++)temp[i]=data->wave[numb][data->nBins-(i+1)];
@@ -394,23 +400,24 @@ float *copyLastFeature(float *wave,int nBins)
 /*############################################################*/
 /*read data*/
 
-dataStruct *readData(char *namen)
+pulseData *readData(char *namen,control *dimage)
 {
   char isHDF=0;
   char checkFiletype(char *);
-  dataStruct *readAsciiData(char *);
-  dataStruct *readHDFdata(char *);
-  dataStruct *data=NULL;
+  char tempName[400];
+  pulseData *readAsciiData(char *);
+  pulseData *readHDFdata(char *,control *);
+  pulseData *data=NULL;
 
 
   /*determine input filetype*/
-  isHDF=checkFiletype(namen);
+  strcpy(tempName,namen);
+  isHDF=checkFiletype(tempName);
 
   /*read data*/
   if(isHDF){
-fprintf(stderr,"HDF reader not quite ready yet\n");
-exit(1);
-    data=readHDFdata(namen);
+fprintf(stdout,"Reading %s\n",namen);
+    data=readHDFdata(namen,dimage);
   }else{ /*ascii*/
     data=readAsciiData(namen);
   }
@@ -440,8 +447,8 @@ char checkFiletype(char *namen)
   else                                                               isHDF=0;
 
   /*tidy up*/
-  token=NULL;
-  lastTok=NULL;
+  //token=NULL;
+  //lastTok=NULL;
 
   return(isHDF);
 }/*checkFiletype*/
@@ -450,24 +457,126 @@ char checkFiletype(char *namen)
 /*############################################################*/
 /*read HDF5 data*/
 
-dataStruct *readHDFdata(char *namen)
+pulseData *readHDFdata(char *namen,control *dimage)
 {
-  dataStruct *data=NULL;
+  int i=0,j=0,nBeams=0;
+  int nWaves=0;
+  int numb=0,k=0;
+  uint64_t *sInds=NULL;
+  uint16_t *nBins=NULL;
+  float **readGEDItxwave(hid_t,uint64_t *,uint16_t *,int,int);
+  float **tempWave=NULL;
+  hid_t file;
+  hid_t group=0;
+  pulseData *data=NULL;
+  char **setGEDIbeamList(int *,char *);
+  char **beamList=NULL;
+
 
 // >>> x=np.array(f['BEAM0001']['txwaveform'])
 
+  /*allocate space*/
+  if(!(data=(pulseData *)calloc(1,sizeof(pulseData)))){
+    fprintf(stderr,"error metric structure allocation.\n");
+    exit(1);
+  }
+
+  /*open the file*/
+  file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
+
+  /*which beams to read*/
+  beamList=setGEDIbeamList(&nBeams,dimage->useBeam);
+
+  /*loop over beams and read all*/
+  for(i=0;i<nBeams;i++){
+    /*does this beam exist in this file?*/
+    if(H5Lexists(file,beamList[i],H5P_DEFAULT)==0){
+      i++;
+      continue;
+    }/*beam exists check*/
+
+    /*open beam group*/
+    group=H5Gopen2(file,beamList[i],H5P_DEFAULT);
+
+    /*read the data*/
+    sInds=read1dUint64HDF5(group,"tx_sample_start_index",&numb);
+    nWaves=numb;
+
+    /*find the longest waveform*/
+    nBins=read1dUint16HDF5(group,"tx_sample_count",&numb);
+    data->nBins=0;
+    for(j=0;j<numb;j++){
+      if((int)nBins[i]>data->nBins)data->nBins=(int)nBins[i];
+    }
+
+    /*read TX waveform*/
+    tempWave=readGEDItxwave(group,sInds,nBins,data->nBins,nWaves);
+
+    /*add waveform to end*/
+    fprintf(stdout,"Adding %d waves for a total of %d\n",nWaves,data->nWaves+nWaves);
+    if(data->nWaves>0){
+      if(!(data->wave=(float **)realloc(data->wave,(uint64_t)(data->nWaves+nWaves)*(uint64_t)sizeof(float *)))){
+        fprintf(stderr,"Error in reallocation, allocating %lu\n",(data->nWaves+nWaves)*(uint64_t)sizeof(float **));
+        exit(1);
+      }
+    }else data->wave=fFalloc(nWaves,"waves",0);
+
+    for(j=0;j<nWaves;j++){
+      data->wave[j+data->nWaves]=falloc(data->nBins,"waves",j+data->nWaves);
+      for(k=0;k<data->nBins;k++)data->wave[j+data->nWaves]=tempWave[j];
+      tempWave[j]=NULL;
+    }
+    data->nWaves+=nWaves;
+
+    TTIDY((void **)tempWave,nWaves);
+    TIDY(sInds);
+    TIDY(nBins);
+  }/*beam loop*/
+
+
+  /*close file*/
+  if(H5Fclose(file)){
+    fprintf(stderr,"Issue closing file\n");
+    exit(1);
+  }
+
+  TTIDY((void **)beamList,nBeams);
   return(data);
 }/*readHDFdata*/
 
 
 /*############################################################*/
+/*read and unpack the tx waveforms*/
+
+float **readGEDItxwave(hid_t group,uint64_t *sInds,uint16_t *nBins,int maxBins,int nWaves)
+{
+  int i=0,j=0;
+  int nSamps=0;
+  float *tempF=NULL;
+  float **txwaves=NULL;
+
+  tempF=read1dFloatHDF5(group,"rxwaveform",&nSamps);
+
+  txwaves=fFalloc(nWaves,"temp waves",0);
+  for(i=0;i<nWaves;i++){
+    txwaves[i]=falloc(maxBins,"temp waves",i+1);
+    for(j=0;j<nBins[i];j++)txwaves[i][j]=tempF[sInds[i]+j];
+    for(;j<maxBins;j++)txwaves[i][j]=0.0;  /*pad the end*/
+  }
+
+  TIDY(tempF);
+  return(txwaves);
+}/*readGEDItxwave*/
+
+
+/*############################################################*/
 /*read ASCII data*/
 
-dataStruct *readAsciiData(char *namen)
+pulseData *readAsciiData(char *namen)
 {
   int i=0,j=0,bin=0;
   int sCol=0,eCol=0;
-  dataStruct *data=NULL;
+  pulseData *data=NULL;
   char line[10000],*token=NULL;
   FILE *ipoo=NULL;
 
@@ -476,7 +585,7 @@ dataStruct *readAsciiData(char *namen)
     exit(1);
   }
 
-  if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
+  if(!(data=(pulseData *)calloc(1,sizeof(pulseData)))){
     fprintf(stderr,"error metric structure allocation.\n");
     exit(1);
   }
@@ -554,6 +663,8 @@ control *readCommands(int argc,char **argv)
   dimage->inRes=0.3;
   dimage->minN=100;
   dimage->txStats=0;
+  dimage->useBeam[0]=dimage->useBeam[1]=dimage->useBeam[2]=dimage->useBeam[3]=\
+    dimage->useBeam[4]=dimage->useBeam[5]=dimage->useBeam[6]=dimage->useBeam[7]=1;    /*read all waves*/
 
 
   /*read the command line*/
@@ -578,8 +689,17 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-txStats");
         strcpy(dimage->statsNamen,argv[++i]);
         dimage->txStats=1;
+      }else if(!strncasecmp(argv[i],"-beamList",9)){
+        checkArguments(1,i,argc,"-beamList");
+        setBeamsToUse(&(dimage->useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-skipBeams",10)){
+        checkArguments(1,i,argc,"-skipBeams");
+        setBeamsToSkip(&(dimage->useBeam[0]),argv[++i]);
+      }else if(!strncasecmp(argv[i],"-readBeams",10)){
+        checkArguments(1,i,argc,"-readBeams");
+        setBeamsToRead(&(dimage->useBeam[0]),argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n-txStats name; write TX stats to a file\n\n");
+        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n-txStats name; write TX stats to a file\n-beamList 11111111; 0/1 for whether or not to use beams 1-8\n-skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n-readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
@@ -588,12 +708,8 @@ control *readCommands(int argc,char **argv)
     }
   }
 
-
-
-
   return(dimage);
 }/*readCommands*/
-
 
 /*the end*/
 /*############################################################*/
