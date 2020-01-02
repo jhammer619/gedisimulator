@@ -57,6 +57,8 @@ typedef struct{
   char drawInt;       /*intensity image switch*/
   char drawHeight;    /*height.elevation image switch*/
   char drawDens;      /*draw ensity images*/
+  char onlyGround;    /*use only ground points switch*/
+  char gapFill;       /*fill gap switch*/
   char findDens;      /*find point and footprint density*/
   char drawVegVol;    /*draw volume of vegetation, can set height thesholds*/
   char drawCov;       /*draw canopy cover switch*/
@@ -121,6 +123,7 @@ int main(int argc,char **argv)
   void collateImage(control *,lasFile *,imageStruct *);
   void finishImage(control *,imageStruct *);
   void writeImage(control *,imageStruct *);
+  void fillGaps(control *,imageStruct *);
   void writeFileBounds(lasFile *,char *,control *);
   void updateBounds(double *,lasFile *);
 
@@ -156,7 +159,11 @@ int main(int argc,char **argv)
     }
     /*finish off image*/
     finishImage(dimage,image);
-  }
+
+    /*fill gaps if needed*/
+    if(dimage->gapFill)fillGaps(dimage,image);
+  }/*image drawing check*/
+
 
   /*write image*/
   if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)writeImage(dimage,image);
@@ -205,6 +212,126 @@ void writeFileBounds(lasFile *las,char *namen,control *dimage)
 
 
 /*##################################################*/
+/*fill gaps in an image*/
+
+void fillGaps(control *dimage,imageStruct *image)
+{
+  int i=0,j=0;
+  uint64_t place=0;
+  unsigned char *newImage=NULL;
+  unsigned char fillCharHole(int,int,uint64_t,imageStruct *);
+  float *newJimlad=NULL;
+  float fillFloatHole(int,int,uint64_t,imageStruct *);
+
+
+  if(dimage->charImage)newImage=challoc(image->nX*image->nY,"newImage",0);
+  else                 newJimlad=falloc(image->nX*image->nY,"newImage",0);
+
+  /*loop over image*/
+  for(i=0;i<image->nX;i++){
+    for(j=0;j<image->nY;j++){
+      place=(uint64_t)j*(uint64_t)image->nX+(uint64_t)i;
+
+      /*is the dsata missing?*/
+      if(image->nIn[place]==0){
+        if(dimage->charImage)newImage[place]=fillCharHole(i,j,place,image);
+        else                 newJimlad[place]=fillFloatHole(i,j,place,image);
+      }else{
+        if(dimage->charImage)newImage[place]=image->image[place];
+        else                 newJimlad[place]=image->jimlad[place];
+       }
+    }/*y loop*/
+  }/*x loop*/
+
+  if(dimage->charImage)image->image=newImage;
+  else                 image->jimlad=newJimlad;
+
+  newImage=NULL;
+  newJimlad=NULL;
+
+  return;
+}/*fillGaps*/
+
+
+/*##################################################*/
+/*fill a char image*/
+
+unsigned char fillCharHole(int i,int j,uint64_t place0,imageStruct *image)
+{
+  int ii=0,jj=0;
+  int nIn=0,window=0;
+  int maxWindow=0;
+  uint64_t place=0;
+  float fill=0;
+
+  /*set window size*/
+  window=1;
+  maxWindow=100;
+
+  /*loop over window sizes until we find some*/
+  do{
+    nIn=0;
+    fill=0.0;
+
+    for(ii=i-1;ii<=i+1;ii++){
+      if((ii<0)||(ii>=image->nX))continue;
+      for(jj=j-1;jj<=j+1;jj++){
+        if((jj<0)||(jj>=image->nY))continue;
+        place=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
+        if(image->nIn[place]>0){
+          fill+=(float)image->nIn[place]*(float)image->image[place];
+          nIn+=image->nIn[place];
+        }
+      }
+    }
+    window++;
+  }while((nIn==0)&&(window<maxWindow));
+
+  if(nIn>0)return((unsigned char)(fill/(float)nIn));
+  else     return(255);
+}/*fillCharHole*/
+
+
+/*##################################################*/
+/*fill a char image*/
+
+float fillFloatHole(int i,int j,uint64_t place0,imageStruct *image)
+{
+  int ii=0,jj=0;
+  int nIn=0,window=0;
+  int maxWindow=0;
+  uint64_t place=0;
+  float fill=0;
+
+  /*set window size*/
+  window=1;
+  maxWindow=100;
+
+  /*loop over window sizes until we find some*/
+  do{
+    nIn=0;
+    fill=0.0;
+
+    for(ii=i-1;ii<=i+1;ii++){
+      if((ii<0)||(ii>=image->nX))continue;
+      for(jj=j-1;jj<=j+1;jj++){
+        if((jj<0)||(jj>=image->nY))continue;
+        place=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
+        if(image->nIn[place]>0){
+          fill+=(float)image->nIn[place]*image->jimlad[place];
+          nIn+=image->nIn[place];
+        }
+      }
+    }
+  window++;
+  }while((nIn==0)&&(window<maxWindow));
+
+  if(nIn>0)return(fill/(float)nIn);
+  else     return(0.0);
+}/*fillFloatHole*/
+
+
+/*##################################################*/
 /*write image to geotiff*/
 
 void writeImage(control *dimage,imageStruct *image)
@@ -249,12 +376,15 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
     if((xBin>=0)&&(xBin<image->nX)&&(yBin>=0)&&(yBin<image->nY)){
       place=yBin*image->nX+xBin;
       if(dimage->drawInt)image->jimlad[place]+=(float)las->refl;
-      else if(dimage->drawHeight)image->jimlad[place]+=(float)z;
-      else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
+      else if(dimage->drawHeight){
+        if((dimage->onlyGround==0)||(las->classif==2))image->jimlad[place]+=(float)z;
+      }else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
       if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
       if(dimage->drawCov&&(las->classif!=2))image->nCan[place]++;
 
-      if(dimage->drawVegVol==0)image->nIn[place]++;
+      if(dimage->drawVegVol==0){
+        if((dimage->onlyGround==0)||(las->classif==2))image->nIn[place]++;
+      }
     }
   }/*point loop*/
   return;
@@ -320,7 +450,7 @@ void finishImage(control *dimage,imageStruct *image)
   /*process for hedges only*/
   if(dimage->drawVegVol)processHedges(image,dimage);
 
-  if(!dimage->drawDens)TIDY(image->nIn);
+  if((!dimage->drawDens)&&(dimage->gapFill==0))TIDY(image->nIn);
   if(dimage->findDens){
     if(nContF>0)meanFoot/=(float)nContF;
     if(nContP>0)meanPoint/=(float)nContP;
@@ -507,6 +637,8 @@ control *readCommands(int argc,char **argv)
   dimage->epsg=0;    /*leave bank*/
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->charImage=1;
+  dimage->onlyGround=0;
+  dimage->gapFill=0;
   /*bounds*/
   dimage->findBounds=1;
   dimage->bounds[0]=dimage->bounds[1]=1000000000.0;
@@ -547,6 +679,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-height",7)){
         dimage->drawHeight=1;
         dimage->drawInt=dimage->drawCov=0;
+      }else if(!strncasecmp(argv[i],"-DTM",4)){
+        dimage->drawHeight=1;
+        dimage->drawInt=dimage->drawCov=0;
+        dimage->onlyGround=1;
+        dimage->gapFill=1;
       }else if(!strncasecmp(argv[i],"-findDens",9)){
         dimage->findDens=1;
       }else if(!strncasecmp(argv[i],"-cover",6)){
@@ -585,7 +722,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-maxVint");
         dimage->maxVint=(uint16_t)atoi(argv[++i]);   
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-DTM;        make a bare Earth DEM\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
