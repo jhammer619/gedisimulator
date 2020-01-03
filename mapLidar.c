@@ -301,7 +301,8 @@ void fillDTMhole(int i,int j,uint64_t place0,imageStruct *image,control *dimage,
 
         /*fill gap with distance and number weighted average*/
         weight=(float)image->nIn[place]/(dist*dist);
-        fill+=(float)image->image[place]*weight;
+        if(mode==1)fill+=(float)image->image[place]*weight;
+        else if(mode==2)fill+=image->jimlad[place]*weight;
         totWeight+=weight;
         nIn+=image->nIn[place];
       }
