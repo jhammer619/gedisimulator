@@ -226,9 +226,13 @@ void fillGaps(control *dimage,imageStruct *image)
   else                 newJimlad=falloc(image->nX*image->nY,"newImage",0);
 
   /*loop over image*/
-  for(i=0;i<image->nX;i++){
-    for(j=0;j<image->nY;j++){
+  for(j=0;j<image->nY;j++){
+    for(i=0;i<image->nX;i++){
       place=(uint64_t)j*(uint64_t)image->nX+(uint64_t)i;
+      /*print progress*/
+      if(((place*100)%((uint64_t)image->nX*(uint64_t)image->nY))<100){
+        fprintf(stdout,"Gap filling %d%%\n",(int)((place*100)/((uint64_t)image->nX*(uint64_t)image->nY)));
+      }
 
       /*is the dsata missing?*/
       if(image->nIn[place]==0){
@@ -243,8 +247,8 @@ void fillGaps(control *dimage,imageStruct *image)
         if(dimage->charImage)newImage[place]=image->image[place];
         else                 newJimlad[place]=image->jimlad[place];
        }
-    }/*y loop*/
-  }/*x loop*/
+    }/*x loop*/
+  }/*y loop*/
 
   if(dimage->charImage)image->image=newImage;
   else                 image->jimlad=newJimlad;
