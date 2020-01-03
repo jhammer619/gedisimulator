@@ -219,9 +219,9 @@ void fillGaps(control *dimage,imageStruct *image)
   int i=0,j=0;
   uint64_t place=0;
   unsigned char *newImage=NULL;
-  unsigned char fillCharHole(int,int,uint64_t,imageStruct *);
+  unsigned char fillCharHole(int,int,uint64_t,imageStruct *,control *);
   float *newJimlad=NULL;
-  float fillFloatHole(int,int,uint64_t,imageStruct *);
+  float fillFloatHole(int,int,uint64_t,imageStruct *,control *);
 
 
   if(dimage->charImage)newImage=challoc(image->nX*image->nY,"newImage",0);
@@ -234,8 +234,8 @@ void fillGaps(control *dimage,imageStruct *image)
 
       /*is the dsata missing?*/
       if(image->nIn[place]==0){
-        if(dimage->charImage)newImage[place]=fillCharHole(i,j,place,image);
-        else                 newJimlad[place]=fillFloatHole(i,j,place,image);
+        if(dimage->charImage)newImage[place]=fillCharHole(i,j,place,image,dimage);
+        else                 newJimlad[place]=fillFloatHole(i,j,place,image,dimage);
       }else{
         if(dimage->charImage)newImage[place]=image->image[place];
         else                 newJimlad[place]=image->jimlad[place];
@@ -256,17 +256,20 @@ void fillGaps(control *dimage,imageStruct *image)
 /*##################################################*/
 /*fill a char image*/
 
-unsigned char fillCharHole(int i,int j,uint64_t place0,imageStruct *image)
+unsigned char fillCharHole(int i,int j,uint64_t place0,imageStruct *image,control *dimage)
 {
   int ii=0,jj=0;
   int nIn=0,window=0;
   int maxWindow=0;
   uint64_t place=0;
-  float fill=0;
+  float dx=0,dy=0;
+  float fill=0,weight=0;
+  float totWeight=0,dist=0;
 
   /*set window size*/
   window=1;
-  maxWindow=100;
+  maxWindow=(int)(100.0/dimage->res);
+  totWeight=0.0;
 
   /*loop over window sizes until we find some*/
   do{
@@ -279,7 +282,15 @@ unsigned char fillCharHole(int i,int j,uint64_t place0,imageStruct *image)
         if((jj<0)||(jj>=image->nY))continue;
         place=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
         if(image->nIn[place]>0){
-          fill+=(float)image->nIn[place]*(float)image->image[place];
+          /*find distance*/
+          dx=(float)(ii-i);
+          dy=(float)(jj-j);
+          dist=sqrt(dx*dx+dy*dy);
+
+          /*fill gap with distance and number weighted average*/
+          weight=(float)image->nIn[place]/(dist*dist);
+          fill+=(float)image->image[place]*weight;
+          totWeight+=weight;
           nIn+=image->nIn[place];
         }
       }
@@ -295,17 +306,20 @@ unsigned char fillCharHole(int i,int j,uint64_t place0,imageStruct *image)
 /*##################################################*/
 /*fill a char image*/
 
-float fillFloatHole(int i,int j,uint64_t place0,imageStruct *image)
+float fillFloatHole(int i,int j,uint64_t place0,imageStruct *image,control *dimage)
 {
   int ii=0,jj=0;
   int nIn=0,window=0;
   int maxWindow=0;
   uint64_t place=0;
-  float fill=0;
+  float dx=0,dy=0;
+  float fill=0,weight=0;
+  float totWeight=0,dist=0;
 
   /*set window size*/
   window=1;
-  maxWindow=100;
+  maxWindow=(int)(100.0/dimage->res);
+  totWeight=0.0;
 
   /*loop over window sizes until we find some*/
   do{
@@ -318,12 +332,20 @@ float fillFloatHole(int i,int j,uint64_t place0,imageStruct *image)
         if((jj<0)||(jj>=image->nY))continue;
         place=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
         if(image->nIn[place]>0){
-          fill+=(float)image->nIn[place]*image->jimlad[place];
+          /*find distance*/
+          dx=(float)(ii-i);
+          dy=(float)(jj-j);
+          dist=sqrt(dx*dx+dy*dy);
+
+          /*fill gap with distance and number weighted average*/
+          weight=(float)image->nIn[place]/(dist*dist);
+          fill+=image->jimlad[place]*weight;
+          totWeight+=weight;
           nIn+=image->nIn[place];
         }
       }
     }
-  window++;
+    window++;
   }while((nIn==0)&&(window<maxWindow));
 
   if(nIn>0)return(fill/(float)nIn);
