@@ -278,7 +278,7 @@ void fillDTMhole(int i,int j,uint64_t place0,imageStruct *image,control *dimage,
 
   /*set window size*/
   window=1;
-  maxWindow=(int)(100.0/dimage->res);
+  maxWindow=(int)(20.0/dimage->res);
   minIn=8;
   totWeight=0.0;
 
