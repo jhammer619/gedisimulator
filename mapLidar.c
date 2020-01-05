@@ -234,7 +234,7 @@ void fillGaps(control *dimage,imageStruct *image)
         fprintf(stdout,"Gap filling %d%%\n",(int)((place*100)/((uint64_t)image->nX*(uint64_t)image->nY)));
       }
 
-      /*is the dsata missing?*/
+      /*is the data missing?*/
       if(image->nIn[place]==0){
         if(dimage->charImage){
           fillDTMhole(i,j,place,image,dimage,1,&newFloat,&newChar);
@@ -312,10 +312,10 @@ void fillDTMhole(int i,int j,uint64_t place0,imageStruct *image,control *dimage,
   }while((nIn<minIn)&&(window<maxWindow));
 
   if(mode==1){
-    if(nIn>=minIn)*newChar=(unsigned char)(fill/(float)nIn);
+    if(nIn>=minIn)*newChar=(unsigned char)(fill/totWeight);
     else          *newChar=255;
   }else if(mode==2){
-    if(nIn>=minIn)*newFloat=fill/(float)nIn;
+    if(nIn>=minIn)*newFloat=fill/totWeight;
     else          *newFloat=0.0;
   }
 }/*fillDTMhole*/
