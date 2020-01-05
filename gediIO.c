@@ -8,6 +8,7 @@
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
 #include "libLasRead.h"
+#include "libDEMhandle.h"
 #include "libLidVoxel.h"
 #include "libOctree.h"
 #include "gediIO.h"
