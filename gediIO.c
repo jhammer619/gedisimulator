@@ -416,32 +416,32 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
   write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves);
   if(hdfData->ground){
-    write1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
-    write1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
-    if(hdfData->demElev)write1dFloatHDF5(file,"ZGDEM",hdfData->demElev,hdfData->nWaves);
+    writeComp1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
+    writeComp1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
+    if(hdfData->demElev)writeComp1dFloatHDF5(file,"ZGDEM",hdfData->demElev,hdfData->nWaves);
   }
-  write1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
-  write1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
-  write1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
+  writeComp1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
+  writeComp1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
+  writeComp1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
   if(gediIO->useInt){
-    write2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins[0]);
+    writeComp2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins[0]);
+    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins[0]);
   }
   if(gediIO->useCount){
-    write2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
+    writeComp2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
+    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
   }
   if(gediIO->useFrac){
-    write2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)write2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
+    writeComp2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
+    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
   }
-  write1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
-  write1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
+  writeComp1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
+  writeComp1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
   write2dCharHDF5(file,"WAVEID",hdfData->waveID,hdfData->nWaves,hdfData->idLength);
 
   if(hdfData->nPbins>0){
     write1dFloatHDF5(file,"PRES",&hdfData->pRes,1);
-    write1dFloatHDF5(file,"PULSE",hdfData->pulse,hdfData->nPbins);
+    writeComp1dFloatHDF5(file,"PULSE",hdfData->pulse,hdfData->nPbins);
   }
 
   /*close file*/
