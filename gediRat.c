@@ -7,6 +7,7 @@
 #include "tools.c"
 #include "hdf5.h"
 #include "libLasRead.h"
+#include "libDEMhandle.h"
 #include "libLidVoxel.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
