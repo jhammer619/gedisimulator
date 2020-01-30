@@ -2220,7 +2220,7 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
 void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
-  int i=0;
+  int i=0,nMax=0;
   float CofG=0,tot=0,centre=0;
   float minSep=0,max=0;
   char line[400];
@@ -2263,11 +2263,13 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   tot=0.0;
   CofG=0.0;
   max=-1000.0;
+  nMax=0;
   for(i=0;i<gediIO->pulse->nBins;i++){
     CofG+=gediIO->pulse->x[i]*gediIO->pulse->y[i];
-    if(gediIO->pulse->y[i]>max){
+    if(gediIO->pulse->y[i]>=max){
       max=gediIO->pulse->y[i];
       centre=gediIO->pulse->x[i];
+      nMax++;
     }
     tot+=gediIO->pulse->y[i];
   }
@@ -2275,16 +2277,18 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   CofG-=centre;
 
   /*align pulse*/
-  minSep=1000.0;
-  gediIO->pSigma=0.0;
-  for(i=0;i<gediIO->pulse->nBins;i++){
-    gediIO->pulse->x[i]-=centre;
+  if(nMax<=2){
+    minSep=1000.0;
+    gediIO->pSigma=0.0;
+    for(i=0;i<gediIO->pulse->nBins;i++){
+      gediIO->pulse->x[i]-=centre;
 
-    if(fabs(gediIO->pulse->x[i])<minSep){
-      minSep=fabs(gediIO->pulse->x[i]);
-      gediIO->pulse->centBin=i;
+      if(fabs(gediIO->pulse->x[i])<minSep){
+        minSep=fabs(gediIO->pulse->x[i]);
+        gediIO->pulse->centBin=i;
+      }
     }
-  }
+  }else gediIO->pulse->centBin=gediIO->pulse->nBins/2;  /*if we are using pulse compressed lidar*/
 
   /*pulse width*/
   gediIO->pSigma=0.0;
