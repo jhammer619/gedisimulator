@@ -53,7 +53,29 @@
 /*####################################################*/
 /*turn a waveform in to a photon-count pseudo-wave*/
 
-void uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
+float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
+{
+  float *photWave=NULL;
+  float *corrWave=NULL;
+
+  /*first perform photon counting*/
+  photWave=countWaveform(denoised,data,photonCount,den,noise);
+
+  /*perform cross-correlation*/
+  //corrWave=crossCorrelateWaves(photWave,data->nBins,,);
+
+  /*tidy up*/
+  TIDY(photWave);
+  TIDY(denoised);
+
+  return(corrWave);
+}/*extractPhotons*/
+
+
+/*####################################################*/
+/*count photons and make pseudo-waveform*/
+
+float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
 {
   int i=0,nPhot=0;
   int bin=0;
@@ -73,13 +95,8 @@ void uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCoun
   }
   TTIDY((void **)phots,3);
 
-  /*copy over results*/
-  TIDY(denoised);
-  denoised=temp;
-  temp=NULL;
-
-  return;
-}/*extractPhotons*/
+  return(temp);
+}/*countWaveform*/
 
 
 /*####################################################*/

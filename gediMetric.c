@@ -280,7 +280,7 @@ int main(int argc,char **argv)
       /*are we in GEDI mode?*/
       if(!dimage->ice2){
         /*if we are doing PCL on photon counting, convert to photon count*/
-        if(dimage->pclPhoton)uncompressPhotons(denoised,data,&dimage->photonCount);
+        if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,dimage->gediIO.den,&dimage->noise);
 
         /*Gaussian fit*/
         if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);

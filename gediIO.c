@@ -1216,6 +1216,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 {
   int i=0;
   float zTop=0;
+  float *setPulseRange(float,pulseStruct *);
   dataStruct *data=NULL;
 
   /*read data from file if needed*/
@@ -1264,6 +1265,20 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
     memcpy(data->ground[0],&(hdfGedi[0]->ground[data->useType][hdfGedi[0]->sInd[numb]]),data->nBins*4);
   }else data->ground=NULL;
 
+  /*read pulse*/
+  if(hdfGedi[0]->nPbins>0){
+    if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
+      fprintf(stderr,"error pulse allocation.\n");
+      exit(1);
+    }
+    gediIO->pulse->y=hdfGedi[0]->pulse;
+    gediIO->pulse->nBins=hdfGedi[0]->nPbins;
+    gediIO->pRes=hdfGedi[0]->pRes;
+    gediIO->pulse->x=setPulseRange(gediIO->pRes,gediIO->pulse);
+  }else{
+    gediIO->pulse=NULL;
+  }/*pulse reading*/
+
   /*count energy*/
   data->totE=falloc((uint64_t)data->nWaveTypes,"totE",0);
   data->totE[data->useType]=0.0;
@@ -1284,6 +1299,37 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 
   return(data);
 }/*unpackHDFgedi*/
+
+
+/*####################################################*/
+/*set range from pulse file*/
+
+float *setPulseRange(float pRes,pulseStruct *pulse)
+{
+  int i=0,nMax=0;
+  float *x=NULL;
+  float max=0;
+
+  /*allocate space*/
+  x=falloc(pulse->nBins,"pulse range",0);
+
+  /*assign values and check for max*/
+  max=-10000.0;
+  nMax=0;
+  for(i=0;i<pulse->nBins;i++){
+    x[i]=(float)i*pRes;
+    if(pulse->y[i]>max){
+      max=pulse->y[i];
+      pulse->centBin=i;
+      nMax++;
+    }
+  }
+
+  /*to allow for chirps*/
+  if(nMax>2)pulse->centBin=pulse->nBins/2;
+
+  return(x);
+}/*setPulseRange*/
 
 
 /*####################################################*/
