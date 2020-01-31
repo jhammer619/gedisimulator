@@ -140,6 +140,7 @@ typedef struct{
   /*photon counting*/
   char ice2;         /*ICESat-2 mode. GEDI by default*/
   photonStruct photonCount;  /*photon counting structure*/
+  char pclPhoton;    /*use PCL photon counting*/
 
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
@@ -237,7 +238,7 @@ int main(int argc,char **argv)
  
   /*set photon rates if needed*/
   #ifdef USEPHOTON
-  if(dimage->ice2)setPhotonRates(&dimage->photonCount);
+  if(dimage->ice2||dimage->pclPhoton)setPhotonRates(&dimage->photonCount);
   #endif
 
 
@@ -278,6 +279,9 @@ int main(int argc,char **argv)
 
       /*are we in GEDI mode?*/
       if(!dimage->ice2){
+        /*if we are doing PCL on photon counting, convert to photon count*/
+        if(dimage->pclPhoton)uncompressPhotons(denoised,data,&dimage->photonCount);
+
         /*Gaussian fit*/
         if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
 

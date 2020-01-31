@@ -51,17 +51,49 @@
 
 
 /*####################################################*/
-/*select photons for photon counting*/
+/*turn a waveform in to a photon-count pseudo-wave*/
 
-void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
+void uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
 {
-  int i=0,nRH=0;
+  int i=0,nPhot=0;
+  int bin=0;
+  float *temp=NULL;
+  float **phots=NULL;
+
+  /*allocate space*/
+  temp=falloc(data->nBins,"temp pcl photon",0);
+
+  /*extract photon coords along with their flags*/
+  phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
+
+  /*bin up in to new wave*/
+  for(i=0;i<nPhot;i++){
+    bin=(int)(((float)data->z[0]-phots[0][i])/data->res);
+    temp[bin]+=1.0;
+  }
+  TTIDY((void **)phots,3);
+
+  /*copy over results*/
+  TIDY(denoised);
+  denoised=temp;
+  temp=NULL;
+
+  return;
+}/*extractPhotons*/
+
+
+/*####################################################*/
+/*count photons*/
+
+float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,int *nPhot,denPar *den,noisePar *noise)
+{
+  int i=0;
   int nPhotons=0,nNoise=0;
   int setNumberNoise(float,float,float);
-  float n1=0,n2=0;
+  float **phots=NULL;  /*arrray with z, isSignal and isGround*/
   float photThresh=0,d=0,thisZ=0;
   float pickArrayElement(float,float *,int,char);
-  float *rhReal=NULL,noiseInt=0;
+  float noiseInt=0;
   float photonNoiseIntensity(float);
   float minZ=0,maxZ=0;
   float *thisGr=NULL;
@@ -70,10 +102,72 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   void setPhotonProb(photonStruct *);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
   char testPhotonGround(dataStruct *,float);
-  char isGround=0;
+
+
+  /*rescale waveform for reflectance*/
+  wave=adjustPhotonProb(denoised,data,den,noise,data->useType,photonCount);
 
   /*do we need to set up the probability array?*/
   if(photonCount->prob==NULL)setPhotonProb(photonCount);
+
+  /*choose a number of signal photons to use*/
+  photThresh=(float)rand()/(float)RAND_MAX;
+  nPhotons=(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0);
+
+ /*determine reflectance for noise intensity*/
+  noiseInt=photonNoiseIntensity(data->cov);
+  /*generate noise photons*/
+  nNoise=setNumberNoise(data->cov,photonCount->noise_mult,photonCount->H);
+  *nPhot=nPhotons+nNoise;
+
+  /*allocate space*/
+  phots=fFalloc(3,"photon coordinates",0);
+  for(i=0;i<3;i++)phots[i]=falloc(*nPhot,"photon coordinates",i+1);
+
+  /*generate signal photons*/
+  for(i=0;i<nPhotons;i++){
+    /*pick a point along the waveform*/
+    photThresh=(float)rand()/(float)RAND_MAX;
+    d=pickArrayElement(photThresh,wave,data->nBins,1);
+
+    phots[0][i]=(float)data->z[0]-d*data->res;   /*determine range*/
+    phots[1][i]=1.0;                             /*is signal*/
+    phots[2][i]=(float)testPhotonGround(data,d); /*is this ground or canopy?*/
+  }/*signal photon loop*/
+
+  /*Noise*/
+  /*set bounds of search window*/
+  if(data->ground)thisGr=data->ground[data->useType];
+  else            thisGr=NULL;
+  setPhotonGround(&minZ,&maxZ,photonCount->H,data->gElev,data->wave[data->useType],thisGr,data->z,data->nBins);
+  thisGr=NULL;
+
+  /*add noise photons*/
+  for(i=0;i<nNoise;i++){
+    thisZ=(maxZ-minZ)*((float)rand()/(float)RAND_MAX)+minZ;
+
+    phots[0][i+nPhotons]=thisZ;   /*determine range*/
+    phots[1][i+nPhotons]=0.0;     /*is signal*/
+    phots[2][i+nPhotons]=0.0;     /*is this ground or canopy?*/
+  }/*noise loop*/
+
+  /*tidy up*/
+  if(wave!=denoised){
+    TIDY(wave);
+  }else wave=NULL;
+  return(phots);
+}/*countPhotons*/
+
+
+/*####################################################*/
+/*select photons for photon counting*/
+
+void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
+{
+  int i=0,nRH=0,nPhot=0;
+  float *rhReal=NULL,noiseInt=0;
+  float photonNoiseIntensity(float);
+  float **phots=NULL;
 
   /*open file if needed*/
   if(photonCount->opoo==NULL){
@@ -85,11 +179,8 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
     fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal, 19 ground\n");
   }
 
-  /*choose a number of photons to use*/
-  n1=(float)rand();
-  n2=(float)RAND_MAX;
-  photThresh=n1/n2;
-  nPhotons=(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0);
+  /*generate photons*/
+  phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
 
   /*get true RH metrics*/
   rhReal=findRH(data->wave[data->useType],data->z,data->nBins,data->gElev,5.0,&nRH);
@@ -97,43 +188,12 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   /*determine reflectance for noise intensity*/
   noiseInt=photonNoiseIntensity(data->cov);
 
-  /*rescale waveform for reflectance*/
-  wave=adjustPhotonProb(denoised,data,den,noise,data->useType,photonCount);
-
-  /*generate signal photons*/
-  for(i=0;i<nPhotons;i++){
-    /*pick a point along the waveform*/
-    n1=(float)rand();
-    photThresh=n1/n2;
-    d=pickArrayElement(photThresh,wave,data->nBins,1);
-
-    /*determine range*/
-    thisZ=(float)data->z[0]-d*data->res;
-
-    /*is this ground or canopy?*/
-    isGround=testPhotonGround(data,d);
-
-    /*write output*/
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 1 %d\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,isGround);
+  /*write out photons*/
+  for(i=0;i<nPhot;i++){
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f %d %d\n",data->lon,data->lat,phots[0][i],rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,(int)phots[1][i],(int)phots[2][i]);
   }/*mutiple photon loop*/
 
-  /*generate noise photons*/
-  nNoise=setNumberNoise(data->cov,photonCount->noise_mult,photonCount->H);
-  /*set bounds of search window*/
-  if(data->ground)thisGr=data->ground[data->useType];
-  else            thisGr=NULL;
-  setPhotonGround(&minZ,&maxZ,photonCount->H,data->gElev,data->wave[data->useType],thisGr,data->z,data->nBins);
-  thisGr=NULL;
-
-  /*add noise photons*/
-  for(i=0;i<nNoise;i++){
-    thisZ=(maxZ-minZ)*((float)rand()/(float)RAND_MAX)+minZ;
-    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f 0 0\n",data->lon,data->lat,thisZ,rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i+nPhotons,data->gElev,noiseInt);
-  }
-
-  if(wave!=denoised){
-    TIDY(wave);
-  }else wave=NULL;
+  TTIDY((void **)phots,3);
   TIDY(rhReal);
   return;
 }/*photonCountCloud*/

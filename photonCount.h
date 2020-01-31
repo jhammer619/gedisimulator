@@ -70,6 +70,8 @@ typedef struct{
 /*global functions*/
 
 void setPhotonRates(photonStruct *);
+void uncompressPhotons(float *,dataStruct *,photonStruct *,denPar *,noisePar *);
+float **countPhotons(float *,dataStruct *,photonStruct *,int *,denPar *,noisePar *);
 
 /*###########################################################*/
 
