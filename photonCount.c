@@ -12,7 +12,7 @@
 #include "gediIO.h"
 #include "gediNoise.h"
 #include "photonCount.h"
-
+#include "gsl/gsl_fft_complex.h"
 
 
 /*##############################*/
@@ -53,23 +53,102 @@
 /*####################################################*/
 /*turn a waveform in to a photon-count pseudo-wave*/
 
-float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
+float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,noisePar *noise,gediIOstruct *gediIO)
 {
   float *photWave=NULL;
   float *corrWave=NULL;
+  float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
+
+  /*do we have a usable pulse?*/
+  if(gediIO->pulse==NULL){
+    fprintf(stderr,"No pulse. Cannot use PCL\n");
+    exit(1);
+  }
 
   /*first perform photon counting*/
-  photWave=countWaveform(denoised,data,photonCount,den,noise);
+  photWave=countWaveform(denoised,data,photonCount,gediIO->den,noise);
 
   /*perform cross-correlation*/
-  //corrWave=crossCorrelateWaves(photWave,data->nBins,,);
+  corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
 
   /*tidy up*/
   TIDY(photWave);
   TIDY(denoised);
 
   return(corrWave);
-}/*extractPhotons*/
+}/*uncompressPhotons*/
+
+
+/*####################################################*/
+/*perform a cross-correlation*/
+
+float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
+{
+  int i=0,bin=0;
+  float totE=0;
+  float *corrWave=NULL;
+  float *compPulse=NULL;
+  float *compWave=NULL;
+  float *compCorr=NULL;
+  int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
+  int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
+
+
+  /*resample pulse to match waveform*/
+  compPulse=falloc(2*nBins,"complex pulse",0);
+  /*split pulse over 0*/
+  for(i=pulse->centBin;i<pulse->nBins;i++){
+    bin=(int)((float)(i-pulse->centBin)*pRes/res);
+    compPulse[2*bin]+=pulse->y[i];
+  }
+  for(i=0;i<pulse->centBin;i++){
+    bin=nBins-((int)((float)(pulse->centBin-i)*pRes/res)+1);
+    compPulse[2*bin]+=pulse->y[i];
+  }
+  for(i=0;i<nBins;i++)compPulse[2*bin+1]=0.0;  /*imaginary part*/
+
+  /*make waveform complex*/
+  compWave=falloc(2*nBins,"complex wave",0);
+  for(i=0;i<nBins;i++){
+    compWave[2*i]=photWave[i];
+    compWave[2*i+1]=0.0;  /*imaginary part*/
+  }
+
+  /*fourier transform both*/
+  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,nBins);
+  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compWave,1,nBins);
+
+  /*correlate*/
+  totE=0.0;
+  compCorr=falloc(2*nBins,"complex correlation",0);
+  for(i=0;i<nBins;i++){
+    compCorr[2*i]=compPulse[2*i]*compWave[2*i]+compPulse[2*i+1]*compWave[2*i+1];
+    compCorr[2*i+1]=-1.0*compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
+    totE+=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
+  }
+
+  /*normalise*/
+  for(i=0;i<nBins;i++){
+    compCorr[2*i]/=totE;
+    compCorr[2*i+1]/=totE;
+  }
+
+  /*inverse fourier*/
+  gsl_fft_complex_radix2_backward((gsl_complex_packed_array)compCorr,1,nBins);
+
+  /*make real*/
+  corrWave=falloc(nBins,"correlated wave",0);
+  for(i=0;i<nBins;i++){
+    corrWave[i]=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
+  }
+
+  /*tidy up*/
+  TIDY(compPulse);
+  TIDY(compWave);
+  TIDY(compCorr);
+
+  return(corrWave);
+}/*crossCorrelateWaves*/
 
 
 /*####################################################*/
@@ -146,6 +225,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
     /*pick a point along the waveform*/
     photThresh=(float)rand()/(float)RAND_MAX;
     d=pickArrayElement(photThresh,wave,data->nBins,1);
+fprintf(stdout,"array %d of %d\n",d,data->nBins);
 
     phots[0][i]=(float)data->z[0]-d*data->res;   /*determine range*/
     phots[1][i]=1.0;                             /*is signal*/
@@ -197,6 +277,7 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   }
 
   /*generate photons*/
+fprintf(stdout,"Bins middle %d\n",data->nBins);
   phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
 
   /*get true RH metrics*/

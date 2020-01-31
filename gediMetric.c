@@ -280,7 +280,7 @@ int main(int argc,char **argv)
       /*are we in GEDI mode?*/
       if(!dimage->ice2){
         /*if we are doing PCL on photon counting, convert to photon count*/
-        if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,dimage->gediIO.den,&dimage->noise);
+        if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
 
         /*Gaussian fit*/
         if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
@@ -295,6 +295,7 @@ int main(int argc,char **argv)
         if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
         else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
       }else{  /*ICESat-2 mode*/
+fprintf(stdout,"Bins out %d\n",data->nBins);
         photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
       }/*operation mode switch*/
     }/*is the data usable*/
