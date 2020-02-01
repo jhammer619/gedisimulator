@@ -2525,7 +2525,9 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
   numb=*hdfCount;
 
   /*trim waveform*/
-  buff=30.0;
+  buff=35.0;
+  if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes;
+
   /*find energies*/
   tot=falloc((uint64_t)hdfData->nTypeWaves,"tot",0);
   cumul=falloc((uint64_t)hdfData->nTypeWaves,"cumul",0);

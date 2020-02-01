@@ -66,7 +66,7 @@ float rhoC;
 /*function definition used here only*/
 
 float *findLAIprofile(float *,float,int,float,int *,double,float,double *,float);
-
+char checkUsable(float *,int);
 
 
 /*###########################################################*/
@@ -277,27 +277,29 @@ int main(int argc,char **argv)
       /*denoise*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
 
-      /*are we in GEDI mode?*/
-      if(!dimage->ice2){
-        /*if we are doing PCL on photon counting, convert to photon count*/
-        if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
+      /*check that the wave is still usable*/
+      if(checkUsable(denoised,data->nBins)){
+        /*are we in GEDI mode?*/
+        if(!dimage->ice2){
+          /*if we are doing PCL on photon counting, convert to photon count*/
+          if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
 
-        /*Gaussian fit*/
-        if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
+          /*Gaussian fit*/
+          if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
 
-        /*shift Gaussian centres to align to absolute elevation*/
-        alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
+          /*shift Gaussian centres to align to absolute elevation*/
+          alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
 
-        /*determine metrics*/
-        findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
+          /*determine metrics*/
+          findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
 
-        /*write results*/
-        if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
-        else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
-      }else{  /*ICESat-2 mode*/
-fprintf(stdout,"Bins out %d\n",data->nBins);
-        photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
-      }/*operation mode switch*/
+          /*write results*/
+          if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
+          else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
+        }else{  /*ICESat-2 mode*/
+          photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
+        }/*operation mode switch*/
+      }/*still usable after denoising?*/
     }/*is the data usable*/
 
 
@@ -395,6 +397,23 @@ fprintf(stdout,"Bins out %d\n",data->nBins);
   }
   return(0);
 }/*main*/
+
+
+/*####################################################*/
+/*check a wave contains energy*/
+
+char checkUsable(float *wave,int nBins)
+{
+  int i=0;
+  float totE=0;
+
+  totE=0.0;
+
+  for(i=0;i<nBins;i++)totE+=wave[i];
+
+  if(totE>0.0)return(1);
+  else        return(0);
+}/*checkUsable*/
 
 
 /*####################################################*/
@@ -1671,11 +1690,11 @@ control *readCommands(int argc,char **argv)
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->gediIO.den);
   dimage->gediIO.den->meanN=0.0;  /*we haven't added noise yet*/
-  dimage->gediIO.den->thresh=0.00000001;  /*tiny number as no noise yet*/
+  dimage->gediIO.den->thresh=0.00000000000001;  /*tiny number as no noise yet*/
   dimage->gediIO.den->noiseTrack=0;
   dimage->gediIO.den->minWidth=0;
   dimage->gediIO.den->varNoise=0;
-  dimage->gediIO.den->threshScale=1.5;
+  dimage->gediIO.den->threshScale=0.0;
   dimage->gediIO.den->fitGauss=0;
   dimage->gediIO.den->psWidth=0.0;
 

@@ -225,7 +225,6 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
     /*pick a point along the waveform*/
     photThresh=(float)rand()/(float)RAND_MAX;
     d=pickArrayElement(photThresh,wave,data->nBins,1);
-fprintf(stdout,"array %d of %d\n",d,data->nBins);
 
     phots[0][i]=(float)data->z[0]-d*data->res;   /*determine range*/
     phots[1][i]=1.0;                             /*is signal*/
@@ -277,7 +276,6 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   }
 
   /*generate photons*/
-fprintf(stdout,"Bins middle %d\n",data->nBins);
   phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
 
   /*get true RH metrics*/
@@ -290,6 +288,7 @@ fprintf(stdout,"Bins middle %d\n",data->nBins);
   for(i=0;i<nPhot;i++){
     fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f %d %d\n",data->lon,data->lat,phots[0][i],rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,(int)phots[1][i],(int)phots[2][i]);
   }/*mutiple photon loop*/
+  fflush(photonCount->opoo);
 
   TTIDY((void **)phots,3);
   TIDY(rhReal);
@@ -512,7 +511,6 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
     else           x=(float)(nBins-1);
   }else x=(float)i;
   TIDY(cumul);
-
 
   return(x);
 }/*pickArrayElement*/
