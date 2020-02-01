@@ -278,7 +278,7 @@ int j=0;
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
-for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
+if(dimage->pclPhoton)for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
