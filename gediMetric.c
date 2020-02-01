@@ -229,6 +229,7 @@ int main(int argc,char **argv)
   void checkWaveformBounds(dataStruct *,control *);
   void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
   float *processed=NULL,*denoised=NULL;;
+int j=0;
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
@@ -271,18 +272,18 @@ int main(int argc,char **argv)
       determineTruth(data,dimage);
 
       /*add noise if needed*/
-      addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
+      if(!dimage->pclPhoton)addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
+      else                  data->noised=uncompressPhotons(data->wave[data->useType],data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
 
       /*process waveform*/
-      /*denoise*/
+      /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
+for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
         /*are we in GEDI mode?*/
         if(!dimage->ice2){
-          /*if we are doing PCL on photon counting, convert to photon count*/
-          if(dimage->pclPhoton)denoised=uncompressPhotons(denoised,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
 
           /*Gaussian fit*/
           if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
@@ -299,7 +300,9 @@ int main(int argc,char **argv)
         }else{  /*ICESat-2 mode*/
           photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
         }/*operation mode switch*/
-      }/*still usable after denoising?*/
+      }else{/*still usable after denoising?*/
+fprintf(stderr,"No longer usable\n");
+      }
     }/*is the data usable*/
 
 
@@ -1731,6 +1734,7 @@ control *readCommands(int argc,char **argv)
   dimage->readL2=0;   /*do not read L2*/
   /*photon counting*/
   dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
+  dimage->pclPhoton=0;        /*full waveform rather thsn PCL*/
   #ifdef USEPHOTON
   dimage->photonCount.designval=2.1;
   dimage->photonCount.prob=NULL;
@@ -1956,6 +1960,8 @@ control *readCommands(int argc,char **argv)
       #ifdef USEPHOTON
       }else if(!strncasecmp(argv[i],"-photonCount",12)){
         dimage->ice2=1;
+      }else if(!strncasecmp(argv[i],"-pcl",4)){
+        dimage->pclPhoton=1;        /*Pulse compression lidar*/
       }else if(!strncasecmp(argv[i],"-nPhotons",9)){
         checkArguments(1,i,argc,"-nPhotons");
         dimage->photonCount.designval=atof(argv[++i]);
@@ -2053,6 +2059,7 @@ void writeHelp()
   #ifdef USEPHOTON
   fprintf(stdout,"\nPhoton counting\n\
 -photonCount;     output point cloud from photon counting\n\
+-pcl;             convert to photon counting pulse-compressed before processing\n\
 -nPhotons n;      mean number of photons\n\
 -photonWind x;    window length for photon counting search, metres\n\
 -noiseMult x;     noise multiplier for photon-counting\n\

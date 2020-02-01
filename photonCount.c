@@ -53,11 +53,12 @@
 /*####################################################*/
 /*turn a waveform in to a photon-count pseudo-wave*/
 
-float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,noisePar *noise,gediIOstruct *gediIO)
+float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,noisePar *noise,gediIOstruct *gediIO)
 {
   float *photWave=NULL;
   float *corrWave=NULL;
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
+int i=0;
 
   /*do we have a usable pulse?*/
   if(gediIO->pulse==NULL){
@@ -66,14 +67,16 @@ float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCo
   }
 
   /*first perform photon counting*/
-  photWave=countWaveform(denoised,data,photonCount,gediIO->den,noise);
+  photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
 
   /*perform cross-correlation*/
   corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
 
+for(i=0;i<data->nBins;i++)fprintf(stdout,"pho %d %f %f %f\n",i,photWave[i],wave[i],corrWave[i]);
+fflush(stdout);
+
   /*tidy up*/
   TIDY(photWave);
-  TIDY(denoised);
 
   return(corrWave);
 }/*uncompressPhotons*/
@@ -85,61 +88,74 @@ float *uncompressPhotons(float *denoised,dataStruct *data,photonStruct *photonCo
 float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
 {
   int i=0,bin=0;
-  float totE=0;
+  int numb=0;
   float *corrWave=NULL;
-  float *compPulse=NULL;
-  float *compWave=NULL;
-  float *compCorr=NULL;
+  double totE=0;
+  double *compPulse=NULL;
+  double *compWave=NULL;
+  double *compCorr=NULL;
   int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
   int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
 
 
+  /*FFT requires array is a power of 2 long*/
+  numb=pow(2.0,(float)((int)(log((double)nBins)/log(2.0)+0.5)+1));
+
   /*resample pulse to match waveform*/
-  compPulse=falloc(2*nBins,"complex pulse",0);
+  compPulse=dalloc(2*numb,"complex pulse",0);
+  for(i=2*numb-1;i>=0;i--)compPulse[i]=0.0;
   /*split pulse over 0*/
   for(i=pulse->centBin;i<pulse->nBins;i++){
     bin=(int)((float)(i-pulse->centBin)*pRes/res);
-    compPulse[2*bin]+=pulse->y[i];
+    if((bin<0)||(bin>=numb)){
+      fprintf(stderr,"Out of bounds\n");
+      exit(1);
+    }
+    compPulse[2*bin]+=(double)pulse->y[i];
   }
   for(i=0;i<pulse->centBin;i++){
-    bin=nBins-((int)((float)(pulse->centBin-i)*pRes/res)+1);
-    compPulse[2*bin]+=pulse->y[i];
+    bin=numb-((int)((float)(pulse->centBin-i)*pRes/res)+1);
+    if((bin<0)||(bin>=numb)){
+      fprintf(stderr,"Out of bounds\n");
+      exit(1);
+    }
+    compPulse[2*bin]+=(double)pulse->y[i];
   }
-  for(i=0;i<nBins;i++)compPulse[2*bin+1]=0.0;  /*imaginary part*/
 
   /*make waveform complex*/
-  compWave=falloc(2*nBins,"complex wave",0);
+  compWave=dalloc(2*numb,"complex wave",0);
   for(i=0;i<nBins;i++){
-    compWave[2*i]=photWave[i];
+    compWave[2*i]=(double)photWave[i];
     compWave[2*i+1]=0.0;  /*imaginary part*/
   }
+  for(i=2*nBins;i<2*numb;i++)compWave[i]=0.0;
 
   /*fourier transform both*/
-  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,nBins);
-  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compWave,1,nBins);
+  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,numb);
+  gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compWave,1,numb);
 
   /*correlate*/
   totE=0.0;
-  compCorr=falloc(2*nBins,"complex correlation",0);
-  for(i=0;i<nBins;i++){
+  compCorr=dalloc(2*numb,"complex correlation",0);
+  for(i=0;i<numb;i++){
     compCorr[2*i]=compPulse[2*i]*compWave[2*i]+compPulse[2*i+1]*compWave[2*i+1];
     compCorr[2*i+1]=-1.0*compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
     totE+=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
   }
 
   /*normalise*/
-  for(i=0;i<nBins;i++){
+  for(i=0;i<numb;i++){
     compCorr[2*i]/=totE;
     compCorr[2*i+1]/=totE;
   }
 
   /*inverse fourier*/
-  gsl_fft_complex_radix2_backward((gsl_complex_packed_array)compCorr,1,nBins);
+  gsl_fft_complex_radix2_backward((gsl_complex_packed_array)compCorr,1,numb);
 
   /*make real*/
   corrWave=falloc(nBins,"correlated wave",0);
   for(i=0;i<nBins;i++){
-    corrWave[i]=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
+    corrWave[i]=(float)sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
   }
 
   /*tidy up*/
@@ -288,7 +304,6 @@ void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount
   for(i=0;i<nPhot;i++){
     fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f %d %d\n",data->lon,data->lat,phots[0][i],rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,(int)phots[1][i],(int)phots[2][i]);
   }/*mutiple photon loop*/
-  fflush(photonCount->opoo);
 
   TTIDY((void **)phots,3);
   TIDY(rhReal);
