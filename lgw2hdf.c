@@ -153,7 +153,7 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
   hdf->nWaves=lgw->nWaves;
   hdf->nBins=1024; /*lgw->nBins; must be 1023 to match new LVIS*/
   hdf->pBins=lgw->nTxBins;
-
+fprintf(stdout,"Bins %d %d\n",lgw->nWaves,lgw->nBins);
 
   /*allocate arrays*/
   hdf->lon0=dalloc(hdf->nWaves,"lon0",0);
@@ -217,13 +217,19 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
     hdf->z1023[i]=lgw->data[i].z0+scale*dz;
 
     /*copy and reecast waveform*/
-    for(j=0;j<lgw->nBins;j++)hdf->wave[0][i*hdf->nBins+j]=(uint16_t)lgw->data[i].rxwave[j];
+    for(j=0;j<lgw->nBins;j++){
+      if(lgw->verMin<4)hdf->wave[0][i*hdf->nBins+j]=(uint16_t)lgw->data[i].rxwave[j];
+      else             hdf->wave[0][i*hdf->nBins+j]=lgw->data[i].rxwave4[j];
+    }
     /*pad end of waveform to make 1024 bins*/
     for(j=lgw->nBins;j<hdf->nBins;j++)hdf->wave[0][i*hdf->nBins+j]=(uint16_t)(hdf->sigmean[i]-0.5);
 
     /*copy pulse if needed*/
     if(usePulse){
-      for(j=0;j<hdf->pBins;j++)hdf->pulse[0][i*hdf->pBins+j]=(uint16_t)lgw->data[i].txwave[j];
+      for(j=0;j<hdf->pBins;j++){
+        if(lgw->verMin<4)hdf->pulse[0][i*hdf->pBins+j]=(uint16_t)lgw->data[i].txwave[j];
+        else             hdf->pulse[0][i*hdf->pBins+j]=lgw->data[i].txwave4[j];
+      }
     }
   }/*wave loop*/
 
@@ -246,6 +252,8 @@ void tidyLGW(lvisLGWstruct *lgw)
     for(i=0;i<lgw->nWaves;i++){
       TIDY(lgw->data[i].rxwave);
       TIDY(lgw->data[i].txwave);
+      TIDY(lgw->data[i].rxwave4);
+      TIDY(lgw->data[i].txwave4);
     }
     TIDY(lgw->data);
   }
