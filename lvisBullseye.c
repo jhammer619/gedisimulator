@@ -13,7 +13,7 @@
 #include "gediIO.h"
 #include "ogr_srs_api.h"
 #include "gsl/gsl_multimin.h"
-#include "siman/gsl_siman.h"
+#include "gsl/gsl_siman.h"
 
 
 /*#############################*/
