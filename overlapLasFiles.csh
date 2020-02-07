@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/tcsh -f
 
 set bin="$GEDIRAT_ROOT"
 

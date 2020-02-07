@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/tcsh -f
 
 # directory containing awk scripts needed
 set bin="$GEDIRAT_ROOT/extractTracks"

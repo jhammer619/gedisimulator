@@ -20,6 +20,7 @@ yum install -y hdf5.x86_64
 yum install -y hdf5-devel.x86_64
 yum install -y gdal.x86_64
 yum install -y gdal-devel.x86_64
+yum install -y tcsh.x86_64
 
 srcDir="$HOME/src"
 if [ ! -e $srcDir ]; then

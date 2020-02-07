@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/tcsh -f
 
 set list="/tmp/filtList.$$.dat"
 ls *.metric.txt|gawk '{for(i=1;i<=NF;i++)print $i}' > $list
