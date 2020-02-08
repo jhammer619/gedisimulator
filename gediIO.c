@@ -3137,7 +3137,7 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   float fwhm=0;   /*FWHM in metres*/
   float x=0,y=0;
   float max=0,tot=0;
-  void readSimPulse(gediIOstruct *,gediRatStruct *);
+  void readSimPulse(gediIOstruct *);
 
   if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
     fprintf(stderr,"error pulseStruct allocation.\n");
