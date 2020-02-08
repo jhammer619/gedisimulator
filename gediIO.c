@@ -3194,7 +3194,7 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
       gediIO->pulse->y[0]=1.0;
     }
   }else{  /*read the pulse from a file*/
-    readSimPulse(gediIO,gediRat);
+    readSimPulse(gediIO);
   }
 
   return;
@@ -3204,7 +3204,7 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 /*####################################*/
 /*read pulse to use for simulator*/
 
-void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
+void readSimPulse(gediIOstruct *gediIO)
 {
   int i=0;
   float CofG=0,tot=0,centre=0;
