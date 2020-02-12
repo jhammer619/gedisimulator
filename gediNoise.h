@@ -1,3 +1,5 @@
+#ifndef _08B1758B_E134_3B0B_1218_7BA6E30C845C
+#define _08B1758B_E134_3B0B_1218_7BA6E30C845C
 /*##############################*/
 /*# Header for gediNoise.c    #*/
 /*# GEDI waveforms             #*/
@@ -73,3 +75,5 @@ float GaussNoise();
 /*the end*/
 /*#######################################*/
 
+
+#endif /* _08B1758B_E134_3B0B_1218_7BA6E30C845C */
