@@ -4,7 +4,6 @@
 #include "math.h"
 #include "stdint.h"
 #include "tools.h"
-#include "tools.c"
 #include "hdf5.h"
 #include "libLasRead.h"
 #include "libDEMhandle.h"
