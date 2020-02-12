@@ -1,4 +1,5 @@
-
+#ifndef _1E3A0925_F134_3B0E_C85F_738A6A9F63B3
+#define _1E3A0925_F134_3B0E_C85F_738A6A9F63B3
 
 /*##############################*/
 /*# Structures for storing     #*/
@@ -30,7 +31,11 @@
 /*#    You should have received a copy of the GNU General Public License #*/
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
-
+#include <stdint.h>
+#include <libOctree.h>
+#include <libLasRead.h>
+#include <libLasProcess.h>
+#include <libLidarHDF.h>
 
 /*####################################*/
 /*pulse structure*/
@@ -369,3 +374,5 @@ double *reprojectWaveBounds(double *,int,int);
 /*# the end*/
 /*###########################################################*/
 
+
+#endif /* _1E3A0925_F134_3B0E_C85F_738A6A9F63B3 */
