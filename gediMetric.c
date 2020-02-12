@@ -11,14 +11,10 @@
 #include "libOctree.h"
 #include "gediIO.h"
 #include "gediNoise.h"
-#include "gediMetric.h"
-
-#define USEPHOTON
-
 #ifdef USEPHOTON
-#include "photonCount.h"
+  #include "photonCount.h"
 #endif
-
+#include "gediMetric.h"
 
 
 /*##############################*/
