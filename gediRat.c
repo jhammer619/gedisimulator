@@ -12,6 +12,7 @@
 #include "libLidarHDF.h"
 #include "libOctree.h"
 #include "gediIO.h"
+#include "gediRat.h"
 
 
 /*#########################*/
@@ -45,40 +46,9 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
-
-
 /*####################################*/
 
 #define TOL 0.000001   /*a tolerance*/
-
-
-/*####################################*/
-/*control structure*/
-
-typedef struct{
-  char **inList;
-  char outNamen[200];
-  char waveNamen[400];
-
-  /*IO structure*/
-  gediIOstruct gediIO; /*generic IO options*/
-  gediRatStruct gediRat; /*simulator options*/
-
-  /*options*/
-  char listFiles;      /*list waves only*/
-  char overWrite;      /*overwrite old waveform switch*/
-  uint64_t pBuffSize;  /*point buffer rading size in bytes*/
-  char waveID[200];    /*wave ID if we are to use it*/
-  char useID;          /*use wave ID*/
-  char polyGr;         /*fit a polynomial to the ground*/
-  char nnGr;           /*ground DEM from nearest neighbour*/
-
-  /*HDF5 output*/
-  char writeHDF;       /*write output as hdf5*/
-  char writeL1B;       /*write L1B HDF5 output format*/
-  int maxBins;         /*bins per wave for HDF5 output*/
-  int hdfCount;        /*count used footprints*/
-}control;
 
 
 /*####################################*/
