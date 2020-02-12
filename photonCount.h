@@ -31,6 +31,9 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
+#ifndef _88E48188_7134_3B0B_122D_3FADF51CD571
+#define _88E48188_7134_3B0B_122D_3FADF51CD571
+#include "gediNoise.h"
 
 /*###########################################################*/
 /*hold photon coiunting data for binary output*/
@@ -80,3 +83,4 @@ void setPhotonProb(photonStruct *);
 
 /*###########################################################*/
 
+#endif /* _88E48188_7134_3B0B_122D_3FADF51CD571 */
