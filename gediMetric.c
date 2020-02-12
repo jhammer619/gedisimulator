@@ -5,7 +5,6 @@
 #include "stdint.h"
 #include "hdf5.h"
 #include "tools.h"
-#include "tools.c"
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
