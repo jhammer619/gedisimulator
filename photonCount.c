@@ -70,7 +70,9 @@ int i=0;
   photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
 
   /*perform cross-correlation*/
-  corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+  //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+  corrWave=crossCorrelateWaves(gediIO->pulse->y,gediIO->pRes,gediIO->pulse->nBins,gediIO->pulse,gediIO->pRes);
+
 
 for(i=0;i<data->nBins;i++)fprintf(stdout,"pho %d %f %f %f\n",i,photWave[i],wave[i],corrWave[i]);
 fflush(stdout);
@@ -89,6 +91,7 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
 {
   int i=0,bin=0;
   int numb=0;
+  int *contN=NULL;
   float *corrWave=NULL;
   double totE=0;
   double *compPulse=NULL;
@@ -103,24 +106,47 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
 
   /*resample pulse to match waveform*/
   compPulse=dalloc(2*numb,"complex pulse",0);
-  for(i=2*numb-1;i>=0;i--)compPulse[i]=0.0;
-  /*split pulse over 0*/
-  for(i=pulse->centBin;i<pulse->nBins;i++){
-    bin=(int)((float)(i-pulse->centBin)*pRes/res);
+  contN=ialloc(numb,"contribution counter",0);
+  for(i=0;i<numb;i++){
+    compPulse[2*i]=compPulse[2*i+1]=0.0;
+    contN[i]=0;
+  }
+
+  for(i=0;i<pulse->nBins;i++){
+    bin=(int)((float)i*pRes/res+0.5);
     if((bin<0)||(bin>=numb)){
       fprintf(stderr,"Out of bounds\n");
-      exit(1);
+      continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
+    contN[bin]++;
+  }
+
+  /*split pulse over 0*/
+  /*for(i=pulse->centBin;i<pulse->nBins;i++){
+    bin=(int)((float)(i-pulse->centBin)*pRes/res+0.5);
+    if((bin<0)||(bin>=numb)){
+      fprintf(stderr,"Out of bounds\n");
+      continue;
+    }
+    compPulse[2*bin]+=(double)pulse->y[i];
+    contN[bin]++;
   }
   for(i=0;i<pulse->centBin;i++){
-    bin=numb-((int)((float)(pulse->centBin-i)*pRes/res)+1);
+    bin=numb-((int)((float)(pulse->centBin-i)*pRes/res+0.5)+1);
     if((bin<0)||(bin>=numb)){
       fprintf(stderr,"Out of bounds\n");
-      exit(1);
+      continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
+    contN[bin]++;
+  }*/
+  /*normalise*/
+  for(i=0;i<numb;i++){
+    if(contN[i]>0)compPulse[2*i]/=(float)contN[i];
   }
+  TIDY(contN);
+
 
   /*make waveform complex*/
   compWave=dalloc(2*numb,"complex wave",0);
@@ -138,8 +164,9 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   totE=0.0;
   compCorr=dalloc(2*numb,"complex correlation",0);
   for(i=0;i<numb;i++){
+fprintf(stdout,"fourier %d %f %f\n",i,sqrt(compPulse[2*i]*compPulse[2*i]+compPulse[2*i+1]*compPulse[2*i+1]),sqrt(compWave[2*i]*compWave[2*i]+compWave[2*i+1]*compWave[2*i+1]));
     compCorr[2*i]=compPulse[2*i]*compWave[2*i]+compPulse[2*i+1]*compWave[2*i+1];
-    compCorr[2*i+1]=-1.0*compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
+    compCorr[2*i+1]=compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
     totE+=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
   }
 
@@ -152,10 +179,12 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   /*inverse fourier*/
   gsl_fft_complex_radix2_backward((gsl_complex_packed_array)compCorr,1,numb);
 
+for(i=0;i<numb;i++)fprintf(stdout,"aft %d %f %f\n",i,compCorr[2*i],compCorr[2*i+1]);
+
   /*make real*/
   corrWave=falloc(nBins,"correlated wave",0);
   for(i=0;i<nBins;i++){
-    corrWave[i]=(float)sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
+    corrWave[i]=(float)compCorr[2*i];  /*(float)sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);*/
   }
 
   /*tidy up*/
