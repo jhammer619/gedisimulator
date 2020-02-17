@@ -3,7 +3,7 @@ find_path(GEOTIFF_INCLUDE_DIR
 	PATH_SUFFIXES libgeotiff geotiff)
 
 find_library(GEOTIFF_LIBRARY
-	NAMES geotiff geotiff3
+	NAMES geotiff geotiff3 geotiff_i
 	PATH_SUFFIXES geotiff)
 
 include(FindPackageHandleStandardArgs)

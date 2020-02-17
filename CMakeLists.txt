@@ -7,6 +7,7 @@ find_package(GDAL REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(GEOTIFF REQUIRED)
 find_package(GSL REQUIRED)
+find_package(TIFF REQUIRED)
 
 set(LIBCLIDAR_ROOT ../libclidar)
 set(HANCOCKTOOLS_ROOT ../tools)
@@ -38,13 +39,21 @@ set(LIBS
 	${HDF5_LIBRARIES}
 	${GDAL_LIBRARY}
 	${GEOTIFF_LIBRARY}
+	${TIFF_LIBRARY}
 	${GSL_LIBRARY}
 	)
 
 link_libraries(${LIBS})
 add_definitions(-DUSEPHOTON)
 
-add_library(gedisimulator SHARED 
+set(LIBTYPE SHARED)
+
+if(WIN32)
+	add_definitions(-DWIN32 -D_WIN32 -D_USE_MATH_DEFINES -DH5_BUILT_AS_DYNAMIC_LIB -DGSL_DLL)
+	set(LIBTYPE STATIC)
+endif()
+
+add_library(gedisimulator ${LIBTYPE}
 	${LIBCLIDAR_ROOT}/libLasProcess.c
 	${LIBCLIDAR_ROOT}/libLasRead.c
 	${LIBCLIDAR_ROOT}/tiffWrite.c
@@ -58,6 +67,7 @@ add_library(gedisimulator SHARED
 	gediIO.c
 	gediNoise.c
 	)
+
 
 list(APPEND LIBS 
 	gedisimulator)
