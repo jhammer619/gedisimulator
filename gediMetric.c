@@ -229,7 +229,6 @@ int main(int argc,char **argv)
   void checkWaveformBounds(dataStruct *,control *);
   void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
   float *processed=NULL,*denoised=NULL;;
-int j=0;
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
@@ -278,7 +277,11 @@ int j=0;
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
-if(dimage->pclPhoton)for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
+/*if(dimage->pclPhoton){
+  for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
+  fflush(stdout);
+}
+fprintf(stderr,"denoised\n");fflush(stderr);*/
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){

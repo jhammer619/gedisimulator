@@ -2530,7 +2530,8 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
   numb=*hdfCount;
 
   /*trim waveform*/
-  buff=30.0;
+  if(gediIO->pcl==0)buff=30.0;
+  else              buff=0.0;
   //if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes;
 
   /*find energies*/
@@ -2712,8 +2713,9 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }
 
   /*determine wave bounds*/
-  buff=35.0;
-  if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes;
+  if(gediIO->pcl==0)buff=35.0;
+  else              buff=0.0;
+  if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes/2.0;
   minZ=100000000000.0;
   maxZ=-100000000000.0;
   hasPoints=0;
@@ -2903,7 +2905,8 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   wave=readLasWave(data->waveMap[i],data->waveLen[i],data->ipoo,data->waveStart);
 
   /*buffer to give space for smoothing*/
-  buffBins=80;
+  if(gediIO->pcl==0)buffBins=80;
+  else              buffBins=0;
   waveLen=data->waveLen[i]+(uint32_t)(2*buffBins);
   temp=uchalloc((uint64_t)waveLen,"temp waveform",0);
   for(j=0;j<buffBins;j++)temp[j]=(unsigned char)gediRat->meanN;

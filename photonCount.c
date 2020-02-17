@@ -58,7 +58,6 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   float *photWave=NULL;
   float *corrWave=NULL;
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
-int i=0;
 
   /*do we have a usable pulse?*/
   if(gediIO->pulse==NULL){
@@ -71,11 +70,8 @@ int i=0;
 
   /*perform cross-correlation*/
   //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
-  corrWave=crossCorrelateWaves(gediIO->pulse->y,gediIO->pRes,gediIO->pulse->nBins,gediIO->pulse,gediIO->pRes);
-
-
-for(i=0;i<data->nBins;i++)fprintf(stdout,"pho %d %f %f %f\n",i,photWave[i],wave[i],corrWave[i]);
-fflush(stdout);
+  corrWave=crossCorrelateWaves(wave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+  //corrWave=crossCorrelateWaves(gediIO->pulse->y,gediIO->pRes,gediIO->pulse->nBins,gediIO->pulse,gediIO->pRes);
 
   /*tidy up*/
   TIDY(photWave);
@@ -93,16 +89,21 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   int numb=0;
   int *contN=NULL;
   float *corrWave=NULL;
-  double totE=0;
+  double meanW=0,meanP=0;
   double *compPulse=NULL;
   double *compWave=NULL;
   double *compCorr=NULL;
   int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
   int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
+  void removeAsymmetryPCL(double *,int);
 
 
-  /*FFT requires array is a power of 2 long*/
-  numb=pow(2.0,(float)((int)(log((double)nBins)/log(2.0)+0.5)+1));
+  /*FFT requires that array is a power of 2 long*/
+  numb=pow(2.0,(float)(int)(log((double)nBins)/log(2.0)+1.0));
+
+
+  /*means of both for subtraction. Set to zero for now*/
+  meanW=meanP=0.0;
 
   /*resample pulse to match waveform*/
   compPulse=dalloc(2*numb,"complex pulse",0);
@@ -112,21 +113,11 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
     contN[i]=0;
   }
 
-  for(i=0;i<pulse->nBins;i++){
-    bin=(int)((float)i*pRes/res+0.5);
-    if((bin<0)||(bin>=numb)){
-      fprintf(stderr,"Out of bounds\n");
-      continue;
-    }
-    compPulse[2*bin]+=(double)pulse->y[i];
-    contN[bin]++;
-  }
-
   /*split pulse over 0*/
   /*for(i=pulse->centBin;i<pulse->nBins;i++){
     bin=(int)((float)(i-pulse->centBin)*pRes/res+0.5);
     if((bin<0)||(bin>=numb)){
-      fprintf(stderr,"Out of bounds\n");
+      fprintf(stderr,"Out of bounds when splitting pulse, %d of %d\n",bin,numb);
       continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
@@ -135,16 +126,29 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   for(i=0;i<pulse->centBin;i++){
     bin=numb-((int)((float)(pulse->centBin-i)*pRes/res+0.5)+1);
     if((bin<0)||(bin>=numb)){
-      fprintf(stderr,"Out of bounds\n");
+      fprintf(stderr,"Out of bounds when splitting pulse, %d of %d\n",bin,numb);
       continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
     contN[bin]++;
   }*/
+
+  for(i=0;i<pulse->nBins;i++){
+    bin=(int)((float)i*pRes/res+0.5);
+    if((bin<0)||(bin>numb))continue;
+    compPulse[2*bin]+=(double)pulse->y[i];
+    contN[bin]++;
+  }
+
+
   /*normalise*/
   for(i=0;i<numb;i++){
-    if(contN[i]>0)compPulse[2*i]/=(float)contN[i];
+    if(contN[i]>0){
+      compPulse[2*i]/=(float)contN[i];
+      meanP+=compPulse[2*i];
+    }
   }
+  meanP/=(double)pulse->nBins;
   TIDY(contN);
 
 
@@ -152,34 +156,35 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   compWave=dalloc(2*numb,"complex wave",0);
   for(i=0;i<nBins;i++){
     compWave[2*i]=(double)photWave[i];
+    meanW+=compWave[2*i];
     compWave[2*i+1]=0.0;  /*imaginary part*/
   }
+  meanW/=(double)nBins;
   for(i=2*nBins;i<2*numb;i++)compWave[i]=0.0;
+
+  /*subtract means*/
+  for(i=numb-1;i>=0;i--){
+    compWave[2*i]-=meanW;
+    compPulse[2*i]-=meanP;
+  }
+
+  /*remove assymmetry of signal*/
+  removeAsymmetryPCL(compWave,numb);
+for(i=0;i<numb;i++)fprintf(stdout,"as %d %f\n",i,compWave[2*i]);
 
   /*fourier transform both*/
   gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,numb);
   gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compWave,1,numb);
 
   /*correlate*/
-  totE=0.0;
   compCorr=dalloc(2*numb,"complex correlation",0);
   for(i=0;i<numb;i++){
-fprintf(stdout,"fourier %d %f %f\n",i,sqrt(compPulse[2*i]*compPulse[2*i]+compPulse[2*i+1]*compPulse[2*i+1]),sqrt(compWave[2*i]*compWave[2*i]+compWave[2*i+1]*compWave[2*i+1]));
     compCorr[2*i]=compPulse[2*i]*compWave[2*i]+compPulse[2*i+1]*compWave[2*i+1];
     compCorr[2*i+1]=compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
-    totE+=sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
-  }
-
-  /*normalise*/
-  for(i=0;i<numb;i++){
-    compCorr[2*i]/=totE;
-    compCorr[2*i+1]/=totE;
   }
 
   /*inverse fourier*/
   gsl_fft_complex_radix2_backward((gsl_complex_packed_array)compCorr,1,numb);
-
-for(i=0;i<numb;i++)fprintf(stdout,"aft %d %f %f\n",i,compCorr[2*i],compCorr[2*i+1]);
 
   /*make real*/
   corrWave=falloc(nBins,"correlated wave",0);
@@ -194,6 +199,35 @@ for(i=0;i<numb;i++)fprintf(stdout,"aft %d %f %f\n",i,compCorr[2*i],compCorr[2*i+
 
   return(corrWave);
 }/*crossCorrelateWaves*/
+
+
+/*####################################################*/
+/*truncate the assymmetry of a waveform for PCL*/
+
+void removeAsymmetryPCL(double *compWave,int numb)
+{
+  int i=0;
+
+  /*find start point*/
+  for(i=0;i<numb;i++){
+    /*if less then mean, set to mean*/
+    if(compWave[2*i]>=0.0){
+      for(;i>=0;i--)compWave[2*i]=0.0;
+      break;
+    }
+  }
+
+  /*find end point*/
+  for(i=numb-1;i>=0;i--){
+    /*if less then mean, set to mean*/
+    if(compWave[2*i]>=0.0){
+      for(;i<numb;i++)compWave[2*i]=0.0;
+      break;
+    }
+  }
+
+  return;
+}/*removeAsymmetryPCL*/
 
 
 /*####################################################*/
@@ -234,7 +268,6 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   float **phots=NULL;  /*arrray with z, isSignal and isGround*/
   float photThresh=0,d=0,thisZ=0;
   float pickArrayElement(float,float *,int,char);
-  float noiseInt=0;
   float photonNoiseIntensity(float);
   float minZ=0,maxZ=0;
   float *thisGr=NULL;
@@ -255,8 +288,6 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   photThresh=(float)rand()/(float)RAND_MAX;
   nPhotons=(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0);
 
- /*determine reflectance for noise intensity*/
-  noiseInt=photonNoiseIntensity(data->cov);
   /*generate noise photons*/
   nNoise=setNumberNoise(data->cov,photonCount->noise_mult,photonCount->H);
   *nPhot=nPhotons+nNoise;
