@@ -101,10 +101,6 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   /*FFT requires that array is a power of 2 long*/
   numb=pow(2.0,(float)(int)(log((double)nBins)/log(2.0)+1.0));
 
-
-  /*means of both for subtraction. Set to zero for now*/
-  meanW=meanP=0.0;
-
   /*resample pulse to match waveform*/
   compPulse=dalloc(2*numb,"complex pulse",0);
   contN=ialloc(numb,"contribution counter",0);
@@ -145,21 +141,20 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   for(i=0;i<numb;i++){
     if(contN[i]>0){
       compPulse[2*i]/=(float)contN[i];
-      meanP+=compPulse[2*i];
     }
   }
-  meanP/=(double)pulse->nBins;
   TIDY(contN);
 
+  /*median of pulse*/
+  meanP=singleMedian(pulse->y,pulse->nBins);
 
   /*make waveform complex*/
   compWave=dalloc(2*numb,"complex wave",0);
   for(i=0;i<nBins;i++){
     compWave[2*i]=(double)photWave[i];
-    meanW+=compWave[2*i];
     compWave[2*i+1]=0.0;  /*imaginary part*/
   }
-  meanW/=(double)nBins;
+  meanW=singleMedian(photWave,nBins);
   for(i=2*nBins;i<2*numb;i++)compWave[i]=0.0;
 
   /*subtract means*/
@@ -170,7 +165,6 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
 
   /*remove assymmetry of signal*/
   removeAsymmetryPCL(compWave,numb);
-for(i=0;i<numb;i++)fprintf(stdout,"as %d %f\n",i,compWave[2*i]);
 
   /*fourier transform both*/
   gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,numb);
