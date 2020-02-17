@@ -238,7 +238,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 {
   int i=0;
   gediHDF *hdfData=NULL;
-  void trimDataLength(dataStruct **,gediHDF *);
+  void trimDataLength(dataStruct **,gediHDF *,gediIOstruct *);
 
   /*allocate space for all*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
@@ -269,7 +269,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 
 
   /*trim and copy data*/
-  trimDataLength(data,hdfData);
+  trimDataLength(data,hdfData,gediIO);
 
   return(hdfData);
 }/*arrangeGEDIhdf*/
@@ -278,7 +278,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 /*####################################################*/
 /*trim all arrays to be the same length*/
 
-void trimDataLength(dataStruct **data,gediHDF *hdfData)
+void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 {
   int i=0,j=0,maxBins=0,maxID=0;
   int ind=0,numb=0;;
@@ -288,7 +288,8 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
   float buffer=0,cumul=0;
 
   /*buffer length in metres*/
-  buffer=30.0;
+  if(gediIO->pcl==0)buffer=30.0;
+  else              buffer=0.0;
 
   /*allocate usable bins*/
   start=ialloc(hdfData->nWaves,"wave starts",0);
@@ -303,7 +304,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
       /*total energy for a threshod*/
       tot=0.0;
       for(j=0;j<data[i]->nBins;j++)tot+=data[i]->wave[ind][j];
-      thresh=0.005*tot;
+      thresh=0.0005*tot;
 
       /*determine used bounds*/
       cumul=0.0;
@@ -337,6 +338,10 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData)
       if(((int)strlen(data[i]->waveID)+1)>maxID)maxID=(int)strlen(data[i]->waveID)+1;
     }
   }
+
+  /*if we are doing PCL, do not zero pad and just save the pulse*/
+  if(gediIO->pcl)maxBins=(int)((float)hdfData->nPbins*gediIO->res/hdfData->pRes);
+
   hdfData->nBins=ialloc(1,"bins",0);
   hdfData->nBins[0]=maxBins;
   if(maxID>0)hdfData->idLength=maxID;

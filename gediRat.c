@@ -569,13 +569,14 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.vRes[0]=dimage->gediRat.vRes[1]=dimage->gediRat.vRes[2]=1.0;
   dimage->gediRat.beamRad=0.165;    /*33 cm*/
   dimage->gediRat.maxScanAng=1000000.0;   /*maximum scan angle*/
-  dimage->polyGr=0;     /*don't fit a polynomial through the ground*/
-  dimage->nnGr=0;       /*don't make a DEM from nearest neighbour*/
-  dimage->overWrite=1;  /*over write any files with the same name if they exist*/
+  dimage->polyGr=0;             /*don't fit a polynomial through the ground*/
+  dimage->nnGr=0;               /*don't make a DEM from nearest neighbour*/
+  dimage->overWrite=1;          /*over write any files with the same name if they exist*/
   dimage->gediRat.readALSonce=0;/*read each footprint separately*/
-  dimage->writeHDF=0;   /*write output as ascii*/
-  dimage->gediRat.defWfront=0;   /*Gaussian footprint*/
+  dimage->writeHDF=0;           /*write output as ascii*/
+  dimage->gediRat.defWfront=0;  /*Gaussian footprint*/
   dimage->gediRat.wavefront=NULL;
+  dimage->gediIO.pcl=0;         /*do not use PCL*/
 
   /*beams*/
   dimage->gediIO.useCount=dimage->gediIO.useFrac=dimage->gediIO.useInt=1;
@@ -735,6 +736,8 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-decimate",9)){
         checkArguments(1,i,argc,"-decimate");
         dimage->gediRat.decimate=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-pcl",4)){
+        dimage->gediIO.pcl=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
         writeGediRatHelpMessage();
         exit(1);
@@ -782,6 +785,7 @@ void writeGediRatHelpMessage()
 -topHat;         use a top hat wavefront\n\
 -sideLobe;       use side lobes\n\
 -lobeAng ang;    lobe axis azimuth\n\
+-pcl;            pulse comression lidar. Do not pad waveform\n\
 \n# Input data quality filters\n\
 -checkCover;     check that the footprint is covered by ALS data. Do not output if not\n\
 -maxScanAng ang; maximum scan angle, degrees\n\

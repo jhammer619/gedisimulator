@@ -153,6 +153,7 @@ typedef struct{
   char pulseFile[200];
   pulseStruct *pulse;
   float pRes;
+  char pcl;            /*use PCL (do not pad return)*/
 
   /*number of waves to simulate*/
   int nTypeWaves;    /*number of waves simulated*/
@@ -178,7 +179,7 @@ typedef struct{
   char readALSonce;    /*read all ALS data once*/
   char readWave;       /*read waveform switch*/
   char useShadow;      /*account for shadowing through voxelisation*/
-  char topHat;       /*use a top hat wavefront rather than Gaussian*/
+  char topHat;         /*use a top hat wavefront rather than Gaussian*/
   char normCover;      /*normalise for variable ALS coverage*/
   char checkCover;     /*check that the whole footprit is covered by data*/
   char useFootprint;   /*use footprint or not flag*/
