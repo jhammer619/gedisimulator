@@ -153,7 +153,7 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
   hdf->nWaves=lgw->nWaves;
   hdf->nBins=1024; /*lgw->nBins; must be 1023 to match new LVIS*/
   hdf->pBins=lgw->nTxBins;
-fprintf(stdout,"Bins %d %d\n",lgw->nWaves,lgw->nBins);
+  fprintf(stdout,"Bins %d %d\n",lgw->nWaves,lgw->nBins);
 
   /*allocate arrays*/
   hdf->lon0=dalloc(hdf->nWaves,"lon0",0);
