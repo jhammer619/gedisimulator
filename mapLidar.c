@@ -222,7 +222,7 @@ void fillGaps(control *dimage,imageStruct *image)
   unsigned char *newImage=NULL,newChar=0;
   void fillDTMhole(int,int,uint64_t,imageStruct *,control *,char,float *,unsigned char *);
 
-  if(dimage->charImage)newImage=challoc(image->nX*image->nY,"newImage",0);
+  if(dimage->charImage)newImage=uchalloc(image->nX*image->nY,"newImage",0);
   else                 newJimlad=falloc(image->nX*image->nY,"newImage",0);
 
   /*loop over image*/
@@ -335,15 +335,14 @@ uint64_t *setFillList(int i,int j,int w,int *nTest,imageStruct *image)
     fprintf(stderr,"error fill index list allocation.\n");
     exit(1);
   }
-  *nTest=0;
+  (*nTest)=0;
 
   /*x edges*/
   for(ii=i-w;ii<=(i+w);ii+=w*2){
     if((ii<0)||(ii>=image->nX))continue;
     for(jj=j-w;jj<=j+w;jj++){
       if((jj<0)||(jj>=image->nY))continue;
-
-      indList[*nTest]=jj*image->nX+ii;
+      indList[*nTest]=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
       (*nTest)++;
     }
   }
@@ -352,9 +351,8 @@ uint64_t *setFillList(int i,int j,int w,int *nTest,imageStruct *image)
   for(jj=j-w;jj<=(j+w);jj+=w*2){
     if((jj<0)||(jj>=image->nY))continue;
     for(ii=(i-w)+1;ii<i+w;ii++){
-      if((ii<0)||(i>=image->nX))continue;
-      
-      indList[*nTest]=jj*image->nX+ii;
+      if((ii<0)||(ii>=image->nX))continue;
+      indList[*nTest]=(uint64_t)jj*(uint64_t)image->nX+(uint64_t)ii;
       (*nTest)++;
     }
   }
