@@ -2,7 +2,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "math.h"
-#include "stdint.h"
+#include "inttypes.h"
 #include "tools.h"
 #include "hdf5.h"
 #include "libLasProcess.h"
@@ -1639,7 +1639,7 @@ void setGEDIwaveID(gediHDF *hdfData,int nUse,uint64_t *shotN,int *useInd,char *b
 
   for(i=0;i<nUse;i++){
     ind=i+hdfData->nWaves;
-    sprintf(&hdfData->waveID[ind*hdfData->idLength],"gedi.%s.%lu",beam,shotN[useInd[i]]);
+    sprintf(&hdfData->waveID[ind*hdfData->idLength],"gedi.%s.%" PRIu64,beam,shotN[useInd[i]]);
   }
 
   return;
@@ -1803,7 +1803,7 @@ void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int 
   }else{
     offset=hdfData->sInd[hdfData->nWaves];
     if(!(hdfData->wave[0]=(float *)realloc(hdfData->wave[0],(totBins+offset)*(uint64_t)sizeof(float)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",(totBins+offset)*(uint64_t)sizeof(float *));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",(totBins+offset)*(uint64_t)sizeof(float *));
       exit(1);
     }
   }
@@ -1858,39 +1858,39 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
   /*if already allocated, reallocate*/
   if(hdfData->nWaves>0){
     if(!(hdfData->z0=(float *)realloc(hdfData->z0,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->zN=(float *)realloc(hdfData->zN,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->lon=(double *)realloc(hdfData->lon,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
       exit(1);
     }
     if(!(hdfData->lat=(double *)realloc(hdfData->lat,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
       exit(1);
     }
     if(!(hdfData->zen=(float *)realloc(hdfData->zen,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->solarElev=(float *)realloc(hdfData->solarElev,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->nBins=(int *)realloc(hdfData->nBins,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(int)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->sInd=(uint64_t *)realloc(hdfData->sInd,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(uint64_t)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
     if(!(hdfData->waveID=(char *)realloc(hdfData->waveID,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)hdfData->idLength*(uint64_t)sizeof(char)))){
-      fprintf(stderr,"Error in reallocation, allocating %lu\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       exit(1);
     }
   }else{  /*allocate for the first time*/

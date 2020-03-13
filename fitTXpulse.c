@@ -2,7 +2,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "math.h"
-#include "stdint.h"
+#include "inttypes.h"
 #include "hdf5.h"
 #include "tools.h"
 #include "tools.c"
@@ -516,7 +516,7 @@ pulseData *readHDFdata(char *namen,control *dimage)
     fprintf(stdout,"Adding %d waves for a total of %d\n",nWaves,data->nWaves+nWaves);
     if(data->nWaves>0){
       if(!(data->wave=(float **)realloc(data->wave,(uint64_t)(data->nWaves+nWaves)*(uint64_t)sizeof(float *)))){
-        fprintf(stderr,"Error in reallocation, allocating %lu\n",(data->nWaves+nWaves)*(uint64_t)sizeof(float **));
+        fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",(data->nWaves+nWaves)*(uint64_t)sizeof(float **));
         exit(1);
       }
     }else data->wave=fFalloc(nWaves,"waves",0);
