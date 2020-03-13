@@ -4227,8 +4227,7 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
   /*create images*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,gediIO->pRes*4.0,iRes,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ);*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,NULL,0.15,0.01,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ,NULL);*/
-  fprintf(stderr,"THis method is no longer operational. Do not use\n");
-  exit(1);
+  fprintf(stderr,"This method is no longer operational. Do not use\n");
 
 
   silhouetteImage(gediIO->nFiles,data,NULL,rImage,&lidPar,NULL,0,NULL);
