@@ -130,8 +130,13 @@ int main(int argc,char **argv)
 
 
       /*do pcl if needed*/
+      #ifdef USEPHOTON
       if(dimage->gediIO.pclPhoton||dimage->gediIO.pcl)data->noised=uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
+      #else
+      fprintf(stderr,"Can't use photon, not compiled with -DUSEPHOTON!\n");
+      #endif
       pclWave=NULL;
+
 
 
       /*process waveform*/

@@ -31,7 +31,9 @@
 /*#    along with gediRat.  If not, see <http://www.gnu.org/licenses/>.  #*/
 /*########################################################################*/
 
+#ifdef USEPHOTON
 #include "photonCount.h"
+#endif
 #include "gediNoise.h"
 #include <libLasProcess.h>
 
@@ -177,4 +179,5 @@ typedef struct{
   bGround *bGr;     /*Bayesian ground structure*/
   double bayGround; /*Bayesian ground elevation*/
 }metStruct;
+
 #endif /* _22E2D91D_B134_3B0A_133E_DE2D88E57819 */
