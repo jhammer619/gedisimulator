@@ -4206,7 +4206,7 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   lidVoxPar lidPar;
 
-  fprintf(stderr,"Silouhette images do not currently wqork with octrees\n");
+  fprintf(stderr,"Silouhette images do not currently work with octrees\n");
   exit(1);
 
   /*iRes=0.02;*/
