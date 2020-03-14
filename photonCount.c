@@ -459,7 +459,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*allocate space*/
   ASSIGN_CHECKNULL_RETNULL(phots,fFalloc(3,"photon coordinates",0));
-  for(i=0;i<3;i++)ASSIGN_CHECKNULL_RETNULL(phots[i],falloc(*nPhot,"photon coordinates",i+1));
+  for(i=0;i<3;i++) {ASSIGN_CHECKNULL_RETNULL(phots[i],falloc(*nPhot,"photon coordinates",i+1));}
 
   /*generate signal photons*/
   for(i=0;i<nPhotons;i++){

@@ -749,8 +749,8 @@ int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *
 
   /*rh metrics with real ground, if we have the ground*/
   if(dimage->gediIO.ground||data->demGround){
-    if(dimage->noise.linkNoise)ASSIGN_CHECKNULL_RETINT(metric->rhReal,findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH));
-    else                 ASSIGN_CHECKNULL_RETINT(metric->rhReal,findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH));
+    if(dimage->noise.linkNoise) {ASSIGN_CHECKNULL_RETINT(metric->rhReal,findRH(data->wave[data->useType],z,nBins,data->gElev,dimage->rhRes,&metric->nRH));}
+    else {ASSIGN_CHECKNULL_RETINT(metric->rhReal,findRH(denoised,z,nBins,data->gElev,dimage->rhRes,&metric->nRH));}
   }else{
     ASSIGN_CHECKNULL_RETINT(metric->rhReal,falloc((uint64_t)metric->nRH,"rhReal",0));
     for(i=0;i<metric->nRH;i++)metric->rhReal[i]=-1.0;
@@ -761,12 +761,12 @@ int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *
   if(dimage->noCanopy==0){   /*more complex ones only if needed*/
     ASSIGN_CHECKFLT_RETINT(metric->FHDhist,foliageHeightDiversityHist(denoised,nBins,dimage->fhdHistRes));
     /*from ground removed canopy*/
-    if(dimage->gediIO.ground)ASSIGN_CHECKNULL_RETINT(canWave,subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins));
+    if(dimage->gediIO.ground) {ASSIGN_CHECKNULL_RETINT(canWave,subtractGroundFromCan(data->wave[data->useType],data->ground[data->useType],nBins));}
     else                     canWave=NULL;  /*no ground estimate. Leave blank*/
     ASSIGN_CHECKFLT_RETINT(metric->FHDcanH,foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes));
     TIDY(canWave);
     /*from Gaussian removed canopy*/
-    if(nGauss>0)ASSIGN_CHECKNULL_RETINT(canWave,subtractGaussFromCan(denoised,nBins,mu[gInd],A[gInd],sig[gInd],z));
+    if(nGauss>0) {ASSIGN_CHECKNULL_RETINT(canWave,subtractGaussFromCan(denoised,nBins,mu[gInd],A[gInd],sig[gInd],z));}
     else        canWave=NULL;  /*no Gaussian ground estimate*/
     ASSIGN_CHECKFLT_RETINT(metric->FHDcanGauss,foliageHeightDiversity(canWave,nBins));
     metric->FHDcanGhist=foliageHeightDiversityHist(canWave,nBins,dimage->fhdHistRes);
