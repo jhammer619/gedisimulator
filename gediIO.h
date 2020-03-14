@@ -368,7 +368,7 @@ void setBeamsToSkip(char *,char *);
 void setBeamsToRead(char *,char *);
 wFrontStruct *copyFrontFilename(char *);
 float waveformTrueCover(dataStruct *,gediIOstruct *,float);
-float *findBlairSense(dataStruct *,gediIOstruct *);
+float findBlairSense(dataStruct *,gediIOstruct *);
 double *reprojectWaveBounds(double *,int,int);
 
 /*# the end*/

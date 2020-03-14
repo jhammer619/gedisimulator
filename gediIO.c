@@ -4633,13 +4633,13 @@ float waveformTrueCover(dataStruct *data,gediIOstruct *gediIO,float rhoRatio)
 /*####################################################*/
 /*determine Blair sensitivity metric*/
 
-float *findBlairSense(dataStruct *data,gediIOstruct *gediIO)
+float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
 {
   int i=0;
   float gAmp=0,totE=0;
   float sigEff=0,gArea=0;
   float slope=0,tanSlope=0;
-  float *blairSense=0;
+  float blairSense=0;
   float meanN=0,stdev=0;
   float notNeeded=0;
   double nNsig=0,nSsig=0;
@@ -4657,7 +4657,7 @@ float *findBlairSense(dataStruct *data,gediIOstruct *gediIO)
 
   /*determine noise stats for sensitivity metric. Note this is using the threshold to get the mean and stdev*/
   if(meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res)))
-    return(NULL);
+    return(-1.0);
   stdev-=meanN;
 
   /*total energy*/
@@ -4677,9 +4677,9 @@ float *findBlairSense(dataStruct *data,gediIOstruct *gediIO)
     sigEff=sqrt(gediIO->linkPsig*gediIO->linkPsig+gediIO->linkFsig*gediIO->linkFsig*tanSlope*tanSlope);
     gArea=gAmp*sigEff*sqrt(2.0*M_PI)/totE;
 
-    if(gArea>0.0)*blairSense=1.0-gArea;
-    else         *blairSense=0.0;
-  }else *blairSense=1.0;
+    if(gArea>0.0)(blairSense)=1.0-gArea;
+    else         (blairSense)=0.0;
+  }else blairSense=1.0;
 
   return(blairSense);
 }/*findBlairSense*/
