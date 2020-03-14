@@ -82,7 +82,7 @@ int main(int argc,char **argv)
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
-  if(dimage)
+  if(dimage==NULL)
     return(1);
 
   /*set link noise if needed*/
@@ -715,10 +715,10 @@ int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *
   for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
   /*Blair sensitivity*/
-  float* _blairSense = findBlairSense(data,&dimage->gediIO);
-  if(_blairSense==NULL)
-    return(-1);
-  metric->blairSense=*_blairSense;
+  metric->blairSense=findBlairSense(data,&dimage->gediIO);
+  if(metric->blairSense<0){
+	  return(-1);
+  }
 
   /*smooth waveform for finding ground by max and inflection*/
   setDenoiseDefault(&den);
