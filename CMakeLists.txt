@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.2)
-project(gedisimulator C)
+project(gedisimulator C CXX)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 find_package(GDAL REQUIRED)
-find_package(HDF5 REQUIRED)
+find_package(HDF5 REQUIRED COMPONENTS C CXX)
 find_package(GEOTIFF REQUIRED)
 find_package(GSL REQUIRED)
 find_package(TIFF REQUIRED)
 
-set(LIBCLIDAR_ROOT ../libclidar)
-set(HANCOCKTOOLS_ROOT ../tools)
-set(CMPFIT_ROOT ../cmpfit-1.2)
+	set(LIBCLIDAR_ROOT ../libclidar)
+	set(HANCOCKTOOLS_ROOT ../tools)
+	set(CMPFIT_ROOT ../cmpfit-1.2)
 
 if(DEFINED ENV{LIBCLIDAR_ROOT})
 	set(LIBCLIDAR_ROOT $ENV{LIBCLIDAR_ROOT})
@@ -29,7 +29,7 @@ include_directories(
 	${LIBCLIDAR_ROOT}
 	${HANCOCKTOOLS_ROOT}
 	${CMPFIT_ROOT}
-	${HDF5_C_INCLUDE_DIRS}
+	${HDF5_INCLUDE_DIRS}
 	${GDAL_INCLUDE_DIRS}
 	${GEOTIFF_INCLUDE_DIR}
 	)
@@ -44,7 +44,7 @@ set(LIBS
 	)
 
 link_libraries(${LIBS})
-add_definitions(-DUSEPHOTON)
+add_definitions(-DUSEPHOTON ${HDF5_C_DEFINITIONS})
 
 set(LIBTYPE SHARED)
 

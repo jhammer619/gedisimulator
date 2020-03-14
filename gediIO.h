@@ -362,7 +362,7 @@ int writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
 int writeGEDIl1b(gediHDF *,char *,gediIOstruct *);
 int setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
-void packGEDIhdf(waveStruct *,gediHDF *,int,gediIOstruct *,gediRatStruct *,int *,char,char *);
+int packGEDIhdf(waveStruct *,gediHDF *,int,gediIOstruct *,gediRatStruct *,int *,char,char *);
 void setBeamsToUse(char *,char *);
 void setBeamsToSkip(char *,char *);
 void setBeamsToRead(char *,char *);

@@ -71,13 +71,10 @@ int main(int argc,char **argv)
 
  
   /*read command line*/
-  dimage=readCommands(argc,argv);
-  if(dimage==NULL)
-    return(1);
+  ASSIGN_CHECKNULL_RETONE(dimage,readCommands(argc,argv));
 
   /*set up the pulse*/
-  if(setGediPulse(&dimage->gediIO,&dimage->gediRat)!=0)
-    return(1);
+  ISINTRETONE(setGediPulse(&dimage->gediIO,&dimage->gediRat));
   
 
   /*set up grid or batch if needed*/
@@ -92,15 +89,11 @@ int main(int argc,char **argv)
     /*report progress if reading all data here*/
     if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf(stdout,"File %d of %d",i+1,dimage->gediIO.nFiles);
     /*read lasFile*/
-    las=readLasHead(dimage->inList[i],dimage->pBuffSize);
-    if(las==NULL)
-      return(1);
+    ASSIGN_CHECKNULL_RETONE(las,readLasHead(dimage->inList[i],dimage->pBuffSize));
 
     /*read data or write filename if needed*/
     if(dimage->listFiles==0){
-      data[i]=readALSdata(las,&dimage->gediRat,i);
-      if(data[i]==NULL)
-        return(1);
+      ASSIGN_CHECKNULL_RETONE(data[i],readALSdata(las,&dimage->gediRat,i));
     }
     else                    checkThisFile(las,dimage,i);
     if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf(stdout," nPoints %u\n",data[i]->nPoints);
@@ -111,9 +104,7 @@ int main(int argc,char **argv)
 
   /*set up HDF5 if needed*/
   if(dimage->writeHDF){
-    hdfData=setUpHDF(&dimage->gediIO,&dimage->gediRat,dimage->useID,dimage->waveID,&dimage->hdfCount,dimage->maxBins);
-    if(hdfData==NULL)
-      return(1);
+    ASSIGN_CHECKNULL_RETONE(hdfData,setUpHDF(&dimage->gediIO,&dimage->gediRat,dimage->useID,dimage->waveID,&dimage->hdfCount,dimage->maxBins));
   }
 
   /*make waveforms*/
@@ -130,13 +121,10 @@ int main(int argc,char **argv)
         /*if it is not to be overwritten*/
         if(dimage->gediRat.useFootprint){
           /*set up footprint*/
-          if(setGediFootprint(&dimage->gediRat,&dimage->gediIO)!=0)
-            return(1);
+          ISINTRETONE(setGediFootprint(&dimage->gediRat,&dimage->gediIO));
 
           /*make waveforms*/
-          waves=makeGediWaves(&dimage->gediRat,&dimage->gediIO,data);
-          if(waves==NULL)
-            return(1);
+          ASSIGN_CHECKNULL_RETONE(waves,makeGediWaves(&dimage->gediRat,&dimage->gediIO,data));
         }
 
         /*if it is usable*/
@@ -149,15 +137,14 @@ int main(int argc,char **argv)
           }
           /*find the ground if needed*/
           if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr)){
-            if(groundFromDEM(data,dimage,waves)!=0)
-              return(1);
+            ISINTRETONE(groundFromDEM(data,dimage,waves));
           }
   
           /*output results*/
-          if(dimage->writeHDF)packGEDIhdf(waves,hdfData,i+j*dimage->gediRat.gNx,&dimage->gediIO,&dimage->gediRat,&dimage->hdfCount,dimage->useID,dimage->waveID);
-          else{
-            if(writeGEDIwave(dimage,waves,i+j*dimage->gediRat.gNx)!=0)
-              return(1);
+          if(dimage->writeHDF){
+            ISINTRETINT(packGEDIhdf(waves,hdfData,i+j*dimage->gediRat.gNx,&dimage->gediIO,&dimage->gediRat,&dimage->hdfCount,dimage->useID,dimage->waveID));
+          }else{
+            ISINTRETONE(writeGEDIwave(dimage,waves,i+j*dimage->gediRat.gNx));
           }
         }
 
@@ -275,12 +262,11 @@ int groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
 
   if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->gediIO.nFiles,&minX,&minY,&maxX,&maxY,res,&nX,&nY,waves->groundBreakElev);
   else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->gediIO.nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
-  if(gDEM==NULL)
-    return(-1);
+  ISNULLRETINT(gDEM);
 
   if(gDEM){
     /*make gap filled ground waveform*/
-    gWave=waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->gediRat.coord[0],dimage->gediRat.coord[1],dimage->gediIO.fSigma,rRes,&minZ,&nBins);
+    ASSIGN_CHECKNULL_RETINT(gWave,waveFromDEM(gDEM,nX,nY,res,minX,minY,dimage->gediRat.coord[0],dimage->gediRat.coord[1],dimage->gediIO.fSigma,rRes,&minZ,&nBins));
     TIDY(gDEM);
 
     /*ground properties*/
@@ -359,7 +345,7 @@ float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,
   }
 
   *nBins=(int)((maxZ-*minZ)/rRes+0.5);
-  gWave=falloc((uint64_t)(*nBins),"ground wave",3);
+  ASSIGN_CHECKNULL_RETNULL(gWave,falloc((uint64_t)(*nBins),"ground wave",3));
   for(i=*nBins-1;i>=0;i--)gWave[i]=0.0;
 
   /*add up DEM*/
@@ -486,10 +472,10 @@ pCloudStruct *readAsciiData(char *inNamen)
   while(fgets(line,400,ipoo)!=NULL)if(strncasecmp(line,"#",1))data->nPoints++;
 
   /*allocate space*/
-  data->x=dalloc(data->nPoints,"x",0);
-  data->y=dalloc(data->nPoints,"y",0);
-  data->z=dalloc(data->nPoints,"z",0);
-  data->refl=ialloc(data->nPoints,"refl",0);
+  ASSIGN_CHECKNULL_RETNULL(data->x,dalloc(data->nPoints,"x",0));
+  ASSIGN_CHECKNULL_RETNULL(data->y,dalloc(data->nPoints,"y",0));
+  ASSIGN_CHECKNULL_RETNULL(data->z,dalloc(data->nPoints,"z",0));
+  ASSIGN_CHECKNULL_RETNULL(data->refl,ialloc(data->nPoints,"refl",0));
 
 
   /*rewind to start of file*/
@@ -535,8 +521,8 @@ control *readCommands(int argc,char **argv)
   }
 
   dimage->gediIO.nFiles=1;
-  dimage->inList=chChalloc(dimage->gediIO.nFiles,"inList",0);
-  dimage->inList[0]=challoc(200,"inList",0);
+  ASSIGN_CHECKNULL_RETNULL(dimage->inList,chChalloc(dimage->gediIO.nFiles,"inList",0));
+  ASSIGN_CHECKNULL_RETNULL(dimage->inList[0],challoc(200,"inList",0));
   strcpy(&(dimage->inList[0][0]),"/Users/dill/data/teast/maryland_play/sc_79_112_1.las");
   strcpy(dimage->outNamen,"teast.wave");
   dimage->gediIO.pFWHM=15.0;   /*12 ns FWHM*/
@@ -607,23 +593,21 @@ control *readCommands(int argc,char **argv)
   for (i=1;i<argc;i++){
     if (*argv[i]=='-'){
       if(!strncasecmp(argv[i],"-input",6)){
-        checkArguments(1,i,argc,"-input");
+        ISINTRETNULL(checkArguments(1,i,argc,"-input"));
         TTIDY((void **)dimage->inList,dimage->gediIO.nFiles);
         dimage->gediIO.nFiles=1;
-        dimage->inList=chChalloc(dimage->gediIO.nFiles,"input name list",0);
-        dimage->inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
+        ASSIGN_CHECKNULL_RETNULL(dimage->inList,chChalloc(dimage->gediIO.nFiles,"input name list",0));
+        ASSIGN_CHECKNULL_RETNULL(dimage->inList[0],challoc((uint64_t)strlen(argv[++i])+1,"input name list",0));
         strcpy(dimage->inList[0],argv[i]);
       }else if(!strncasecmp(argv[i],"-output",7)){
-        checkArguments(1,i,argc,"-output");
+        ISINTRETNULL(checkArguments(1,i,argc,"-output"));
         strcpy(dimage->outNamen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-inList",7)){
-        checkArguments(1,i,argc,"-inList");
+        ISINTRETNULL(checkArguments(1,i,argc,"-inList"));
         TTIDY((void **)dimage->inList,dimage->gediIO.nFiles);
-        dimage->inList=readInList(&dimage->gediIO.nFiles,argv[++i]);
-        if(dimage->inList==NULL)
-          return(NULL);
+        ASSIGN_CHECKNULL_RETNULL(dimage->inList,readInList(&dimage->gediIO.nFiles,argv[++i]));
       }else if(!strncasecmp(argv[i],"-coord",6)){
-        checkArguments(2,i,argc,"-coord");
+        ISINTRETNULL(checkArguments(2,i,argc,"-coord"));
         dimage->gediRat.coord[0]=atof(argv[++i]);
         dimage->gediRat.coord[1]=atof(argv[++i]);
         dimage->gediRat.useOctree=0;    /*no point using octree for single*/
@@ -636,13 +620,13 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.pSigma=0.6893;  /*two way trip*/
         dimage->gediIO.fSigma=6.25;
       }else if(!strncasecmp(argv[i],"-pSigma",7)){
-        checkArguments(1,i,argc,"-pSigma");
+        ISINTRETNULL(checkArguments(1,i,argc,"-pSigma"));
         dimage->gediIO.pSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-pFWHM",6)){
-        checkArguments(1,i,argc,"-pFWHM");
+        ISINTRETNULL(checkArguments(1,i,argc,"-pFWHM"));
         dimage->gediIO.pFWHM=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-fSigma",7)){
-        checkArguments(1,i,argc,"-fSigma");
+        ISINTRETNULL(checkArguments(1,i,argc,"-fSigma"));
         dimage->gediIO.fSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-readWave",9)){
         dimage->gediRat.readWave=1;
@@ -652,12 +636,12 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-sideLobe",9)){
         dimage->gediRat.sideLobe=1;
       }else if(!strncasecmp(argv[i],"-lobeAng",8)){
-        checkArguments(1,i,argc,"-lobeAng");
+        ISINTRETNULL(checkArguments(1,i,argc,"-lobeAng"));
         dimage->gediRat.lobeAng=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-listFiles",10)){
         dimage->listFiles=1;
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
-        checkArguments(1,i,argc,"-pBuff");
+        ISINTRETNULL(checkArguments(1,i,argc,"-pBuff"));
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0);
       }else if(!strncasecmp(argv[i],"-noNorm",7)){
         dimage->gediRat.normCover=0;
@@ -666,11 +650,11 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-topHat",7)){
         dimage->gediRat.topHat=1;
       }else if(!strncasecmp(argv[i],"-waveID",7)){
-        checkArguments(1,i,argc,"-waveID");
+        ISINTRETNULL(checkArguments(1,i,argc,"-waveID"));
         dimage->useID=1;
         strcpy(dimage->waveID,argv[++i]);
       }else if(!strncasecmp(argv[i],"-readPulse",10)){
-        checkArguments(1,i,argc,"-readPulse");
+        ISINTRETNULL(checkArguments(1,i,argc,"-readPulse"));
         dimage->gediIO.readPulse=1;
         strcpy(dimage->gediIO.pulseFile,argv[++i]);
       }else if(!strncasecmp(argv[i],"-pulseAfter",11)){
@@ -678,7 +662,7 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-pulseBefore",12)){
         dimage->gediRat.pulseAfter=0;
       }else if(!strncasecmp(argv[i],"-maxScanAng",11)){
-        checkArguments(1,i,argc,"-maxScanAng");
+        ISINTRETNULL(checkArguments(1,i,argc,"-maxScanAng"));
         dimage->gediRat.maxScanAng=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-useShadow",10)){
         dimage->gediRat.useShadow=1;
@@ -687,10 +671,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-nnGround",99)){
         dimage->nnGr=1;
       }else if(!strncasecmp(argv[i],"-res",4)){
-        checkArguments(1,i,argc,"-res");
+        ISINTRETNULL(checkArguments(1,i,argc,"-res"));
         dimage->gediIO.res=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gridBound",10)){
-        checkArguments(4,i,argc,"-gridBound");
+        ISINTRETNULL(checkArguments(4,i,argc,"-gridBound"));
         dimage->gediRat.doGrid=1;
         dimage->useID=1;
         dimage->gediRat.gMinX=atof(argv[++i]);
@@ -698,12 +682,12 @@ control *readCommands(int argc,char **argv)
         dimage->gediRat.gMinY=atof(argv[++i]);
         dimage->gediRat.gMaxY=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gridStep",9)){
-        checkArguments(1,i,argc,"-gridStep");
+        ISINTRETNULL(checkArguments(1,i,argc,"-gridStep"));
         dimage->gediRat.gRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-keepOld",8)){
         dimage->overWrite=0;
       }else if(!strncasecmp(argv[i],"-listCoord",10)){
-        checkArguments(1,i,argc,"-listCoord");
+        ISINTRETNULL(checkArguments(1,i,argc,"-listCoord"));
         dimage->gediRat.readALSonce=1;
         dimage->useID=1;
         strcpy(dimage->gediRat.coordList,argv[++i]);
@@ -715,31 +699,29 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-ascii",6)){
         dimage->writeHDF=0;
       }else if(!strncasecmp(argv[i],"-maxBins",8)){
-        checkArguments(1,i,argc,"-maxBins");
+        ISINTRETNULL(checkArguments(1,i,argc,"-maxBins"));
         dimage->maxBins=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-wavefront",10)){
-        checkArguments(1,i,argc,"-wavefront");
+        ISINTRETNULL(checkArguments(1,i,argc,"-wavefront"));
         dimage->gediRat.defWfront=1;
-        dimage->gediRat.wavefront=copyFrontFilename(argv[++i]);
-        if(dimage->gediRat.wavefront==NULL)
-         return(NULL);
+        ASSIGN_CHECKNULL_RETNULL(dimage->gediRat.wavefront,copyFrontFilename(argv[++i]));
       }else if(!strncasecmp(argv[i],"-noOctree",9)){
         dimage->gediRat.useOctree=0;
       }else if(!strncasecmp(argv[i],"-octLevels",9)){
-        checkArguments(1,i,argc,"-octLevels");
+        ISINTRETNULL(checkArguments(1,i,argc,"-octLevels"));
         dimage->gediRat.octLevels=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-nOctPix",8)){
-        checkArguments(1,i,argc,"-nOctPix");
+        ISINTRETNULL(checkArguments(1,i,argc,"-nOctPix"));
         dimage->gediRat.nOctTop=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-countOnly",10)){
         dimage->gediIO.useCount=1;
         dimage->gediIO.useInt=0;
         dimage->gediIO.useFrac=0;
       }else if(!strncasecmp(argv[i],"-seed",5)){
-        checkArguments(1,i,argc,"-seed");
+        ISINTRETNULL(checkArguments(1,i,argc,"-seed"));
         srand(atoi(argv[++i]));
       }else if(!strncasecmp(argv[i],"-decimate",9)){
-        checkArguments(1,i,argc,"-decimate");
+        ISINTRETNULL(checkArguments(1,i,argc,"-decimate"));
         dimage->gediRat.decimate=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-pcl",4)){
         dimage->gediIO.pcl=1;

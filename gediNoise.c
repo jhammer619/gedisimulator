@@ -2,6 +2,7 @@
 #include "stdlib.h"
 #include "math.h"
 #include "stdint.h"
+#include "float.h"
 #include "hdf5.h"
 #include "tools.h"
 #include "libLasRead.h"
@@ -64,10 +65,10 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
   float *detectorDrift(float *,int,float,float);
 
   /*allocate*/
-  data->noised=falloc((uint64_t)data->nBins,"noised wave",0);
+  ASSIGN_CHECKNULL_RETINT(data->noised,falloc((uint64_t)data->nBins,"noised wave",0));
 
   /*apply detecor drift if using*/
-  tempWave=detectorDrift(data->wave[data->useType],data->nBins,gNoise->driftFact,res);
+  ASSIGN_CHECKNULL_RETINT(tempWave,detectorDrift(data->wave[data->useType],data->nBins,gNoise->driftFact,res));
 
   if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if(gNoise->minGap==0.0){
@@ -77,7 +78,7 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
     deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
   }else if(gNoise->linkNoise){   /*link margin based noise*/
     /*Gaussian noise*/
-    tempNoise=falloc((uint64_t)data->nBins,"temp noised",0);
+    ASSIGN_CHECKNULL_RETINT(tempNoise,falloc((uint64_t)data->nBins,"temp noised",0));
     /*in case of PCL, subtract min*/
     minE=1000000.0;
     for(i=0;i<data->nBins;i++)if(data->wave[data->useType][i]<minE)minE=data->wave[data->useType][i];
@@ -87,16 +88,14 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
     reflScale=(data->cov*rhoc+(1.0-data->cov)*rhog)*tot/(gNoise->linkCov*rhoc+(1.0-gNoise->linkCov)*rhog);
     for(i=0;i<data->nBins;i++)tempNoise[i]=gNoise->linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
-    smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
-    if(smooNoise==NULL)
-      return(-1);
+    ASSIGN_CHECKNULL_RETINT(smooNoise,smooth(gNoise->deSig,data->nBins,tempNoise,res));
     for(i=0;i<data->nBins;i++)tempNoise[i]=tempWave[i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
     scaleNoiseDN(tempNoise,data->nBins,gNoise->linkSig*reflScale,gNoise->trueSig,gNoise->offset);
     /*digitise*/
     TIDY(data->noised);
-    data->noised=digitiseWave(tempNoise,data->nBins,gNoise->bitRate,gNoise->maxDN,tot);
+    ASSIGN_CHECKNULL_RETINT(data->noised,digitiseWave(tempNoise,data->nBins,gNoise->bitRate,gNoise->maxDN,tot));
     TIDY(tempNoise);
   }else if((gNoise->nSig>0.0)||(gNoise->meanN>0.0)){   /*mean and stdev based noise*/
     for(i=0;i<data->nBins;i++){
@@ -161,7 +160,7 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   float thisLink=0;
   double nNsig=0,nSsig=0;
   float threshS=0,threshN=0;
-  void gaussThresholds(double,double,double,double,double *,double *,noiseThreshStruct *);
+  int gaussThresholds(double,double,double,double,double *,double *,noiseThreshStruct *);
   char direction=0;
   noiseThreshStruct noiseSigs;
 
@@ -174,8 +173,8 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
   step=groundAmp/10.0;
 
   /*determine threshold in terms of standard deviations*/
-  gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig,&noiseSigs);
-
+  ISINTRETFLT(gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig,&noiseSigs));
+  
   direction=0;
   minErr=0.00015;
   do{
@@ -208,7 +207,7 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
 /*####################################################################################################*/
 /*calculate Gaussian thresholds for normaly distributed noise*/
 
-void gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS,noiseThreshStruct *noiseSigs)
+int gaussThresholds(double sig,double res,double probNoise,double probMiss,double *threshN,double *threshS,noiseThreshStruct *noiseSigs)
 {
   int i=0;
   double x=0,y=0;
@@ -265,13 +264,13 @@ void gaussThresholds(double sig,double res,double probNoise,double probMiss,doub
     }while((foundS==0)||(foundN==0));
 
     /*save the new thresholds*/
-    noiseSigs->probNoise=markDo(noiseSigs->nThreshes,noiseSigs->probNoise,probNoise);
-    noiseSigs->probMiss=markDo(noiseSigs->nThreshes,noiseSigs->probMiss,probMiss);
-    noiseSigs->threshN=markDo(noiseSigs->nThreshes,noiseSigs->threshN,*threshN);
-    noiseSigs->threshS=markDo(noiseSigs->nThreshes,noiseSigs->threshS,*threshS);
+    ASSIGN_CHECKNULL_RETINT(noiseSigs->probNoise,markDo(noiseSigs->nThreshes,noiseSigs->probNoise,probNoise));
+    ASSIGN_CHECKNULL_RETINT(noiseSigs->probMiss,markDo(noiseSigs->nThreshes,noiseSigs->probMiss,probMiss));
+    ASSIGN_CHECKNULL_RETINT(noiseSigs->threshN,markDo(noiseSigs->nThreshes,noiseSigs->threshN,*threshN));
+    ASSIGN_CHECKNULL_RETINT(noiseSigs->threshS,markDo(noiseSigs->nThreshes,noiseSigs->threshS,*threshS));
     noiseSigs->nThreshes++;
   }
-  return;
+  return(0);
 }/*gaussThresholds*/
 
 
@@ -285,7 +284,7 @@ float *digitiseWave(float *wave,int nBins,char bitRate,float maxDN,float tot)
   float *sampled=NULL;
   float resDN=0;
 
-  sampled=falloc((uint64_t)nBins,"sampled wave",0);
+  ASSIGN_CHECKNULL_RETNULL(sampled,falloc((uint64_t)nBins,"sampled wave",0));
 
   /*number of bins*/
   nDN=1;
@@ -357,9 +356,7 @@ float *denoiseTruth(float *wave,int nBins)
   den.threshScale=4.0;
 
   /*denoise*/
-  tempWave=processFloWave(wave,nBins,&den,1.0);
-  if(tempWave==NULL)
-    return(NULL);
+  ASSIGN_CHECKNULL_RETNULL(tempWave,processFloWave(wave,nBins,&den,1.0));
 
   return(tempWave);
 }/*denoiseTruth*/
@@ -376,9 +373,7 @@ int modifyTruth(dataStruct *data,noisePar *gNoise)
   char doNothing=0;
 
   /*remove noise*/
-  tempWave=denoiseTruth(data->wave[data->useType],data->nBins);
-  if (tempWave==NULL)
-    return(-1);
+  ASSIGN_CHECKNULL_RETINT(tempWave,denoiseTruth(data->wave[data->useType],data->nBins));
 
   /*change pulse width*/
   if(gNoise->newPsig>0.0){
@@ -388,9 +383,7 @@ int modifyTruth(dataStruct *data,noisePar *gNoise)
     }else if(gNoise->newPsig>data->pSigma){  /*increase pulse width*/
       sigDiff=sqrt(gNoise->newPsig*gNoise->newPsig-data->pSigma*data->pSigma);
       TIDY(data->wave[data->useType]);
-      data->wave[data->useType]=smooth(sigDiff,data->nBins,tempWave,data->res);
-      if(data->wave[data->useType]==NULL)
-        return(-1);
+      ASSIGN_CHECKNULL_RETINT(data->wave[data->useType],smooth(sigDiff,data->nBins,tempWave,data->res));
     }else{  /*do not change*/
       doNothing=1;
     }
@@ -467,7 +460,7 @@ float *detectorDrift(float *wave,int nBins,float driftFact,float res)
   float cumul=0,tot=0;
 
   /*allocate*/
-  tempWave=falloc((uint64_t)nBins,"drifted wave",0);
+  ASSIGN_CHECKNULL_RETNULL(tempWave,falloc((uint64_t)nBins,"drifted wave",0));
 
   /*do we need to apply drift?*/
   if(fabs(driftFact)>DRIFTTOL){
