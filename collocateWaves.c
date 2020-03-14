@@ -181,6 +181,9 @@ int main(int argc,char **argv)
 
   /*read LVIS data*/
   lvis=readMultiLVIS(dimage,&dimage->simIO.res);
+  if(lvis==NULL){
+    return(1);
+  }
 
   /*read ALS data*/
   als=readMultiALS(dimage,lvis);
@@ -1474,6 +1477,9 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
       hdf=readLVIShdf(dimage->lvisIO.inList[i]);
       /*unpack*/
       lvis=copyLVIShdf(hdf,lvis,dimage,bounds);
+      if(lvis==NULL){
+        return NULL;
+      }
       /*tidy up*/
       hdf=tidyLVISstruct(hdf);
     }else if(dimage->useLvisLGW){
@@ -1672,6 +1678,9 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
 
     if((x>=bounds[0])&&(y>=bounds[1])&&(x<=bounds[2])&&(y<=bounds[3])){
       lvis[nNew+dimage->nLvis]=unpackHDFlvis(NULL,&hdf,&dimage->lvisIO,i);
+      if (lvis[nNew+dimage->nLvis]==NULL) {
+        return(NULL);
+      }
       nNew++;
     }
   }

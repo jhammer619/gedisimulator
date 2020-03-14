@@ -356,11 +356,11 @@ gediHDF *tidyGediHDF(gediHDF *);
 gediHDF *setUpHDF(gediIOstruct *,gediRatStruct *,char,char *,int *,int);
 pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int);
 waveStruct *makeGediWaves(gediRatStruct *,gediIOstruct *,pCloudStruct **);
-void setGediGrid(gediIOstruct *,gediRatStruct *);
-void setGediPulse(gediIOstruct *,gediRatStruct *);
-void writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
-void writeGEDIl1b(gediHDF *,char *,gediIOstruct *);
-void setGediFootprint(gediRatStruct *,gediIOstruct *);
+int setGediGrid(gediIOstruct *,gediRatStruct *);
+int setGediPulse(gediIOstruct *,gediRatStruct *);
+int writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
+int writeGEDIl1b(gediHDF *,char *,gediIOstruct *);
+int setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 void packGEDIhdf(waveStruct *,gediHDF *,int,gediIOstruct *,gediRatStruct *,int *,char,char *);
 void setBeamsToUse(char *,char *);
@@ -368,7 +368,7 @@ void setBeamsToSkip(char *,char *);
 void setBeamsToRead(char *,char *);
 wFrontStruct *copyFrontFilename(char *);
 float waveformTrueCover(dataStruct *,gediIOstruct *,float);
-float findBlairSense(dataStruct *,gediIOstruct *);
+float *findBlairSense(dataStruct *,gediIOstruct *);
 double *reprojectWaveBounds(double *,int,int);
 
 /*# the end*/

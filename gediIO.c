@@ -60,12 +60,12 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
   /*open input*/
   if((ipoo=fopen(namen,"r"))==NULL){
     fprintf(stderr,"Error opening input file %s\n",namen);
-    exit(1);
+    return(NULL);
   }
 
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   data->pSigma=-1.0;    /*nonesense pulse length*/
   data->fSigma=-1.0;    /*nonesense footprint width*/
@@ -98,7 +98,7 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
     /*rewind to start of file*/
     if(fseek(ipoo,(long)0,SEEK_SET)){
       fprintf(stderr,"fseek error\n");
-      exit(1);
+      return(NULL);
     }
 
     /*read data*/
@@ -243,7 +243,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
   /*allocate space for all*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*count nuber of usable waves*/
@@ -403,7 +403,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 /*####################################################*/
 /*write data to HDF5 in L1B format*/
 
-void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
+int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
   int i=0;
   uint8_t *tempUint8=NULL;
@@ -498,7 +498,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
     if(hdfData->ground)writeComp1dFloatHDF5(group_id,"grxwaveform",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
   }else{
     fprintf(stderr,"Issues with HDF5 format and not using the count method\n");
-    exit(1);
+    return -1;
   }
   tempUint16=setSelectStretchL1B(hdfData->nWaves);
   writeComp1dUint16HDF5(group_id,"selection_stretchers_x",tempUint16,hdfData->nWaves);
@@ -558,7 +558,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tempDouble);
   if(!(tempInt64=(int64_t *)calloc(1,sizeof(int64_t)))){
     fprintf(stderr,"error in tempInt64 allocation.\n");
-    exit(1);
+    return -1;
   } 
   tempInt64[0]=100;
   write1dInt64HDF5(sgID,"mean_samples",tempInt64,1);
@@ -570,7 +570,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   status=H5Gclose(sgID);
  if(status<0){
     fprintf(stderr,"Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
   /*geolocation subgroup*/
@@ -665,7 +665,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   status=H5Gclose(sgID);
  if(status<0){
     fprintf(stderr,"Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
   /*geophys_corr subgroup*/
@@ -685,7 +685,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   status=H5Gclose(sgID);
   if(status<0){
     fprintf(stderr,"Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
 
@@ -693,17 +693,17 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   status=H5Gclose(group_id);
  if(status<0){
     fprintf(stderr,"Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
   /*close file*/
   if(H5Fclose(file)){
     fprintf(stderr,"Issue closing file\n");
-    exit(1);
+    return -1;
   }
 
   fprintf(stdout,"Waveforms written to %s\n",namen);
-  return;
+  return 0;
 }/*writeGEDIl1b*/
 
 
@@ -1228,7 +1228,7 @@ uint32_t *padUint32zeros(int numb)
 /*####################################################*/
 /*write data to HDF5*/
 
-void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
+int writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
   hid_t file;         /* Handles */
 
@@ -1242,48 +1242,48 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dIntHDF5(file,"NBINS",&hdfData->nBins[0],1);
   write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1);
   write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1);
-  write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1);
-  write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1);
-  write1dIntHDF5(file,"NPBINS",&hdfData->nPbins,1);
+  ISINTRETINT(write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1));
+  ISINTRETINT(write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1));
+  ISINTRETINT(write1dIntHDF5(file,"NPBINS",&hdfData->nPbins,1));
   /*write datasets*/
-  write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves);
-  write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves);
+  ISINTRETINT(write1dDoubleHDF5(file,"LON0",hdfData->lon,hdfData->nWaves));
+  ISINTRETINT(write1dDoubleHDF5(file,"LAT0",hdfData->lat,hdfData->nWaves));
   if(hdfData->ground){
-    writeComp1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves);
-    writeComp1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves);
+    ISINTRETINT(writeComp1dFloatHDF5(file,"SLOPE",hdfData->slope,hdfData->nWaves));
+    ISINTRETINT(writeComp1dFloatHDF5(file,"ZG",hdfData->gElev,hdfData->nWaves));
     if(hdfData->demElev)writeComp1dFloatHDF5(file,"ZGDEM",hdfData->demElev,hdfData->nWaves);
   }
-  writeComp1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves);
-  writeComp1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves);
-  writeComp1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves);
+  ISINTRETINT(writeComp1dFloatHDF5(file,"BEAMDENSE",hdfData->beamDense,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(file,"POINTDENSE",hdfData->pointDense,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(file,"INCIDENTANGLE",hdfData->zen,hdfData->nWaves));
   if(gediIO->useInt){
-    writeComp2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins[0]);
+    ISINTRETINT(writeComp2dFloatHDF5(file,"RXWAVEINT",hdfData->wave[0],hdfData->nWaves,hdfData->nBins[0]));
+    if(hdfData->ground)ISINTRETINT(writeComp2dFloatHDF5(file,"GRWAVEINT",hdfData->ground[0],hdfData->nWaves,hdfData->nBins[0]));
   }
   if(gediIO->useCount){
-    writeComp2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
+    ISINTRETINT(writeComp2dFloatHDF5(file,"RXWAVECOUNT",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]));
+    if(hdfData->ground)ISINTRETINT(writeComp2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]));
   }
   if(gediIO->useFrac){
-    writeComp2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
-    if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]);
+    ISINTRETINT(writeComp2dFloatHDF5(file,"RXWAVEFRAC",hdfData->wave[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]));
+    if(hdfData->ground)ISINTRETINT(writeComp2dFloatHDF5(file,"GRWAVEFRAC",hdfData->ground[(int)(gediIO->useCount+gediIO->useFrac)],hdfData->nWaves,hdfData->nBins[0]));
   }
-  writeComp1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves);
-  writeComp1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves);
-  write2dCharHDF5(file,"WAVEID",hdfData->waveID,hdfData->nWaves,hdfData->idLength);
+  ISINTRETINT(writeComp1dFloatHDF5(file,"Z0",hdfData->z0,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(file,"ZN",hdfData->zN,hdfData->nWaves));
+  ISINTRETINT(write2dCharHDF5(file,"WAVEID",hdfData->waveID,hdfData->nWaves,hdfData->idLength));
 
   if(hdfData->nPbins>0){
-    write1dFloatHDF5(file,"PRES",&hdfData->pRes,1);
-    writeComp1dFloatHDF5(file,"PULSE",hdfData->pulse,hdfData->nPbins);
+    ISINTRETINT(write1dFloatHDF5(file,"PRES",&hdfData->pRes,1));
+    ISINTRETINT(writeComp1dFloatHDF5(file,"PULSE",hdfData->pulse,hdfData->nPbins));
   }
 
   /*close file*/
   if(H5Fclose(file)){
     fprintf(stderr,"Issue closing file\n");
-    exit(1);
+    return(-1);
   }
   fprintf(stdout,"Waveforms written to %s\n",namen);
-  return;
+  return(0);
 }/*writeGEDIhdf*/
 
 
@@ -1294,14 +1294,14 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
 {
   hid_t file;         /* Handles */
   gediHDF *hdfData=NULL;
-  void checkNwavesDF(int,int);
-  void readSimGediHDF(hid_t,gediIOstruct *,char *,gediHDF *);
-  void readRealGediHDF(hid_t,gediIOstruct *,char *,gediHDF *);
+  int checkNwavesDF(int,int);
+  int readSimGediHDF(hid_t,gediIOstruct *,char *,gediHDF *);
+  int readRealGediHDF(hid_t,gediIOstruct *,char *,gediHDF *);
 
   /*allocate space for all*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*open file*/
@@ -1309,13 +1309,16 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*is the file a simulation or real?*/
-  if(H5Lexists(file,"BEAMDENSE",H5P_DEFAULT)==0)readRealGediHDF(file,gediIO,namen,hdfData);
-  else                                          readSimGediHDF(file,gediIO,namen,hdfData);
+  int result=0;
+  if(H5Lexists(file,"BEAMDENSE",H5P_DEFAULT)==0)result=readRealGediHDF(file,gediIO,namen,hdfData);
+  else                                          result=readSimGediHDF(file,gediIO,namen,hdfData);
+  if(result==-1)
+    return(NULL);
 
   /*close file*/
   if(H5Fclose(file)){
     fprintf(stderr,"Issue closing file\n");
-    exit(1);
+    return(NULL);
   }
   return(hdfData);
 }/*readGediHDF*/
@@ -1324,38 +1327,38 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
 /*####################################################*/
 /*read simulated HDF GEDI data*/
 
-void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
+int readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
 {
   int i=0;
   int nWaves=0,nBins=0;
   int *tempI=NULL,ind=0;
   float *tempF=NULL;
-  void checkNwavesDF(int,int);
+  int checkNwavesDF(int,int);
 
   /*sims do not have variable lengths*/
   hdfData->nBins=ialloc(1,"nBins",0);
   hdfData->varBins=0;
 
   /*read the header*/
-  tempF=read1dFloatHDF5(file,"FSIGMA",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempF,read1dFloatHDF5(file,"FSIGMA",&nWaves));
   hdfData->fSigma=*tempF;
   TIDY(tempF);
-  tempF=read1dFloatHDF5(file,"PSIGMA",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempF,read1dFloatHDF5(file,"PSIGMA",&nWaves));
   hdfData->pSigma=*tempF;
   TIDY(tempF);
-  tempI=read1dIntHDF5(file,"NWAVES",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempI,read1dIntHDF5(file,"NWAVES",&nWaves));
   hdfData->nWaves=*tempI;
   TIDY(tempI);
-  tempI=read1dIntHDF5(file,"NBINS",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempI,read1dIntHDF5(file,"NBINS",&nWaves));
   hdfData->nBins[0]=*tempI;
   TIDY(tempI);
-  tempI=read1dIntHDF5(file,"NPBINS",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempI,read1dIntHDF5(file,"NPBINS",&nWaves));
   hdfData->nPbins=*tempI;
   TIDY(tempI);
-  tempI=read1dIntHDF5(file,"NTYPEWAVES",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempI,read1dIntHDF5(file,"NTYPEWAVES",&nWaves));
   hdfData->nTypeWaves=*tempI;
   TIDY(tempI);
-  tempI=read1dIntHDF5(file,"IDLENGTH",&nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempI,read1dIntHDF5(file,"IDLENGTH",&nWaves));
   hdfData->idLength=*tempI;
   TIDY(tempI);
 
@@ -1370,32 +1373,45 @@ void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   }
 
   /*read ancillary data*/
-  hdfData->z0=read1dFloatHDF5(file,"Z0",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
-  hdfData->zN=read1dFloatHDF5(file,"ZN",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(hdfData->z0,read1dFloatHDF5(file,"Z0",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
+  ASSIGN_CHECKNULL_RETINT(hdfData->zN,read1dFloatHDF5(file,"ZN",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
   if(gediIO->ground){
-    hdfData->slope=read1dFloatHDF5(file,"SLOPE",&nWaves);
-    checkNwavesDF(nWaves,hdfData->nWaves);
-    hdfData->gElev=read1dFloatHDF5(file,"ZG",&nWaves);
-    checkNwavesDF(nWaves,hdfData->nWaves);
+    ASSIGN_CHECKNULL_RETINT(hdfData->slope,read1dFloatHDF5(file,"SLOPE",&nWaves));
+    if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+      return(-1);
+    ASSIGN_CHECKNULL_RETINT(hdfData->gElev,read1dFloatHDF5(file,"ZG",&nWaves));
+    if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+      return(-1);
   }
-  hdfData->beamDense=read1dFloatHDF5(file,"BEAMDENSE",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
-  hdfData->pointDense=read1dFloatHDF5(file,"POINTDENSE",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
-  hdfData->zen=read1dFloatHDF5(file,"INCIDENTANGLE",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
-  hdfData->lon=read1dDoubleHDF5(file,"LON0",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
-  hdfData->lat=read1dDoubleHDF5(file,"LAT0",&nWaves);
-  checkNwavesDF(nWaves,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(hdfData->beamDense,read1dFloatHDF5(file,"BEAMDENSE",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
+  ASSIGN_CHECKNULL_RETINT(hdfData->pointDense,read1dFloatHDF5(file,"POINTDENSE",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
+  ASSIGN_CHECKNULL_RETINT(hdfData->zen,read1dFloatHDF5(file,"INCIDENTANGLE",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
+  ASSIGN_CHECKNULL_RETINT(hdfData->lon,read1dDoubleHDF5(file,"LON0",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
+  ASSIGN_CHECKNULL_RETINT(hdfData->lat,read1dDoubleHDF5(file,"LAT0",&nWaves));
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
   hdfData->waveID=read15dCharHDF5(file,"WAVEID",&nWaves,&nBins);
-  checkNwavesDF(nWaves,hdfData->nWaves);
+  if(hdfData->waveID==NULL)
+    return(-1);
+  if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+    return(-1);
   if(hdfData->nPbins>0){
-    hdfData->pulse=read1dFloatHDF5(file,"PULSE",&nBins);
-    checkNwavesDF(nBins,hdfData->nPbins);
-    tempF=read1dFloatHDF5(file,"PRES",&nWaves);
+    ASSIGN_CHECKNULL_RETINT(hdfData->pulse,read1dFloatHDF5(file,"PULSE",&nBins));
+    if(checkNwavesDF(nBins,hdfData->nPbins)==-1)
+      return(-1);
+    ASSIGN_CHECKNULL_RETINT(tempF,read1dFloatHDF5(file,"PRES",&nWaves));
     hdfData->pRes=*tempF;
     TIDY(tempF);
   }else hdfData->pulse=NULL;
@@ -1407,7 +1423,7 @@ void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   if((int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac)>hdfData->nTypeWaves){
     fprintf(stderr,"Not enough waveform types for that option set. %d %d from %d %d %d\n",hdfData->nTypeWaves,\
                gediIO->useInt+gediIO->useCount+gediIO->useFrac,gediIO->useCount,gediIO->useInt,gediIO->useFrac);
-    exit(1);
+    return(-1);
   }else hdfData->nTypeWaves=(int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac);
 
   /*allocate waveform space*/
@@ -1415,7 +1431,7 @@ void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   if(gediIO->ground)hdfData->ground=fFalloc(hdfData->nTypeWaves,"hdf waveforms",0);
   if(!(hdfData->sInd=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
     fprintf(stderr,"error in sInd buffer allocation.\n");
-    exit(1);
+    return(-1);
   }
   for(i=0;i<hdfData->nWaves;i++)hdfData->sInd[i]=(uint64_t)i*(uint64_t)hdfData->nBins[0];
 
@@ -1423,52 +1439,77 @@ void readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   if(gediIO->useInt){
     ind=0;
     hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVEINT",&nWaves,&nBins);
-    checkNwavesDF(nWaves,hdfData->nWaves);
-    checkNwavesDF(nBins,hdfData->nBins[0]);
+    if(hdfData->wave[ind])
+      return(-1);
+    if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+      return(-1);
+    if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+      return(-1);
     if(gediIO->ground){
       hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVEINT",&nWaves,&nBins);
-      checkNwavesDF(nWaves,hdfData->nWaves);
-      checkNwavesDF(nBins,hdfData->nBins[0]);
+      if(hdfData->ground[ind]==NULL)
+        return(-1);
+      if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+        return(-1);
+      if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+        return(-1);
     }
   }
   if(gediIO->useCount){
     ind=(int)gediIO->useInt;
     hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVECOUNT",&nWaves,&nBins);
-    checkNwavesDF(nWaves,hdfData->nWaves);
-    checkNwavesDF(nBins,hdfData->nBins[0]);
+    if(hdfData->wave[ind]==NULL)
+      return(-1);
+    if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+      return(-1);
+    if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+      return(-1);
     if(gediIO->ground){
       hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVECOUNT",&nWaves,&nBins);
-      checkNwavesDF(nWaves,hdfData->nWaves);
-      checkNwavesDF(nBins,hdfData->nBins[0]);
+      if(hdfData->ground[ind]==NULL)
+        return(-1);
+      if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+        return(-1);
+      if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+        return(-1);
     }
   }
   if(gediIO->useFrac){
     ind=(int)(gediIO->useInt+gediIO->useCount);
     hdfData->wave[ind]=read15dFloatHDF5(file,"RXWAVEFRAC",&nWaves,&nBins);
-    checkNwavesDF(nWaves,hdfData->nWaves);
-    checkNwavesDF(nBins,hdfData->nBins[0]);
+    if(hdfData->wave[ind]==NULL)
+      return(-1);
+    if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+      return(-1);
+    if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+      return(-1);
     if(gediIO->ground){
       hdfData->ground[ind]=read15dFloatHDF5(file,"GRWAVEFRAC",&nWaves,&nBins);
-      checkNwavesDF(nWaves,hdfData->nWaves);
-      checkNwavesDF(nBins,hdfData->nBins[0]);
+      if(hdfData->ground[ind]==NULL)
+        return(-1);
+      if(checkNwavesDF(nWaves,hdfData->nWaves)==-1)
+        return(-1);
+      if(checkNwavesDF(nBins,hdfData->nBins[0])==-1)
+        return(-1);
     }
   }
 
   /*some parameters are not in the simulations*/
   hdfData->solarElev=NULL;
 
-  return;
+  return(0);
 }/*readSimGediHDF*/
 
 
 /*####################################################*/
 /*read real HDF GEDI data*/
 
-void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
+int readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
 {
   int i=0,j=0,nBeams=0;
   int numb=0,nSamps=0;
   int *useInd=NULL,nUse=0;
+  int status=0;
   int *usableGEDIfootprints(double *,double *,int,int *,gediIOstruct *);
   uint16_t *nBins=NULL;
   uint64_t *sInds=NULL;
@@ -1480,13 +1521,13 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
   char l1b=0;     /*l1a or l1b flag*/
   char **beamList=NULL;
   char **setGEDIbeamList(int *,char *);
-  void updateGEDInWaves(int,gediHDF *);
+  int updateGEDInWaves(int,gediHDF *);
   void setGEDIzenith(gediHDF *,int,uint16_t *);
   void setGEDIwaveID(gediHDF *,int,uint64_t *,int *,char *);
-  void readGEDIwaveform(hid_t,int *,uint64_t *,int,gediHDF *,int *,char *);
+  int readGEDIwaveform(hid_t,int *,uint64_t *,int,gediHDF *,int *,char *);
 
-  /*set the list of beams*/
   beamList=setGEDIbeamList(&nBeams,gediIO->useBeam);
+  /*set the list of beams*/
   hdfData->nWaves=0;
   hdfData->varBins=1;  /*variable bin length*/
   gediIO->ground=0;    /*no truth with real data*/
@@ -1508,13 +1549,13 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
     /*geolocation*/
     group2=H5Gopen2(group,"geolocation",H5P_DEFAULT);
-    temp1=read1dDoubleHDF5(group2,"longitude_bin0",&numb);
-    temp2=read1dDoubleHDF5(group2,"longitude_lastbin",&numb);
+    ASSIGN_CHECKNULL_RETINT(temp1,read1dDoubleHDF5(group2,"longitude_bin0",&numb));
+    ASSIGN_CHECKNULL_RETINT(temp2,read1dDoubleHDF5(group2,"longitude_lastbin",&numb));
     tempLon=meanCoord(temp1,temp2,numb);
     TIDY(temp1);
     TIDY(temp2);
-    temp1=read1dDoubleHDF5(group2,"latitude_bin0",&numb);
-    temp2=read1dDoubleHDF5(group2,"latitude_lastbin",&numb);
+    ASSIGN_CHECKNULL_RETINT(temp1,read1dDoubleHDF5(group2,"latitude_bin0",&numb));
+    ASSIGN_CHECKNULL_RETINT(temp2,read1dDoubleHDF5(group2,"latitude_lastbin",&numb));
     tempLat=meanCoord(temp1,temp2,numb);
     TIDY(temp1);
     TIDY(temp2);
@@ -1526,7 +1567,9 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
     /*are there any usable in this track?*/
     if(nUse>0){
       /*update the number of waves and arrays for holding data*/
-      updateGEDInWaves(nUse,hdfData);
+      status=updateGEDInWaves(nUse,hdfData);
+      if(status==-1)
+        return(-1);
 
       for(j=0;j<nUse;j++){
         hdfData->lat[j+hdfData->nWaves]=tempLat[useInd[j]];
@@ -1535,19 +1578,21 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
       TIDY(tempLon);
       TIDY(tempLat);
 
-      temp1=read1dDoubleHDF5(group2,"elevation_bin0",&numb);
+      ASSIGN_CHECKNULL_RETINT(temp1,read1dDoubleHDF5(group2,"elevation_bin0",&numb));
       for(j=0;j<nUse;j++)hdfData->z0[j+hdfData->nWaves]=(float)temp1[useInd[j]];
       TIDY(temp1);
-      temp1=read1dDoubleHDF5(group2,"elevation_lastbin",&numb);
+      ASSIGN_CHECKNULL_RETINT(temp1,read1dDoubleHDF5(group2,"elevation_lastbin",&numb));
       for(j=0;j<nUse;j++)hdfData->zN[j+hdfData->nWaves]=(float)temp1[useInd[j]];
       TIDY(temp1);
 
       /*waveform*/
-      nBins=read1dUint16HDF5(group,"rx_sample_count",&numb);
+      ASSIGN_CHECKNULL_RETINT(nBins,read1dUint16HDF5(group,"rx_sample_count",&numb));
       for(j=0;j<nUse;j++)hdfData->nBins[j+hdfData->nWaves]=(int)nBins[useInd[j]];
       TIDY(nBins);
-      sInds=read1dUint64HDF5(group,"rx_sample_start_index",&numb);
-      readGEDIwaveform(group,&nSamps,sInds,nUse,hdfData,useInd,&l1b);
+      ASSIGN_CHECKNULL_RETINT(sInds,read1dUint64HDF5(group,"rx_sample_start_index",&numb));
+      status=readGEDIwaveform(group,&nSamps,sInds,nUse,hdfData,useInd,&l1b);
+      if(status==-1)
+        return(-1);
       TIDY(sInds);
 
       /*calculate zenith angles from elevations*/
@@ -1556,14 +1601,14 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
       /*if it is an L1B file read the solar elevation*/
       if(l1b){
-        temp1=read1dDoubleHDF5(group2,"solar_elevation",&numb);
+        ASSIGN_CHECKNULL_RETINT(temp1,read1dDoubleHDF5(group2,"solar_elevation",&numb));
         for(j=0;j<nUse;j++)hdfData->solarElev[j+hdfData->nWaves]=(float)temp1[useInd[j]];
         TIDY(temp1);
       }
       H5Gclose(group2);
 
       /*set waveIDs*/
-      shotN=read1dUint64HDF5(group,"shot_number",&numb);
+      ASSIGN_CHECKNULL_RETINT(shotN,read1dUint64HDF5(group,"shot_number",&numb));
       setGEDIwaveID(hdfData,nUse,shotN,useInd,beamList[i]);
       TIDY(shotN);
 
@@ -1577,22 +1622,22 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
   if(hdfData->nWaves==0){
     fprintf(stderr,"No footprints contained\n");
-    exit(1);
+    return(-1);
   }
-  return;
+  return(0);
 }/*readRealGediHDF*/
 
 
 /*####################################################*/
 /*read a real GEDI waveform*/
 
-void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *hdfData,int *useInd,char *l1b)
+int readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *hdfData,int *useInd,char *l1b)
 {
   uint16_t *tempI=NULL;
   float *tempF=NULL;
   hid_t dset,dtype;
   herr_t status;
-  void unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
+  int unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
 
   /*read data dtype*/
   dset=H5Dopen2(group,"rxwaveform",H5P_DEFAULT);
@@ -1609,11 +1654,11 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
     *l1b=0;
   }else if(H5Tequal(dtype,H5T_NATIVE_FLOAT)||H5Tequal(dtype,H5T_STD_I32BE)||H5Tequal(dtype,H5T_STD_I32LE)||\
             H5Tequal(dtype,H5T_IEEE_F32BE)||H5Tequal(dtype,H5T_IEEE_F32LE)||H5Tequal(dtype,H5T_INTEL_I32)||H5Tequal(dtype,H5T_INTEL_B32)){   /*l1b file*/
-    tempF=read1dFloatHDF5(group,"rxwaveform",nSamps);
+    ASSIGN_CHECKNULL_RETINT(tempF,read1dFloatHDF5(group,"rxwaveform",nSamps));
     *l1b=1;
   }else{
     fprintf(stderr,"rxwaveform data type not recognised\n");
-    exit(1);
+    return(-1);
   }
   status=H5Tclose(dtype);
  if(status<0){
@@ -1622,11 +1667,13 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
   }
 
   /*unpack and pad all waves to have the same number of bins*/
-  unwrapRealGEDI(tempI,tempF,sInds,*nSamps,nUse,hdfData,useInd);
+  int status=unwrapRealGEDI(tempI,tempF,sInds,*nSamps,nUse,hdfData,useInd);
+  if(status==-1)
+    return(-1);
 
   TIDY(tempI);
   TIDY(tempF);
-  return;
+  return(0);
 }/*readGEDIwaveform*/
 
 
@@ -1779,7 +1826,7 @@ int findGDAlVerMaj()
 /*####################################################*/
 /*unwrap real GEDI data*/
 
-void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int nUse,gediHDF *hdfData,int *useInd)
+int unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int nUse,gediHDF *hdfData,int *useInd)
 {
   int i=0,j=0,ind=0;
   uint64_t totBins=0;
@@ -1804,7 +1851,7 @@ void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int 
     offset=hdfData->sInd[hdfData->nWaves];
     if(!(hdfData->wave[0]=(float *)realloc(hdfData->wave[0],(totBins+offset)*(uint64_t)sizeof(float)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",(totBins+offset)*(uint64_t)sizeof(float *));
-      exit(1);
+      return(-1);
     }
   }
 
@@ -1829,7 +1876,7 @@ void unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int 
     }
   }
 
-  return;
+  return(0);
 }/*unwrapRealGEDI*/
 
 
@@ -1853,45 +1900,45 @@ void setGEDIzenith(gediHDF *hdfData,int numb,uint16_t *nBins)
 /*####################################################*/
 /*update the number of GEDI waves*/
 
-void updateGEDInWaves(int numb,gediHDF *hdfData)
+int updateGEDInWaves(int numb,gediHDF *hdfData)
 {
   /*if already allocated, reallocate*/
   if(hdfData->nWaves>0){
     if(!(hdfData->z0=(float *)realloc(hdfData->z0,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->zN=(float *)realloc(hdfData->zN,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->lon=(double *)realloc(hdfData->lon,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->lat=(double *)realloc(hdfData->lat,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->zen=(float *)realloc(hdfData->zen,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->solarElev=(float *)realloc(hdfData->solarElev,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->nBins=(int *)realloc(hdfData->nBins,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(int)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->sInd=(uint64_t *)realloc(hdfData->sInd,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(uint64_t)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
     if(!(hdfData->waveID=(char *)realloc(hdfData->waveID,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)hdfData->idLength*(uint64_t)sizeof(char)))){
       fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
-      exit(1);
+      return(-1);
     }
   }else{  /*allocate for the first time*/
     hdfData->z0=falloc((uint64_t)numb,"z0",0);
@@ -1904,7 +1951,7 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
     hdfData->nBins=ialloc(numb,"nBins",0);
     if(!(hdfData->sInd=(uint64_t *)calloc(numb,sizeof(uint64_t)))){
       fprintf(stderr,"error in sInd allocation.\n");
-      exit(1);
+      return(-1);
     }
     hdfData->idLength=50;
     hdfData->waveID=challoc(numb*hdfData->idLength,"waveID",0);
@@ -1916,7 +1963,7 @@ void updateGEDInWaves(int numb,gediHDF *hdfData)
     hdfData->pointDense=NULL;
     hdfData->nTypeWaves=1;
   }
-  return;
+  return(0);
 }/*updateGEDInWaves*/
 
 
@@ -2047,14 +2094,14 @@ void setBeamsToRead(char *useBeam,char *instruction)
 /*####################################################*/
 /*check that number of waves match*/
 
-void checkNwavesDF(int nRead,int nWaves)
+int checkNwavesDF(int nRead,int nWaves)
 {
   if(nRead!=nWaves){
     fprintf(stderr,"number of waves mismatch: read %d, expecting %d\n",nRead,nWaves);
-    exit(1);
+    return(-1);
   }
 
-  return;
+  return(0);
 }/*checkNwavesDF*/
 
 
@@ -2106,13 +2153,15 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   /*read data from file if needed*/
   if(*hdfGedi==NULL){
     *hdfGedi=readGediHDF(namen,gediIO);
+    if(*hdfGedi==NULL)
+      return(NULL);
     gediIO->nFiles=hdfGedi[0]->nWaves;
   }/*read data if needed*/
 
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*copy header*/
@@ -2169,7 +2218,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   if((hdfGedi[0]->nPbins>0)&&(gediIO->pulse==NULL)){
     if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
       fprintf(stderr,"error pulse allocation.\n");
-      exit(1);
+      return(NULL);
     }
     gediIO->pulse->y=hdfGedi[0]->pulse;
     gediIO->pulse->nBins=hdfGedi[0]->nPbins;
@@ -2282,12 +2331,14 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
   int findLvisBottom(float *wave,int nBins);
   dataStruct *data=NULL;
   float *tempPulse=NULL;
-  float pulseLenFromTX(float *,int);
+  float *pulseLenFromTX(float *,int);
   double dx=0,dy=0,scale=0;  /*for padded LVIS files*/
 
   /*read data if needed*/
   if(*hdfLvis==NULL){
     *hdfLvis=readLVIShdf(namen);
+    if(*hdfLvis==NULL)
+      return(NULL);
     gediIO->nFiles=hdfLvis[0]->nWaves;
     gediIO->ground=0;
   }
@@ -2295,7 +2346,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   data->useID=1;
   data->nBins=hdfLvis[0]->nBins;
@@ -2333,6 +2384,9 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
 
   /*for setting coordinate, use range of lowest ground return*/
   botBin=findLvisBottom(data->wave[data->useType],data->nBins);
+  if(botBin==-1){
+    return NULL;
+  }
 
   dx=hdfLvis[0]->lon1023[numb]-hdfLvis[0]->lon0[numb];
   dy=hdfLvis[0]->lat1023[numb]-hdfLvis[0]->lat0[numb];
@@ -2347,7 +2401,10 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
   if(gediIO->readPsigma){
     tempPulse=falloc((uint64_t)hdfLvis[0]->pBins,"temp pulse",0);
     for(i=0;i<hdfLvis[0]->pBins;i++)tempPulse[i]=(float)hdfLvis[0]->pulse[numb][i];
-    data->pSigma=pulseLenFromTX(tempPulse,hdfLvis[0]->pBins);
+    float* data_pSigma = pulseLenFromTX(tempPulse,hdfLvis[0]->pBins);
+    if(data_pSigma==NULL)
+      return(NULL);
+    data->pSigma=*data_pSigma;
     TIDY(tempPulse);
   }else data->pSigma=gediIO->pSigma;
 
@@ -2382,6 +2439,9 @@ int findLvisBottom(float *wave,int nBins)
 
   /*find point to calcuklate coordinate from*/
   tempWave=processFloWave(wave,nBins,&den,1.0);
+  if(tempWave==NULL){
+    return(-1);
+  }
   found=0;
   for(i=nBins-1;i>=0;i--){
     if(tempWave[i]>TOL){
@@ -2399,10 +2459,10 @@ int findLvisBottom(float *wave,int nBins)
 /*####################################################*/
 /*determine pulse width from TXwave*/
 
-float pulseLenFromTX(float *pulse,int nBins)
+float *pulseLenFromTX(float *pulse,int nBins)
 {
   int i=0;
-  float pSigma=0;
+  float *pSigma=0;
   float *denoised=NULL;
   float tot=0,CofG=0;
   denPar den;
@@ -2417,6 +2477,8 @@ float pulseLenFromTX(float *pulse,int nBins)
   den.statsLen=3.0;
   den.res=0.15;
   denoised=processFloWave(pulse,nBins,&den,1.0);
+  if(denoised==NULL)
+    return(NULL);
 
   /*CofG*/
   CofG=tot=0.0;
@@ -2427,11 +2489,11 @@ float pulseLenFromTX(float *pulse,int nBins)
   if(tot>0.0){
     CofG/=tot;
 
-    pSigma=0.0;
-    for(i=0;i<nBins;i++)pSigma+=((float)i*den.res*-CofG)*((float)i*den.res-CofG)*denoised[i];
-    pSigma=sqrt(pSigma/tot);
+    *pSigma=0.0;
+    for(i=0;i<nBins;i++)*pSigma+=((float)i*den.res*-CofG)*((float)i*den.res-CofG)*denoised[i];
+    *pSigma=sqrt(*pSigma/tot);
 
-  }else pSigma=-1.0;
+  }else *pSigma=-1.0;
 
   TIDY(denoised);
   return(pSigma);
@@ -2447,13 +2509,15 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
   int findLvisBottom(float *,int);
   dataStruct *data=NULL;
   float *tempPulse=NULL;
-  float pulseLenFromTX(float *,int);
+  float *pulseLenFromTX(float *,int);
   double dx=0,dy=0,scale=0;
 
   /*do we need to read all the data*/
   if(lvis->data==NULL){
     /*read data*/
     lvis->data=readLVISlgw(namen,lvis);
+    if(lvis->data==NULL)
+      return(NULL);
     gediIO->nFiles=lvis->nWaves;
   }
 
@@ -2461,7 +2525,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   data->useID=1;
   data->nBins=lvis->nBins;
@@ -2499,6 +2563,9 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
   /*find point to calculate coordinate from*/
   botBin=findLvisBottom(data->wave[data->useType],data->nBins);
+  if(botBin==-1){
+    return(NULL);
+  }
   dx=lvis->data[numb].lon431-lvis->data[numb].lon0;
   dy=lvis->data[numb].lat431-lvis->data[numb].lat0;
   scale=(double)botBin/432.0;
@@ -2510,7 +2577,10 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
   if(gediIO->readPsigma){
     tempPulse=falloc(80,"temp pulse",0);
     for(i=0;i<80;i++)tempPulse[i]=(float)lvis->data[numb].rxwave[i];
-    data->pSigma=pulseLenFromTX(tempPulse,80);
+    float* data_pSigma = pulseLenFromTX(tempPulse,80);
+    if(data_pSigma==NULL)
+      return(NULL);
+    data->pSigma=*data_pSigma;
     TIDY(tempPulse);
   }else data->pSigma=gediIO->pSigma;
 
@@ -2545,7 +2615,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
   /*allocate maximum number of points*/
   if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
     fprintf(stderr,"error pCloudStruct allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*set nonsense bounds*/
@@ -2567,7 +2637,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->retNumb=challoc((uint64_t)las->nPoints,"retNumb",0);
     if(!(data->scanAng=(int16_t *)calloc(las->nPoints,sizeof(int16_t)))){
       fprintf(stderr,"error in input filename structure.\n");
-      exit(1);
+      return(NULL);
     }
     data->packetDes=uchalloc((uint64_t)las->nPoints,"packetDes",0);
     data->grad=fFalloc(las->nPoints,"grad",0);
@@ -2575,11 +2645,11 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->time=falloc((uint64_t)las->nPoints,"time",0);              /*time in picoseconds of this wave*/
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
       fprintf(stderr,"error in input filename structure.\n");
-      exit(1);
+      return(NULL);
     }
     if(!(data->waveLen=(uint32_t *)calloc(las->nPoints,sizeof(uint32_t)))){
       fprintf(stderr,"error in input filename structure.\n");
-      exit(1);
+      return(NULL);
     }
 
     /*loop over points*/
@@ -2641,7 +2711,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
         }
 
         /*map to octree if needed*/
-        if(gediRat->useOctree)fillOctree(x,y,z,nFile,pUsed,gediRat->octree);
+        if(gediRat->useOctree)ISINTRETNULL(fillOctree(x,y,z,nFile,pUsed,gediRat->octree));
 
         /*count points here*/
         pUsed++;
@@ -2653,41 +2723,41 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     if(pUsed>0){
       if(!(data->x=(double *)realloc(data->x,data->nPoints*sizeof(double)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->y=(double *)realloc(data->y,data->nPoints*sizeof(double)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->z=(double *)realloc(data->z,data->nPoints*sizeof(double)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->refl=(int *)realloc(data->refl,data->nPoints*sizeof(int)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->class=(unsigned char *)realloc(data->class,data->nPoints*sizeof(unsigned char)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->nRet=(char *)realloc(data->nRet,data->nPoints*sizeof(char)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->retNumb=(char *)realloc(data->retNumb,data->nPoints*sizeof(char)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->scanAng=(int16_t *)realloc(data->scanAng,data->nPoints*sizeof(int16_t)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(gediRat->useShadow){
         for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
         if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
           fprintf(stderr,"Balls\n");
-          exit(1);
+          return(NULL);
         }
       }else if(hasWave==0){
         TTIDY((void **)data->grad,las->nPoints);
@@ -2706,24 +2776,24 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
       data->waveStart=las->waveStart;
       if(!(data->packetDes=(unsigned char *)realloc(data->packetDes,data->nPoints*sizeof(unsigned char)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->time=(float *)realloc(data->time,data->nPoints*sizeof(float)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->waveMap=(uint64_t *)realloc(data->waveMap,data->nPoints*sizeof(uint64_t)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       if(!(data->waveLen=(uint32_t *)realloc(data->waveLen,data->nPoints*sizeof(uint32_t)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
       for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
       if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
         fprintf(stderr,"Balls\n");
-        exit(1);
+        return(NULL);
       }
     }else{  /*clear out all the waveform bits*/
       TIDY(data->packetDes);
@@ -2818,18 +2888,20 @@ char checkMultiPoints(double x,double y,double z,int nCoords,double **coords,dou
 /*####################################*/
 /*set GEDI grid or batch*/
 
-void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
+int setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
-  void readFeetList(gediRatStruct *);
+  int readFeetList(gediRatStruct *);
   void setRatBounds(gediRatStruct *);
-  void readWavefront(gediRatStruct *,gediIOstruct *);
+  int readWavefront(gediRatStruct *,gediIOstruct *);
 
   /*footprint width*/
   if(gediRat->defWfront==0){   /*regular footprint*/
     if(gediRat->topHat==0)gediRat->maxSep=determineGaussSep(gediIO->fSigma,gediRat->iThresh);
     else                  gediRat->maxSep=gediIO->fSigma;
   }else{    /*read assymetric footprint*/
-    readWavefront(gediRat,gediIO);
+    int status=readWavefront(gediRat,gediIO);
+    if(status!=0)
+      return(-1);
   }/*footprint width setting*/
 
   if(gediRat->doGrid){  /*it is a grid*/
@@ -2844,8 +2916,10 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
     gediRat->globMaxY=gediRat->gMaxY+gediRat->maxSep;
   }else if(gediRat->readALSonce){ /*it is a batch*/
     /*read list of coords*/
-    if(gediRat->coords==NULL)readFeetList(gediRat);
-    setRatBounds(gediRat);
+    if(gediRat->coords==NULL)
+      if(readFeetList(gediRat)!=0)
+        return(-1);
+      setRatBounds(gediRat);
   }else{   /*single footprint*/
     gediRat->gNx=gediRat->gNy=1;
     gediRat->globMinX=gediRat->coord[0]-gediRat->maxSep;
@@ -2859,17 +2933,17 @@ void setGediGrid(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
   /*allocate octree if needed*/
   if(gediRat->useOctree){
-    gediRat->octree=allocateOctree(gediRat->octLevels,gediRat->nOctTop,\
-            gediRat->globMinX,gediRat->globMaxX,gediRat->globMinY,gediRat->globMaxY);
+    ASSIGN_CHECKNULL_RETINT(gediRat->octree,allocateOctree(gediRat->octLevels,gediRat->nOctTop,\
+            gediRat->globMinX,gediRat->globMaxX,gediRat->globMinY,gediRat->globMaxY));
   }else gediRat->octree=NULL;
 
-  return;
+  return(0);
 }/*setGediGrid*/
 
 
 /*###################################################*/
 
-void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
+int readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
 {
   int i=0,j=0,maxI=0;
   float len=0; /*total=0*/
@@ -2881,7 +2955,7 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
   /*open file*/
   if((ipoo=fopen(gediRat->wavefront->frontFile,"r"))==NULL){
     fprintf(stderr,"Error opening wavefront file \"%s\"\n",gediRat->wavefront->frontFile);
-    exit(1);
+    return(-1);
   }
 
   /*find file size*/
@@ -2912,7 +2986,7 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
   /*rewind*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
     fprintf(stderr,"fseek error\n");
-    exit(1);
+    return(-1);
   }
 
   /*read data*/
@@ -2959,7 +3033,7 @@ void readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
                   (float)(gediRat->wavefront->nY-gediRat->wavefront->y0)*gediRat->wavefront->res;
   gediRat->maxSep=(len>gediRat->maxSep)?len:gediRat->maxSep;
 
-  return;
+  return(0);
 }/*readWavefront*/
 
 
@@ -3055,7 +3129,7 @@ void setRatBounds(gediRatStruct *gediRat)
 /*####################################*/
 /*read list of coordinates*/
 
-void readFeetList(gediRatStruct *gediRat)
+int readFeetList(gediRatStruct *gediRat)
 {
   int i=0;
   char line[200],temp1[50];
@@ -3066,7 +3140,7 @@ void readFeetList(gediRatStruct *gediRat)
   /*open file*/
   if((ipoo=fopen(gediRat->coordList,"r"))==NULL){
     fprintf(stderr,"Error opening input file list \"%s\"\n",gediRat->coordList);
-    exit(1);
+    return(-1);
   }
 
 
@@ -3084,7 +3158,7 @@ void readFeetList(gediRatStruct *gediRat)
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
     fprintf(stderr,"fseek error\n");
-    exit(1);
+    return(-1);
   }
 
   /*read coordinate list*/
@@ -3113,7 +3187,7 @@ void readFeetList(gediRatStruct *gediRat)
         strcpy(gediRat->waveIDlist[i],temp3);
       }else{
         fprintf(stderr,"coord list reading error \"%s\"\n",line);
-        exit(1);
+        return(-1);
       }
       i++;
     }
@@ -3124,24 +3198,24 @@ void readFeetList(gediRatStruct *gediRat)
     fclose(ipoo);
     ipoo=NULL;
   }
-  return;
+  return(0);
 }/*readFeetList*/
 
 
 /*####################################*/
 /*set GEDI pulse*/
 
-void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
+int setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
   int i=0;
   float fwhm=0;   /*FWHM in metres*/
   float x=0,y=0;
   float max=0,tot=0;
-  void readSimPulse(gediIOstruct *);
+  int readSimPulse(gediIOstruct *);
 
   if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
     fprintf(stderr,"error pulseStruct allocation.\n");
-    exit(1);
+    return(-1);
   }
 
 
@@ -3194,17 +3268,18 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
       gediIO->pulse->y[0]=1.0;
     }
   }else{  /*read the pulse from a file*/
-    readSimPulse(gediIO);
+    if(readSimPulse(gediIO)!=0)
+      return(-1);
   }
 
-  return;
+  return(0);
 }/*setGediPulse*/
 
 
 /*####################################*/
 /*read pulse to use for simulator*/
 
-void readSimPulse(gediIOstruct *gediIO)
+int readSimPulse(gediIOstruct *gediIO)
 {
   int i=0;
   float CofG=0,tot=0,centre=0;
@@ -3215,7 +3290,7 @@ void readSimPulse(gediIOstruct *gediIO)
 
   if((ipoo=fopen(gediIO->pulseFile,"r"))==NULL){
     fprintf(stderr,"Error opening input file %s\n",gediIO->pulseFile);
-    exit(1);
+    return(-1);
   }
 
   /*count number of bins*/
@@ -3228,7 +3303,7 @@ void readSimPulse(gediIOstruct *gediIO)
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
     fprintf(stderr,"fseek error\n");
-    exit(1);
+    return(-1);
   }
 
   /*read data*/
@@ -3293,14 +3368,14 @@ void readSimPulse(gediIOstruct *gediIO)
     fclose(ipoo);
     ipoo=NULL;
   }
-  return;
+  return(0);
 }/*readSimPulse*/
 
 
 /*####################################*/
 /*set GEDI footprint*/
 
-void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
+int setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
 {
   int i=0;
   float totE=0;
@@ -3317,7 +3392,7 @@ void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
   else                    gediRat->nLobes=7;
   if(!(gediRat->lobe=(lobeStruct *)calloc(gediRat->nLobes,sizeof(lobeStruct)))){
     fprintf(stderr,"error lobeStruct allocation.\n");
-    exit(1);
+    return(-1);
   }
 
   /*central footprint*/
@@ -3415,7 +3490,7 @@ void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
   /*determine which octree cells are intresected*/
   if(gediRat->useOctree)intersectOctree(gediRat);
 
-  return;
+  return(0);
 }/*setGediFootprint*/
 
 
@@ -3584,7 +3659,7 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
   /*allocate space*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*header*/
@@ -3674,7 +3749,7 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
 
   if(!(waves=(waveStruct *)calloc(1,sizeof(waveStruct)))){
     fprintf(stderr,"error waveStruct allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*determine wave bounds*/
@@ -3695,7 +3770,7 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
 
   if(hasPoints==0){
     fprintf(stderr,"No points included\n");
-    exit(1);
+    return(NULL);
   }
 
   /*determine number of waveform bins*/
@@ -3827,13 +3902,13 @@ void checkFootCovered(gediIOstruct *gediIO,gediRatStruct *gediRat)
 denPar *setDeconForGEDI(gediRatStruct *gediRat)
 {
   void setDenoiseDefault(denPar *);
-  void readPulse(denPar *);
+  int readPulse(denPar *);
   denPar *decon=NULL;
 
   /*set defaults*/
   if(!(decon=(denPar *)calloc(1,sizeof(denPar)))){
     fprintf(stderr,"error decon structure allocation.\n");
-    exit(1);
+    return(NULL);
   }
   setDenoiseDefault(decon);
 
@@ -3847,7 +3922,8 @@ denPar *setDeconForGEDI(gediRatStruct *gediRat)
   decon->noiseTrack=0;
 
   /*read system pulse*/
-  readPulse(decon);
+  if(readPulse(decon)!=0)
+    return(NULL);
 
   return(decon);
 }/*setDeconForGEDI*/
@@ -3856,7 +3932,7 @@ denPar *setDeconForGEDI(gediRatStruct *gediRat)
 /*####################################*/
 /*GEDI wave from ALS waveforms*/
 
-void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *waves,gediRatStruct *gediRat,gediIOstruct *gediIO)
+int gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *waves,gediRatStruct *gediRat,gediIOstruct *gediIO)
 {
   int j=0,bin=0;
   int buffBins=0;
@@ -3869,6 +3945,8 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
 
   for(j=0;j<3;j++)grad[j]=data->grad[j][i];
   wave=readLasWave(data->waveMap[i],data->waveLen[i],data->ipoo,data->waveStart);
+  if(wave==NULL)
+    return(-1);
 
   /*buffer to give space for smoothing*/
   if(gediIO->pcl==0)buffBins=80;
@@ -3885,13 +3963,19 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   /*deconvolve and reconvolve*/
   if(gediRat->indDecon){
     processed=processWave(wave,(int)waveLen,gediRat->decon,1.0);
+    if(processed==NULL)
+      return(-1);
     smooPro=smooth(gediIO->pSigma,(int)waveLen,processed,gediIO->res);
+    if(smooPro==NULL)
+      return(-1);
   }
 
   /*convolve with GEDI pulse*/
   floWave=falloc((uint64_t)waveLen,"",0);
   for(j=0;j<(int)waveLen;j++)floWave[j]=(float)wave[j]-gediRat->meanN;
   smoothed=smooth(gediIO->pSigma,(int)waveLen,floWave,gediIO->res);
+  if(smoothed==NULL)
+    return(-1);
   TIDY(floWave);
 
   /*add up*/
@@ -3915,14 +3999,14 @@ void gediFromWaveform(pCloudStruct *data,uint32_t i,float rScale,waveStruct *wav
   TIDY(smooPro);
   TIDY(smoothed);
   TIDY(processed);
-  return;
+  return(0);
 }/*gediFromWaveform*/
 
 
 /*################################################################################*/
 /*make waveform from point cloud*/
 
-void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
+int waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
 {
   int numb=0,bin=0,j=0;
   int gX=0,gY=0,n=0;
@@ -3932,7 +4016,7 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
   double dX=0,dY=0;
   double totGround=0;     /*contrbution to ground estimate*/
   float refl=0,rScale=0,fracHit=0,totAng=0;
-  void gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,gediRatStruct *,gediIOstruct *);
+  int gediFromWaveform(pCloudStruct *,uint32_t,float,waveStruct *,gediRatStruct *,gediIOstruct *);
   void applyPulseShape(gediIOstruct *,gediRatStruct *,waveStruct *);
 
 
@@ -4038,7 +4122,8 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
         /*full-waveform*/
         if(gediRat->readWave&&data[numb]->hasWave){
           if(data[numb]->packetDes[i]){  /*test for waveform*/
-            gediFromWaveform(data[numb],i,rScale,waves,gediRat,gediIO);
+            if(gediFromWaveform(data[numb],i,rScale,waves,gediRat,gediIO)!=0)
+              return(-1);
           }
         }/*waveform test*/
       }
@@ -4053,7 +4138,7 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
   if(totGround>=0.0)waves->gElevSimp/=totGround;
   else              waves->gElevSimp=-9999.0;
 
-  return;
+  return(0);
 }/*waveFromPointCloud*/
 
 
@@ -4144,7 +4229,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
 /*################################################################################*/
 /*make a map of voxel gaps*/
 
-void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
+int voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves)
 {
   int i=0,vInd=0;
   int xBin=0,yBin=0,zBin=0;
@@ -4153,7 +4238,7 @@ void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,wa
   voxStruct *vox=NULL;
   voxStruct *tidyVox(voxStruct *);
   voxStruct *voxAllocate(int,float *,double *,char);
-  void countVoxGap(double,double,double,float *,voxStruct *,int,int,float,int);
+  int countVoxGap(double,double,double,float *,voxStruct *,int,int,float,int);
 
 
   bounds[0]=gediRat->minX;
@@ -4165,11 +4250,11 @@ void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,wa
 
 
   /*first make a voxel map*/
-  vox=voxAllocate(1,&(gediRat->vRes[0]),&(bounds[0]),0);
+  ASSIGN_CHECKNULL_RETINT(vox,voxAllocate(1,&(gediRat->vRes[0]),&(bounds[0]),0));
 
   for(i=0;i<gediIO->nFiles;i++){ /*file loop*/
     for(j=0;j<data[i]->nPoints;j++){  /*point loop*/
-      countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(data[i]->grad[j][0]),vox,1,1,gediRat->beamRad,0);
+      ISINTRETINT(countVoxGap(data[i]->x[j],data[i]->y[j],data[i]->z[j],&(data[i]->grad[j][0]),vox,1,1,gediRat->beamRad,0));
     }/*point loop*/
   }/*file loop*/
 
@@ -4189,25 +4274,25 @@ void voxelGap(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,wa
   }/*file loop*/
 
   vox=tidyVox(vox);
-  return;
+  return(0);
 }/*voxelGap*/
 
 
 /*################################################################################*/
 /*make waveforms accounting for shadowing*/
 
-void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
+int waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data,waveStruct *waves,pointMapStruct *pointmap)
 {
   int i=0;
   float **tempWave=NULL;
   //float iRes=0,grad[3];
   float grad[3];
-  void voxelGap(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
+  int voxelGap(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *);
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   lidVoxPar lidPar;
 
   fprintf(stderr,"Silouhette images do not currently work with octrees\n");
-  exit(1);
+  return(-1);
 
   /*iRes=0.02;*/
   grad[0]=grad[1]=0.0;
@@ -4222,15 +4307,16 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
   lidPar.minGap=0.00001;          /*minimum gap fraction correction to apply*/
 
   /*gap fraction from voxelising data*/
-  voxelGap(gediRat,gediIO,data,waves);
+  ISINTRETINT(voxelGap(gediRat,gediIO,data,waves));
 
   /*create images*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,gediIO->pRes*4.0,iRes,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ);*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,NULL,0.15,0.01,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ,NULL);*/
   fprintf(stderr,"This method is no longer operational. Do not use\n");
+  return(-1);
 
 
-  silhouetteImage(gediIO->nFiles,data,NULL,rImage,&lidPar,NULL,0,NULL);
+  ISINTRETINT(silhouetteImage(gediIO->nFiles,data,NULL,rImage,&lidPar,NULL,0,NULL));
 
 
   /*convert images to waveform*/
@@ -4247,14 +4333,14 @@ void waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **
     rImage->image=NULL;
     TIDY(rImage);
   }
-  return;
+  return(0);
 }/*waveFromShadows*/
 
 
 /*####################################*/
 /*clean outlier points from waveform*/
 
-void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
+int cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
 {
   int i=0,j=0,gStart=0;
   char pastGround=0;
@@ -4265,7 +4351,7 @@ void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
 
   if(!gediIO->ground){
     fprintf(stderr,"No need to clean without ground\n");
-    exit(1);
+    return(-1);
   }
 
   maxGap=10.0;  /*maximum permittable gap in the ground return*/
@@ -4313,14 +4399,14 @@ void cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
     }
   }
 
-  return;
+  return(0);
 }/*cleanOutliers*/
 
 
 /*####################################*/
 /*deconvolve aggragated wave*/
 
-void processAggragate(gediRatStruct *gediRat,gediIOstruct *gediIO,waveStruct *waves)
+int processAggragate(gediRatStruct *gediRat,gediIOstruct *gediIO,waveStruct *waves)
 {
   int i=0;
   float *processed=NULL,*smooPro=NULL;
@@ -4331,15 +4417,19 @@ void processAggragate(gediRatStruct *gediRat,gediIOstruct *gediIO,waveStruct *wa
 
   /*deconvolve and reconvolve*/
   processed=processFloWave(&(waves->wave[7][0]),(int)waves->nBins,gediRat->decon,1.0);
+  if(processed==NULL)
+    return(-1);
   for(i=0;i<waves->nBins;i++)waves->wave[8][i]=processed[i];
   smooPro=smooth(gediIO->pSigma,(int)waves->nBins,processed,gediIO->res);
+  if(smooPro==NULL)
+    return(-1);
   TIDY(processed);
 
   TIDY(waves->wave[7]);
   waves->wave[7]=smooPro;
   smooPro=NULL;
 
-  return;
+  return(0);
 }/*processAggragate*/
 
 
@@ -4352,11 +4442,11 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   float tot=0,minInt=0;
   waveStruct *waves=NULL;
   waveStruct *allocateGEDIwaves(gediIOstruct *,gediRatStruct *,pCloudStruct **,pointMapStruct *);
-  void processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
+  int processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
   void checkFootCovered(gediIOstruct *,gediRatStruct *);
-  void cleanOutliers(waveStruct *,gediIOstruct *);
-  void waveFromPointCloud(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
-  void waveFromShadows(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
+  int cleanOutliers(waveStruct *,gediIOstruct *);
+  int waveFromPointCloud(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
+  int waveFromShadows(gediRatStruct *,gediIOstruct *,pCloudStruct **,waveStruct *,pointMapStruct *);
   void determineALScoverage(gediIOstruct *,gediRatStruct *,pCloudStruct **,pointMapStruct *);
   denPar *setDeconForGEDI(gediRatStruct *);
   pointMapStruct *findIntersectingMap(gediRatStruct *,gediIOstruct *,pCloudStruct **);
@@ -4365,6 +4455,8 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
 
   /*determine list of points to use*/
   pointmap=findIntersectingMap(gediRat,gediIO,data);
+  if(pointmap==NULL)
+    return(NULL);
 
   /*determine ALS coverage*/
   determineALScoverage(gediIO,gediRat,data,pointmap);
@@ -4378,20 +4470,35 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   if(gediRat->useFootprint){
     /*allocate*/
     waves=allocateGEDIwaves(gediIO,gediRat,data,pointmap);
+    if(waves==NULL)
+      return(NULL);
 
     /*set up denoising if using*/
-    if(gediRat->doDecon)gediRat->decon=setDeconForGEDI(gediRat);
+    if(gediRat->doDecon){
+      gediRat->decon=setDeconForGEDI(gediRat);
+      if(gediRat->decon==NULL)
+        return(NULL);
+    }
 
     /*make waves*/
-    if(gediRat->useShadow==0)waveFromPointCloud(gediRat,gediIO,data,waves,pointmap);
-    else                     waveFromShadows(gediRat,gediIO,data,waves,pointmap);
+    if(gediRat->useShadow==0){
+      if(waveFromPointCloud(gediRat,gediIO,data,waves,pointmap)!=0)
+        return(NULL);
+    } else                     
+      if(waveFromShadows(gediRat,gediIO,data,waves,pointmap)!=0)
+        return(NULL);
 
     /*clean outliers if needed*/
-    if(gediRat->cleanOut)cleanOutliers(waves,gediIO);
-    else                waves->groundBreakElev=-100000000.0;
+    if(gediRat->cleanOut){
+      if(cleanOutliers(waves,gediIO)!=0)
+        return(NULL);
+    } else waves->groundBreakElev=-100000000.0;
 
     /*deconvolve aggragated waveform*/
-    if(gediRat->doDecon)processAggragate(gediRat,gediIO,waves);
+    if(gediRat->doDecon){
+      if(processAggragate(gediRat,gediIO,waves))
+        return(NULL);
+    }
 
     /*normalise integral*/
     for(k=0;k<waves->nWaves;k++){
@@ -4447,12 +4554,12 @@ pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,
 
   /*search octree or copy all points*/
   if(gediRat->useOctree){
-    pointmap=mapFromOctree(gediRat->octList,gediRat->nOct,gediRat->octree,gediRat->minX,gediRat->maxX,gediRat->minY,gediRat->maxY);
+    ASSIGN_CHECKNULL_RETNULL(pointmap,mapFromOctree(gediRat->octList,gediRat->nOct,gediRat->octree,gediRat->minX,gediRat->maxX,gediRat->minY,gediRat->maxY));
   }else{   /*use all points*/
     /*allocate space*/
     if(!(pointmap=(pointMapStruct *)calloc(1,sizeof(pointMapStruct)))){
       fprintf(stderr,"error pointMapStruct allocation.\n");
-      exit(1);
+      return(NULL);
     }
     pointmap->nPoints=0;
     pointmap->fList=NULL;
@@ -4462,11 +4569,11 @@ pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,
       if(data[i]->nPoints==0)continue;
       if(!(pointmap->fList=(int *)realloc(pointmap->fList,(pointmap->nPoints+data[i]->nPoints)*sizeof(int)))){
         fprintf(stderr,"Error allocating memory\n");
-        exit(1);
+        return(NULL);
       }
       if(!(pointmap->pList=(uint32_t *)realloc(pointmap->pList,(pointmap->nPoints+data[i]->nPoints)*sizeof(uint32_t)))){
         fprintf(stderr,"Error allocating memory\n");
-        exit(1);
+        return(NULL);
       }
       for(j=0;j<+data[i]->nPoints;j++){
         ind=pointmap->nPoints+j;
@@ -4489,7 +4596,7 @@ wFrontStruct *copyFrontFilename(char *namen)
 
   if(!(wavefront=(wFrontStruct *)calloc(1,sizeof(wFrontStruct)))){
     fprintf(stderr,"error in wavefront allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   wavefront->front=NULL;
@@ -4526,19 +4633,19 @@ float waveformTrueCover(dataStruct *data,gediIOstruct *gediIO,float rhoRatio)
 /*####################################################*/
 /*determine Blair sensitivity metric*/
 
-float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
+float *findBlairSense(dataStruct *data,gediIOstruct *gediIO)
 {
   int i=0;
   float gAmp=0,totE=0;
   float sigEff=0,gArea=0;
   float slope=0,tanSlope=0;
-  float blairSense=0;
+  float *blairSense=0;
   float meanN=0,stdev=0;
   float notNeeded=0;
   double nNsig=0,nSsig=0;
   float probNoise=0,probMiss=0;
   float *wave=NULL;
-  void meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
+  int meanNoiseStats(float *,uint32_t,float *,float *,float *,float,float,int);
   void gaussThresholds(double,double,double,double,double *,double *,noiseThreshStruct *);
 
   /*set sigma*/
@@ -4549,7 +4656,8 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   else            wave=data->wave[data->useType];
 
   /*determine noise stats for sensitivity metric. Note this is using the threshold to get the mean and stdev*/
-  meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res));
+  if(meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res)))
+    return(NULL);
   stdev-=meanN;
 
   /*total energy*/
@@ -4569,9 +4677,9 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
     sigEff=sqrt(gediIO->linkPsig*gediIO->linkPsig+gediIO->linkFsig*gediIO->linkFsig*tanSlope*tanSlope);
     gArea=gAmp*sigEff*sqrt(2.0*M_PI)/totE;
 
-    if(gArea>0.0)blairSense=1.0-gArea;
-    else         blairSense=0.0;
-  }else blairSense=1.0;
+    if(gArea>0.0)*blairSense=1.0-gArea;
+    else         *blairSense=0.0;
+  }else *blairSense=1.0;
 
   return(blairSense);
 }/*findBlairSense*/

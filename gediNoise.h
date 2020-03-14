@@ -68,7 +68,7 @@ typedef struct{
 /*#######################################*/
 /*function definitions*/
 
-void addNoise(dataStruct *,noisePar *,float,float,float,float,float);
+int addNoise(dataStruct *,noisePar *,float,float,float,float,float);
 float setNoiseSigma(float,float,float,float,float,float);
 float GaussNoise();
 

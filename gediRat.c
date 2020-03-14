@@ -63,18 +63,22 @@ int main(int argc,char **argv)
   pCloudStruct **data=NULL;
   waveStruct *waves=NULL;
   gediHDF *hdfData=NULL;
-  void writeGEDIwave(control *,waveStruct *,int);
+  int writeGEDIwave(control *,waveStruct *,int);
   void tidySMoothPulse();
   void checkThisFile(lasFile *,control *,int);
-  void groundFromDEM(pCloudStruct **,control *,waveStruct *);
+  int groundFromDEM(pCloudStruct **,control *,waveStruct *);
   void checkWaveOverwrite(control *,int);
 
  
   /*read command line*/
   dimage=readCommands(argc,argv);
+  if(dimage==NULL)
+    return(1);
 
   /*set up the pulse*/
-  setGediPulse(&dimage->gediIO,&dimage->gediRat);
+  if(setGediPulse(&dimage->gediIO,&dimage->gediRat)!=0)
+    return(1);
+  
 
   /*set up grid or batch if needed*/
   setGediGrid(&dimage->gediIO,&dimage->gediRat);
@@ -82,16 +86,22 @@ int main(int argc,char **argv)
   /*loop over las files and read*/
   if(!(data=(pCloudStruct **)calloc(dimage->gediIO.nFiles,sizeof(pCloudStruct *)))){
     fprintf(stderr,"error waveStruct allocation.\n");
-    exit(1);
+    return(1);
   }
   for(i=0;i<dimage->gediIO.nFiles;i++){
     /*report progress if reading all data here*/
     if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf(stdout,"File %d of %d",i+1,dimage->gediIO.nFiles);
     /*read lasFile*/
     las=readLasHead(dimage->inList[i],dimage->pBuffSize);
+    if(las==NULL)
+      return(1);
 
     /*read data or write filename if needed*/
-    if(dimage->listFiles==0)data[i]=readALSdata(las,&dimage->gediRat,i);
+    if(dimage->listFiles==0){
+      data[i]=readALSdata(las,&dimage->gediRat,i);
+      if(data[i]==NULL)
+        return(1);
+    }
     else                    checkThisFile(las,dimage,i);
     if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf(stdout," nPoints %u\n",data[i]->nPoints);
 
@@ -100,7 +110,11 @@ int main(int argc,char **argv)
   }/*file loop*/
 
   /*set up HDF5 if needed*/
-  if(dimage->writeHDF)hdfData=setUpHDF(&dimage->gediIO,&dimage->gediRat,dimage->useID,dimage->waveID,&dimage->hdfCount,dimage->maxBins);
+  if(dimage->writeHDF){
+    hdfData=setUpHDF(&dimage->gediIO,&dimage->gediRat,dimage->useID,dimage->waveID,&dimage->hdfCount,dimage->maxBins);
+    if(hdfData==NULL)
+      return(1);
+  }
 
   /*make waveforms*/
   if(dimage->listFiles==0){
@@ -116,10 +130,13 @@ int main(int argc,char **argv)
         /*if it is not to be overwritten*/
         if(dimage->gediRat.useFootprint){
           /*set up footprint*/
-          setGediFootprint(&dimage->gediRat,&dimage->gediIO);
+          if(setGediFootprint(&dimage->gediRat,&dimage->gediIO)!=0)
+            return(1);
 
           /*make waveforms*/
           waves=makeGediWaves(&dimage->gediRat,&dimage->gediIO,data);
+          if(waves==NULL)
+            return(1);
         }
 
         /*if it is usable*/
@@ -131,11 +148,17 @@ int main(int argc,char **argv)
             }
           }
           /*find the ground if needed*/
-          if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr))groundFromDEM(data,dimage,waves);
+          if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr)){
+            if(groundFromDEM(data,dimage,waves)!=0)
+              return(1);
+          }
   
           /*output results*/
           if(dimage->writeHDF)packGEDIhdf(waves,hdfData,i+j*dimage->gediRat.gNx,&dimage->gediIO,&dimage->gediRat,&dimage->hdfCount,dimage->useID,dimage->waveID);
-          else                writeGEDIwave(dimage,waves,i+j*dimage->gediRat.gNx);
+          else{
+            if(writeGEDIwave(dimage,waves,i+j*dimage->gediRat.gNx)!=0)
+              return(1);
+          }
         }
 
         /*tidy up*/
@@ -153,8 +176,8 @@ int main(int argc,char **argv)
     /*write HDF if needed and not blank*/
     if(dimage->writeHDF&&(dimage->hdfCount>0)){
       hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
-      if(dimage->writeL1B)writeGEDIl1b(hdfData,dimage->outNamen,&(dimage->gediIO));
-      else                writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO));
+      if(dimage->writeL1B) { ISINTRETINT(writeGEDIl1b(hdfData,dimage->outNamen,&(dimage->gediIO))) };
+      else                 { ISINTRETINT(writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO))) };
     }
   }/*make and write a waveform if needed*/
 
@@ -224,7 +247,7 @@ void checkWaveOverwrite(control *dimage,int numb)
 /*##############################################*/
 /*determine ground properties with e DEM*/
 
-void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
+int groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
 {
   int nX=0,nY=0,nBins=0;
   float res=0,rRes=0;
@@ -252,6 +275,8 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
 
   if(dimage->polyGr)   gDEM=findGroundPoly(data,dimage->gediIO.nFiles,&minX,&minY,&maxX,&maxY,res,&nX,&nY,waves->groundBreakElev);
   else if(dimage->nnGr)gDEM=findGroundNN(data,dimage->gediIO.nFiles,&minX,&minY,res,&nX,&nY,waves->groundBreakElev);
+  if(gDEM==NULL)
+    return(-1);
 
   if(gDEM){
     /*make gap filled ground waveform*/
@@ -265,7 +290,7 @@ void groundFromDEM(pCloudStruct **data,control *dimage,waveStruct *waves)
   }
 
   TIDY(gWave);
-  return;
+  return(0);
 }/*groundFromDEM*/
 
 
@@ -370,7 +395,7 @@ void checkThisFile(lasFile *las,control *dimage,int i)
 /*####################################*/
 /*write GEDI waveforms*/
 
-void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
+int writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 {
   int i=0,j=0;
   float r=0;
@@ -396,7 +421,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
   if((opoo=fopen(dimage->waveNamen,"w"))==NULL){
     fprintf(stderr,"Error opening output file %s\n",dimage->waveNamen);
-    exit(1);
+    return(-1);
   }
 
   /*write header*/
@@ -428,7 +453,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves,int numb)
     opoo=NULL;
   }
   fprintf(stdout,"Written to %s\n",dimage->waveNamen);
-  return;
+  return(0);
 }/*writeGEDIwave*/
 
 
@@ -447,13 +472,13 @@ pCloudStruct *readAsciiData(char *inNamen)
 
   if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
     fprintf(stderr,"error pCloudStruct allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
 
   if((ipoo=fopen(inNamen,"r"))==NULL){
     fprintf(stderr,"Error opening input file %s\n",inNamen);
-    exit(1);
+    return(NULL);
   }
 
   /*count number of points*/
@@ -470,7 +495,7 @@ pCloudStruct *readAsciiData(char *inNamen)
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){ 
     fprintf(stderr,"fseek error\n");
-    exit(1);
+    return(NULL);
   }
 
   /*read data*/
@@ -506,7 +531,7 @@ control *readCommands(int argc,char **argv)
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   dimage->gediIO.nFiles=1;
@@ -595,6 +620,8 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-inList");
         TTIDY((void **)dimage->inList,dimage->gediIO.nFiles);
         dimage->inList=readInList(&dimage->gediIO.nFiles,argv[++i]);
+        if(dimage->inList==NULL)
+          return(NULL);
       }else if(!strncasecmp(argv[i],"-coord",6)){
         checkArguments(2,i,argc,"-coord");
         dimage->gediRat.coord[0]=atof(argv[++i]);
@@ -694,6 +721,8 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-wavefront");
         dimage->gediRat.defWfront=1;
         dimage->gediRat.wavefront=copyFrontFilename(argv[++i]);
+        if(dimage->gediRat.wavefront==NULL)
+         return(NULL);
       }else if(!strncasecmp(argv[i],"-noOctree",9)){
         dimage->gediRat.useOctree=0;
       }else if(!strncasecmp(argv[i],"-octLevels",9)){
@@ -719,10 +748,10 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.aEPSG=atoi(argv[++i]);;
       }else if(!strncasecmp(argv[i],"-help",5)){
         writeGediRatHelpMessage();
-        exit(1);
+        return(NULL);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
-        exit(1);
+        return(NULL);
       }
     }
   }/*command parser*/

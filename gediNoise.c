@@ -49,7 +49,7 @@
 /*####################################################*/
 /*add noise to waveform*/
 
-void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float res,float rhoc,float rhog)
+int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float res,float rhoc,float rhog)
 {
   int i=0;
   float noise=0;
@@ -72,7 +72,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if(gNoise->minGap==0.0){
       fprintf(stderr,"Cannot delete ground without a defined minimum gap\n");
-      exit(1);
+      return(-1);
     }
     deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
   }else if(gNoise->linkNoise){   /*link margin based noise*/
@@ -88,6 +88,8 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
     for(i=0;i<data->nBins;i++)tempNoise[i]=gNoise->linkSig*GaussNoise()*reflScale;
     /*smooth noise by detector response*/
     smooNoise=smooth(gNoise->deSig,data->nBins,tempNoise,res);
+    if(smooNoise==NULL)
+      return(-1);
     for(i=0;i<data->nBins;i++)tempNoise[i]=tempWave[i]+smooNoise[i];
     TIDY(smooNoise);
     /*scale to match sigma*/
@@ -115,7 +117,7 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   }
 
   TIDY(tempWave);
-  return;
+  return(0);
 }/*addNoise*/
 
 /*####################################################*/
@@ -356,6 +358,8 @@ float *denoiseTruth(float *wave,int nBins)
 
   /*denoise*/
   tempWave=processFloWave(wave,nBins,&den,1.0);
+  if(tempWave==NULL)
+    return(NULL);
 
   return(tempWave);
 }/*denoiseTruth*/
@@ -364,7 +368,7 @@ float *denoiseTruth(float *wave,int nBins)
 /*####################################################*/
 /*modify the truth in terms of noise and pulse width*/
 
-void modifyTruth(dataStruct *data,noisePar *gNoise)
+int modifyTruth(dataStruct *data,noisePar *gNoise)
 {
   float *tempWave=NULL;
   float *denoiseTruth(float *,int);
@@ -373,16 +377,20 @@ void modifyTruth(dataStruct *data,noisePar *gNoise)
 
   /*remove noise*/
   tempWave=denoiseTruth(data->wave[data->useType],data->nBins);
+  if (tempWave==NULL)
+    return(-1);
 
   /*change pulse width*/
   if(gNoise->newPsig>0.0){
     if(gNoise->newPsig<data->pSigma){   /*reduce pulse width*/
       fprintf(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
-      exit(1);
+      return(-1);
     }else if(gNoise->newPsig>data->pSigma){  /*increase pulse width*/
       sigDiff=sqrt(gNoise->newPsig*gNoise->newPsig-data->pSigma*data->pSigma);
       TIDY(data->wave[data->useType]);
       data->wave[data->useType]=smooth(sigDiff,data->nBins,tempWave,data->res);
+      if(data->wave[data->useType]==NULL)
+        return(-1);
     }else{  /*do not change*/
       doNothing=1;
     }
@@ -396,7 +404,7 @@ void modifyTruth(dataStruct *data,noisePar *gNoise)
   }
 
   TIDY(tempWave);
-  return;
+  return(0);
 }/*modifyTruth*/
 
 

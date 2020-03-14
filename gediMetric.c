@@ -69,19 +69,21 @@ int main(int argc,char **argv)
   control *readCommands(int,char **);
   dataStruct *data=NULL;
   metStruct *metric=NULL;
-  void setL2ground(dataStruct *,int,control *);
-  void findMetrics(metStruct *,float *,int,float *,float *,int,double *,control *,dataStruct *);
+  int setL2ground(dataStruct *,int,control *);
+  int findMetrics(metStruct *,float *,int,float *,float *,int,double *,control *,dataStruct *);
   void tidySMoothPulse();
   void alignElevation(double,double,float *,int);
-  void writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
+  int writeResults(dataStruct *,control *,metStruct *,int,float *,float *,char *);
   void determineTruth(dataStruct *,control *);
-  void modifyTruth(dataStruct *,noisePar *);
+  int modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
-  void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
+  int photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
   float *processed=NULL,*denoised=NULL,*pclWave=NULL;
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
+  if(dimage)
+    return(1);
 
   /*set link noise if needed*/
   dimage->noise.linkSig=setNoiseSigma(dimage->noise.linkM,dimage->noise.linkCov,dimage->gediIO.linkPsig,dimage->gediIO.linkFsig,rhoC,rhoG);
@@ -97,7 +99,7 @@ int main(int argc,char **argv)
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
     fprintf(stderr,"error metric structure allocation.\n");
-    exit(1);
+    return(1);
   }
 
   /*loop over files*/
@@ -109,7 +111,13 @@ int main(int argc,char **argv)
     else if(dimage->readHDFlvis)data=unpackHDFlvis(dimage->gediIO.inList[0],&dimage->hdfLvis,&dimage->gediIO,i);
     else if(dimage->readHDFgedi)data=unpackHDFgedi(dimage->gediIO.inList[0],&dimage->gediIO,&dimage->hdfGedi,i);
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
-    if(dimage->readL2)setL2ground(data,i,dimage);
+    if (data == NULL) {
+      return(1);
+    }
+    if(dimage->readL2){
+      if(setL2ground(data,i,dimage)!=0)
+        return(1);
+    }
 
     /*check bounds if needed*/
     if(dimage->useBounds)checkWaveformBounds(data,dimage);
@@ -117,14 +125,17 @@ int main(int argc,char **argv)
     /*is the data usable*/
     if(data->usable){
       /*denoise and change pulse if needed*/
-      if(dimage->renoiseWave)modifyTruth(data,&dimage->noise);
+      if(dimage->renoiseWave){
+        if(modifyTruth(data,&dimage->noise)!=0)
+          return(1);
+      }
 
       /*determine truths before noising*/
       determineTruth(data,dimage);
 
       /*add noise if needed*/
       if(!dimage->gediIO.pclPhoton){
-        addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
+        ISINTRETINT(addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG));
         if(dimage->gediIO.pcl)pclWave=data->noised;
       }else if(dimage->gediIO.pclPhoton)pclWave=data->wave[data->useType];
 
@@ -141,8 +152,7 @@ int main(int argc,char **argv)
 
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
-      denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
-
+      ASSIGN_CHECKINT_RETINT(denoised, processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0));
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
@@ -150,7 +160,9 @@ int main(int argc,char **argv)
         if(!dimage->ice2){
 
           /*Gaussian fit*/
-          if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
+          if(dimage->noRHgauss==0){
+            ASSIGN_CHECKNULL_RETINT(processed, processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0));
+          }
 
 
           /*shift Gaussian centres to align to absolute elevation*/
@@ -158,15 +170,18 @@ int main(int argc,char **argv)
 
 
           /*determine metrics*/
-          findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
+          if(findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data)!=0)
+            return(1);
 
 
           /*write results*/
-          if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
-          else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
-
+          if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)
+            ISINTRETINT(writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]));
+          else                                                             
+            ISINTRETINT(writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]));
         }else{  /*ICESat-2 mode*/
-          photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
+          if(photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise)!=0)
+            return(1);
         }/*operation mode switch*/
       }else{/*still usable after denoising?*/
         fprintf(stderr,"No longer usable\n");
@@ -468,7 +483,7 @@ float groundOverlap(float *wave,float *ground,int nBins)
 /*####################################################*/
 /*write results*/
 
-void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,float *denoised,float *processed,char *inNamen)
+int writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,float *denoised,float *processed,char *inNamen)
 {
   int i=0,j=0;
   int offset=0;
@@ -483,7 +498,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     sprintf(namen,"%s.gauss.txt",dimage->outRoot);
     if((dimage->opooGauss=fopen(namen,"w"))==NULL){
       fprintf(stderr,"Error opening output file %s\n",namen);
-      exit(1);
+      return(-1);
     }
     fprintf(dimage->opooGauss,"# 1 wave ID, 2 nGauss");
     for(i=0;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss,", %d gauss %d mu, %d A, %d sig",3*i+3,i+1,3*i+4,3*i+5);
@@ -493,7 +508,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     sprintf(namen,"%s.metric.txt",dimage->outRoot);
     if((dimage->opooMet=fopen(namen,"w"))==NULL){
       fprintf(stderr,"Error opening output file %s\n",namen);
-      exit(1);
+      return(-1);
     }
     fprintf(dimage->opooMet,"# 1 wave ID, 2 true ground, 3 true top, 4 ground slope, 5 ALS cover, 6 gHeight, 7 maxGround, 8 inflGround, 9 signal top, 10 signal bottom, 11 cover, 12 leading edge ext, 13 trailing edge extent");
     for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet,", %d rhGauss %g",14+i,(float)i*dimage->rhRes);
@@ -601,7 +616,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     else              sprintf(waveNamen,"%s.%s.fit",dimage->outRoot,data->waveID);
     if((opoo=fopen(waveNamen,"w"))==NULL){
       fprintf(stderr,"Error opening output file %s\n",waveNamen);
-      exit(1);
+      return(-1);
     }
 
     fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original, 6 ground, 7 canopy");
@@ -627,7 +642,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(stdout,"Wave to %s\n",waveNamen);
   }/*fitted wave if required*/
 
-  return;
+  return(0);
 }/*writeResults*/
 
 
@@ -652,7 +667,7 @@ void alignElevation(double z0,double zEnd,float *gPar,int nGauss)
 /*####################################################*/
 /*calculate metrics*/
 
-void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *wave,int nBins,double *z,control *dimage,dataStruct *data)
+int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *wave,int nBins,double *z,control *dimage,dataStruct *data)
 {
   int i=0,gInd=0;
   float tot=0;
@@ -662,7 +677,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   double gaussianGround(float *,float *,float *,int *,int,float,float *,dataStruct *,denPar *);
   double maxGround(float *,double *,int);
   double inflGround(float *,double *,int);
-  double bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
+  double* bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
   float *blankRH(float,int *);
   float *smoothed=NULL,*canWave=NULL;
   float halfCover(float *,double *,int,double,float);
@@ -700,7 +715,10 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
   /*Blair sensitivity*/
-  metric->blairSense=findBlairSense(data,&dimage->gediIO);
+  float* _blairSense = findBlairSense(data,&dimage->gediIO);
+  if(_blairSense==NULL)
+    return(-1);
+  metric->blairSense=*_blairSense;
 
   /*smooth waveform for finding ground by max and inflection*/
   setDenoiseDefault(&den);
@@ -710,6 +728,8 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   den.sWidth=0.76*3.0/4.0;  /*according to Bryan Blair*/
   den.noiseTrack=0;
   smoothed=processFloWave(denoised,nBins,&den,1.0);
+  if(smoothed==NULL)
+    return(-1);
 
   /*ground by Gaussian fit*/
   if((dimage->noRHgauss==0)&&(nGauss>0))metric->gHeight=gaussianGround(energy,mu,sig,&gInd,nGauss,tot,&metric->gSlope,data,dimage->gediIO.den);
@@ -798,7 +818,11 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
 
   /*bayesian ground finding*/
   if(dimage->bayesGround){
-    metric->bayGround=bayesGround(wave,nBins,dimage,metric,z,data);
+    double *bayGround = bayesGround(wave,nBins,dimage,metric,z,data); 
+    if(bayGround==NULL)
+      return(-1);
+    metric->bayGround=*bayGround;
+    
     metric->covHalfB=halfCover(denoised,z,nBins,metric->bayGround,dimage->rhoRatio);
   }
 
@@ -808,7 +832,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   TIDY(sig);
   TIDY(energy);
   TIDY(smoothed);
-  return;
+  return(0);
 }/*findMetrics*/
 
 
@@ -1005,14 +1029,14 @@ float halfCover(float *wave,double *z,int nBins,double gElev,float rhoRatio)
 /*####################################################*/
 /*Bayseian ground finding*/
 
-double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,double *z,dataStruct *data)
+double *bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,double *z,dataStruct *data)
 {
   int i=0,start=0,end=0,dir=0;
   float contN=0,prob=0;
   float *processed=NULL;
   float groundProb(float,float,float);
   float height=0;
-  double bayGround=0;
+  double* bayGround=0;
   denPar *den=NULL;    /*denoising structure*/
   void gaussProps(float *,int,float,float,double *,float *,float *,float *);
   void  setDenoiseDefault(denPar *);
@@ -1022,7 +1046,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   metric->nBgr=6;
   if(!(metric->bGr=(bGround *)calloc(metric->nBgr,sizeof(bGround)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
   /*for first estimate, last return above noise*/
@@ -1049,7 +1073,7 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   /*for others, make an array*/
   if(!(den=(denPar *)calloc(metric->nBgr,sizeof(denPar)))){
     fprintf(stderr,"error waveStruct allocation.\n");
-    exit(1);
+    return(NULL);
   }
   for(i=1;i<metric->nBgr;i++){
     setDenoiseDefault(&(den[i]));
@@ -1067,6 +1091,8 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   for(i=1;i<metric->nBgr;i++){
     /*fit Gaussians*/
     processed=processFloWave(wave,nBins,&den[i],1.0);
+    if(processed==NULL)
+      return(NULL);
     alignElevation(z[0],z[nBins-1],den[i].gPar,den[i].nGauss);
 
     /*get parameters*/
@@ -1077,13 +1103,13 @@ double bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doubl
   }/*smoothing width loop*/
 
   contN=0.0;
-  bayGround=0.0;
+  *bayGround=0.0;
   for(i=0;i<metric->nBgr;i++){
     prob=groundProb(metric->bGr[i].slope,metric->bGr[i].cov,height);
-    bayGround+=(double)(prob*metric->bGr[i].gHeight);
+    *bayGround+=(double)(prob*metric->bGr[i].gHeight);
     contN+=prob;
   }
-  if(contN>0.0)bayGround/=(double)contN;
+  if(contN>0.0)*bayGround/=(double)contN;
   TIDY(den);
 
   return(bayGround);
@@ -1378,13 +1404,17 @@ double maxGround(float *smoothed,double *z,int nBins)
 /*####################################################*/
 /*read or copy LVIS L2 data*/
 
-void setL2ground(dataStruct *data,int numb,control *dimage)
+int setL2ground(dataStruct *data,int numb,control *dimage)
 {
   uint64_t i=0;
   lvisL2struct *readLvisL2(char *);
   lvisL2struct *t=NULL;
 
-  if(numb==0)dimage->lvisL2=readLvisL2(dimage->l2namen);
+  if(numb==0) {
+    dimage->lvisL2=readLvisL2(dimage->l2namen);
+    if(dimage->lvisL2==NULL)
+      return(-1);
+  }
 
   /*for shorthand, set to a short pointer*/
   t=dimage->lvisL2;
@@ -1399,7 +1429,7 @@ void setL2ground(dataStruct *data,int numb,control *dimage)
   }
 
   t=NULL;
-  return;
+  return(0);
 }/*setL2ground*/
 
 /*####################################################*/
@@ -1417,7 +1447,7 @@ lvisL2struct *readLvisL2(char *namen)
   /*allocate structures*/
   if(!(lvisL2=(lvisL2struct *)calloc(1,sizeof(lvisL2struct)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   lvisL2->numb=0;
   lvisL2->lfid=NULL;
@@ -1427,7 +1457,7 @@ lvisL2struct *readLvisL2(char *namen)
   /*open file*/
   if((ipoo=fopen(namen,"r"))==NULL){
     fprintf(stderr,"Error opening input file %s\n",namen);
-    exit(1);
+    return(NULL);
   }
 
   /*count number of lines*/
@@ -1436,18 +1466,18 @@ lvisL2struct *readLvisL2(char *namen)
   /*allocate arrays*/
   if(!(lvisL2->lfid=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
     fprintf(stderr,"error in L2 lfid allocation.\n");
-    exit(1);
+    return(NULL);
   }
   if(!(lvisL2->shotN=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
     fprintf(stderr,"error in L2 shotN allocation.\n");
-    exit(1);
+    return(NULL);
   }
   lvisL2->zG=falloc((uint64_t)lvisL2->numb,"L2 zG",0);
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
     fprintf(stderr,"fseek error\n");
-    exit(1);
+    return(NULL);
   }
 
   /*read data*/
@@ -1491,11 +1521,10 @@ lvisL2struct *readLvisL2(char *namen)
 /*dummy function if photon counting not included*/
 
 #ifndef USEPHOTON
-void photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
+int photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
 {
   fprintf(stderr,"This has been compiled without photon counting functions\n");
-  exit(1);
-  return;
+  return(-1);
 }/*photonCountCloud*/
 #endif
 
@@ -1508,21 +1537,21 @@ control *readCommands(int argc,char **argv)
   int i=0;
   control *dimage=NULL;
   void setDenoiseDefault(denPar *);
-  void readPulse(denPar *);
+  int readPulse(denPar *);
   void writeHelp();
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   if(!(dimage->gediIO.den=(denPar *)calloc(1,sizeof(denPar)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
   if(!(dimage->gediIO.gFit=(denPar *)calloc(1,sizeof(denPar)))){
     fprintf(stderr,"error control allocation.\n");
-    exit(1);
+    return(NULL);
   }
 
 
@@ -1663,6 +1692,8 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-inList");
         TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
         dimage->gediIO.inList=readInList(&dimage->gediIO.nFiles,argv[++i]);
+        if(dimage->gediIO.inList==NULL)
+          return(NULL);
       }else if(!strncasecmp(argv[i],"-outRoot",8)){
         checkArguments(1,i,argc,"-outRoot");
         strcpy(dimage->outRoot,argv[++i]);
@@ -1888,19 +1919,22 @@ control *readCommands(int argc,char **argv)
       #endif
       }else if(!strncasecmp(argv[i],"-help",5)){
         writeHelp();
-        exit(1);
+        return(NULL);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
-        exit(1);
+        return(NULL);
       }
     }
   }
 
   /*read deconvolution pulse if needed*/
-  if(dimage->gediIO.den->preMatchF||dimage->gediIO.den->preMatchF||dimage->gediIO.den->deconMeth>=0)readPulse(dimage->gediIO.den); 
+  if(dimage->gediIO.den->preMatchF||dimage->gediIO.den->preMatchF||dimage->gediIO.den->deconMeth>=0){
+    if(readPulse(dimage->gediIO.den)!=0)
+      return(NULL); 
+  }
   if((!dimage->gediIO.ground)&&(dimage->noise.missGround)){
     fprintf(stderr,"Noise option conflict. Cannot use missGround without ground\n");
-    exit(1);
+    return(NULL);
   }
 
   return(dimage);
