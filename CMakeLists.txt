@@ -63,7 +63,7 @@ add_library(gedisimulator ${LIBTYPE}
 	${LIBCLIDAR_ROOT}/libLidarHDF.c
 	${LIBCLIDAR_ROOT}/libOctree.c
 	${HANCOCKTOOLS_ROOT}/tools.c
-	${HANCOCKTOOLS_ROOT}/msgHandling.c
+	${HANCOCKTOOLS_ROOT}/functionWrappers.c
 	${CMPFIT_ROOT}/mpfit.c
 	gediIO.c
 	gediNoise.c
