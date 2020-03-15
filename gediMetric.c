@@ -6,7 +6,7 @@
 #include "float.h"
 #include "hdf5.h"
 #include "tools.h"
-#include "msgHandling.h"
+#include "functionWrappers.h"
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
@@ -98,13 +98,13 @@ int main(int argc,char **argv)
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
-    fprintf2(stderr,"error metric structure allocation.\n");
+    errorf("error metric structure allocation.\n");
     return(1);
   }
 
   /*loop over files*/
   for(i=0;i<dimage->gediIO.nFiles;i++){
-    if((i%dimage->gediIO.nMessages)==0)fprintf2(stdout,"Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
+    if((i%dimage->gediIO.nMessages)==0)msgf("Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
 
     /*read waveform*/
     if(dimage->readBinLVIS)     data=readBinaryLVIS(dimage->gediIO.inList[0],&dimage->lvis,i,&dimage->gediIO);
@@ -143,7 +143,7 @@ int main(int argc,char **argv)
         ASSIGN_CHECKNULL_RETINT(data,noised=uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO));
       }
       #else
-      fprintf(stderr,"Can't use photon, not compiled with -DUSEPHOTON!\n");
+      errorf("Can't use photon, not compiled with -DUSEPHOTON!\n");
       #endif
       pclWave=NULL;
 
@@ -183,7 +183,7 @@ int main(int argc,char **argv)
           ISINTRETINT(photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise));
         }/*operation mode switch*/
       }else{/*still usable after denoising?*/
-fprintf2(stderr,"No longer usable\n");
+errorf("No longer usable\n");
       }
     }/*is the data usable*/
 
@@ -226,10 +226,10 @@ fprintf2(stderr,"No longer usable\n");
   if(dimage->readHDFgedi)dimage->hdfGedi=tidyGediHDF(dimage->hdfGedi);
 
 
-  if(dimage->writeGauss)fprintf2(stdout,"Written to %s.gauss.txt\n",dimage->outRoot);
-  if(!dimage->ice2)fprintf2(stdout,"Written to %s.metric.txt\n",dimage->outRoot);
+  if(dimage->writeGauss)msgf("Written to %s.gauss.txt\n",dimage->outRoot);
+  if(!dimage->ice2)msgf("Written to %s.metric.txt\n",dimage->outRoot);
   #ifdef USEPHOTON
-  else             fprintf2(stdout,"Written to %s\n",dimage->photonCount.outNamen);
+  else             msgf("Written to %s\n",dimage->photonCount.outNamen);
   #endif
 
 
@@ -496,149 +496,149 @@ int writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,flo
   if((dimage->opooGauss==NULL)&&(dimage->writeGauss)){
     sprintf(namen,"%s.gauss.txt",dimage->outRoot);
     if((dimage->opooGauss=fopen(namen,"w"))==NULL){
-      fprintf2(stderr,"Error opening output file %s\n",namen);
+      errorf("Error opening output file %s\n",namen);
       return(-1);
     }
-    fprintf2(dimage->opooGauss,"# 1 wave ID, 2 nGauss");
-    for(i=0;i<dimage->maxGauss;i++)fprintf2(dimage->opooGauss,", %d gauss %d mu, %d A, %d sig",3*i+3,i+1,3*i+4,3*i+5);
-    fprintf2(dimage->opooGauss,", %d wave name\n",3*i+6);
+    fprintf(dimage->opooGauss,"# 1 wave ID, 2 nGauss");
+    for(i=0;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss,", %d gauss %d mu, %d A, %d sig",3*i+3,i+1,3*i+4,3*i+5);
+    fprintf(dimage->opooGauss,", %d wave name\n",3*i+6);
   }
   if(dimage->opooMet==NULL){
     sprintf(namen,"%s.metric.txt",dimage->outRoot);
     if((dimage->opooMet=fopen(namen,"w"))==NULL){
-      fprintf2(stderr,"Error opening output file %s\n",namen);
+      errorf("Error opening output file %s\n",namen);
       return(-1);
     }
-    fprintf2(dimage->opooMet,"# 1 wave ID, 2 true ground, 3 true top, 4 ground slope, 5 ALS cover, 6 gHeight, 7 maxGround, 8 inflGround, 9 signal top, 10 signal bottom, 11 cover, 12 leading edge ext, 13 trailing edge extent");
-    for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet,", %d rhGauss %g",14+i,(float)i*dimage->rhRes);
-    for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet,", %d rhMax %g",14+i+metric->nRH,(float)i*dimage->rhRes);
-    for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet,", %d rhInfl %g",14+i+2*metric->nRH,(float)i*dimage->rhRes);
-    for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet,", %d rhReal %g",14+i+3*metric->nRH,(float)i*dimage->rhRes);
-    fprintf2(dimage->opooMet,", %d filename",14+4*metric->nRH);
-    if(dimage->bayesGround)fprintf2(dimage->opooMet,", %d bayesGround",14+4*metric->nRH+1);
-    fprintf2(dimage->opooMet,", %d gaussHalfCov, %d maxHalfCov, %d infHalfCov, %d bayHalfCov",14+4*metric->nRH+1+dimage->bayesGround,14+4*metric->nRH+1+dimage->bayesGround+1,14+4*metric->nRH+1+dimage->bayesGround+2,14+4*metric->nRH+1+dimage->bayesGround+3);
-    fprintf2(dimage->opooMet,", %d pSigma, %d fSigma",14+4*metric->nRH+1+dimage->bayesGround+4,14+4*metric->nRH+1+dimage->bayesGround+5);
-    fprintf2(dimage->opooMet,", %d linkM, %d linkCov",14+4*metric->nRH+1+dimage->bayesGround+6,14+4*metric->nRH+1+dimage->bayesGround+7);
-    fprintf2(dimage->opooMet,", %d lon, %d lat",14+4*metric->nRH+1+dimage->bayesGround+8,14+4*metric->nRH+1+dimage->bayesGround+9);
-    fprintf2(dimage->opooMet,", %d groundOverlap, %d groundMin, %d groundInfl",14+4*metric->nRH+1+dimage->bayesGround+10,\
+    fprintf(dimage->opooMet,"# 1 wave ID, 2 true ground, 3 true top, 4 ground slope, 5 ALS cover, 6 gHeight, 7 maxGround, 8 inflGround, 9 signal top, 10 signal bottom, 11 cover, 12 leading edge ext, 13 trailing edge extent");
+    for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet,", %d rhGauss %g",14+i,(float)i*dimage->rhRes);
+    for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet,", %d rhMax %g",14+i+metric->nRH,(float)i*dimage->rhRes);
+    for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet,", %d rhInfl %g",14+i+2*metric->nRH,(float)i*dimage->rhRes);
+    for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet,", %d rhReal %g",14+i+3*metric->nRH,(float)i*dimage->rhRes);
+    fprintf(dimage->opooMet,", %d filename",14+4*metric->nRH);
+    if(dimage->bayesGround)fprintf(dimage->opooMet,", %d bayesGround",14+4*metric->nRH+1);
+    fprintf(dimage->opooMet,", %d gaussHalfCov, %d maxHalfCov, %d infHalfCov, %d bayHalfCov",14+4*metric->nRH+1+dimage->bayesGround,14+4*metric->nRH+1+dimage->bayesGround+1,14+4*metric->nRH+1+dimage->bayesGround+2,14+4*metric->nRH+1+dimage->bayesGround+3);
+    fprintf(dimage->opooMet,", %d pSigma, %d fSigma",14+4*metric->nRH+1+dimage->bayesGround+4,14+4*metric->nRH+1+dimage->bayesGround+5);
+    fprintf(dimage->opooMet,", %d linkM, %d linkCov",14+4*metric->nRH+1+dimage->bayesGround+6,14+4*metric->nRH+1+dimage->bayesGround+7);
+    fprintf(dimage->opooMet,", %d lon, %d lat",14+4*metric->nRH+1+dimage->bayesGround+8,14+4*metric->nRH+1+dimage->bayesGround+9);
+    fprintf(dimage->opooMet,", %d groundOverlap, %d groundMin, %d groundInfl",14+4*metric->nRH+1+dimage->bayesGround+10,\
                              14+4*metric->nRH+1+dimage->bayesGround+11,14+4*metric->nRH+1+dimage->bayesGround+12);
-    fprintf2(dimage->opooMet,", %d waveEnergy, %d blairSense",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
-    fprintf2(dimage->opooMet,", %d pointDense, %d beamDense",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
-    fprintf2(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
-    fprintf2(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
-    fprintf2(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
+    fprintf(dimage->opooMet,", %d waveEnergy, %d blairSense",14+4*metric->nRH+1+dimage->bayesGround+13,14+4*metric->nRH+1+dimage->bayesGround+14);
+    fprintf(dimage->opooMet,", %d pointDense, %d beamDense",14+4*metric->nRH+1+dimage->bayesGround+15,14+4*metric->nRH+1+dimage->bayesGround+16);
+    fprintf(dimage->opooMet,", %d zenith, %d FHD",14+4*metric->nRH+1+dimage->bayesGround+17,14+4*metric->nRH+1+dimage->bayesGround+18);
+    fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
+    fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
     offset=24;
     if(dimage->hdfGedi){   /*has the HDF structure been allocated*/
       if(dimage->hdfGedi->solarElev){
-        fprintf2(dimage->opooMet,", %d solarElev,",14+4*metric->nRH+1+dimage->bayesGround+offset);
+        fprintf(dimage->opooMet,", %d solarElev,",14+4*metric->nRH+1+dimage->bayesGround+offset);
         offset++;
       }
     }
     if(dimage->noCanopy==0){
-      fprintf2(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset+1,14+4*metric->nRH+1+dimage->bayesGround+offset+3);
+      fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset+1,14+4*metric->nRH+1+dimage->bayesGround+offset+3);
       offset+=3;
-      fprintf2(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset);
+      fprintf(dimage->opooMet,", %d FHDcanGauss, %d FHDcanGhist,",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset);
       offset+=2;
-      for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %d tLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %d gLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %d hgLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+2*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
-      for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d tLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d gLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hgLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+2*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
+      for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
     }
-    fprintf2(dimage->opooMet," %d gSlope,",14+4*metric->nRH+1+dimage->bayesGround+offset+3+5*metric->laiBins);
+    fprintf(dimage->opooMet," %d gSlope,",14+4*metric->nRH+1+dimage->bayesGround+offset+3+5*metric->laiBins);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomReal%d",14+4*metric->nRH+1+dimage->bayesGround+21+3*metric->nLm+i,i+1);
-    fprintf2(dimage->opooMet,"\n");
+    fprintf(dimage->opooMet,"\n");
   }
 
-  if(dimage->gediIO.gFit->nGauss>dimage->maxGauss)fprintf2(stderr,"More Gaussians than header entries %d\n",dimage->gediIO.gFit->nGauss);
+  if(dimage->gediIO.gFit->nGauss>dimage->maxGauss)errorf("More Gaussians than header entries %d\n",dimage->gediIO.gFit->nGauss);
 
   /*fitted Gaussians*/
   if(dimage->writeGauss){
-    fprintf2(dimage->opooGauss,"%d %d",numb,dimage->gediIO.gFit->nGauss);
+    fprintf(dimage->opooGauss,"%d %d",numb,dimage->gediIO.gFit->nGauss);
     for(i=0;i<dimage->gediIO.gFit->nGauss;i++){
       if((dimage->gediIO.gFit->gPar[3*i]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+1]>=0.0)&&(dimage->gediIO.gFit->gPar[3*i+2]>=0.0)){
-        fprintf2(dimage->opooGauss," %f %f %f",dimage->gediIO.gFit->gPar[3*i],dimage->gediIO.gFit->gPar[3*i+1],dimage->gediIO.gFit->gPar[3*i+2]);
-      }else fprintf2(dimage->opooGauss," ? ? ?");
+        fprintf(dimage->opooGauss," %f %f %f",dimage->gediIO.gFit->gPar[3*i],dimage->gediIO.gFit->gPar[3*i+1],dimage->gediIO.gFit->gPar[3*i+2]);
+      }else fprintf(dimage->opooGauss," ? ? ?");
     }
-    for(i=dimage->gediIO.gFit->nGauss;i<dimage->maxGauss;i++)fprintf2(dimage->opooGauss," ? ? ?");
-    fprintf2(dimage->opooGauss," %s\n",inNamen);
+    for(i=dimage->gediIO.gFit->nGauss;i<dimage->maxGauss;i++)fprintf(dimage->opooGauss," ? ? ?");
+    fprintf(dimage->opooGauss," %s\n",inNamen);
   }
 
   /*waveform metrics*/
-  if(data->useID==0)fprintf2(dimage->opooMet,"%d",numb);
-  else              fprintf2(dimage->opooMet,"%s",data->waveID);
-  fprintf2(dimage->opooMet," %.2f %.2f %.4f %.4f %.2f %.2f %.2f %.4f %.2f %.4f %.2f %.2f",data->gElev,data->tElev,data->slope,\
+  if(data->useID==0)fprintf(dimage->opooMet,"%d",numb);
+  else              fprintf(dimage->opooMet,"%s",data->waveID);
+  fprintf(dimage->opooMet," %.2f %.2f %.4f %.4f %.2f %.2f %.2f %.4f %.2f %.4f %.2f %.2f",data->gElev,data->tElev,data->slope,\
     data->cov,metric->gHeight,metric->maxGround,metric->inflGround,metric->tElev,metric->bElev,metric->cov,metric->leExt,metric->teExt);
-  for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet," %.2f",metric->rh[i]);
-  for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet," %.2f",metric->rhMax[i]);
-  for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet," %.2f",metric->rhInfl[i]);
-  for(i=0;i<metric->nRH;i++)fprintf2(dimage->opooMet," %.2f",metric->rhReal[i]);
-  fprintf2(dimage->opooMet," %s",inNamen);
-  if(dimage->bayesGround)fprintf2(dimage->opooMet," %.2f",metric->bayGround);
-  fprintf2(dimage->opooMet," %.3f %.3f %.3f %.3f",metric->covHalfG,metric->covHalfM,metric->covHalfI,metric->covHalfB);
-  fprintf2(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
-  if(dimage->noise.linkNoise)fprintf2(dimage->opooMet," %f %f",dimage->noise.linkM,dimage->noise.linkCov);
-  else                 fprintf2(dimage->opooMet," ? ?");
-  if(dimage->coord2dp)fprintf2(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
-  else                fprintf2(dimage->opooMet," %.10f %.10f",data->lon,data->lat);
-  fprintf2(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
-  fprintf2(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
-  fprintf2(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
-  fprintf2(dimage->opooMet," %f %f",data->zen,metric->FHD);
-  fprintf2(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
-  fprintf2(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
+  for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rh[i]);
+  for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rhMax[i]);
+  for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rhInfl[i]);
+  for(i=0;i<metric->nRH;i++)fprintf(dimage->opooMet," %.2f",metric->rhReal[i]);
+  fprintf(dimage->opooMet," %s",inNamen);
+  if(dimage->bayesGround)fprintf(dimage->opooMet," %.2f",metric->bayGround);
+  fprintf(dimage->opooMet," %.3f %.3f %.3f %.3f",metric->covHalfG,metric->covHalfM,metric->covHalfI,metric->covHalfB);
+  fprintf(dimage->opooMet," %f %f",data->pSigma,data->fSigma);
+  if(dimage->noise.linkNoise)fprintf(dimage->opooMet," %f %f",dimage->noise.linkM,dimage->noise.linkCov);
+  else                 fprintf(dimage->opooMet," ? ?");
+  if(dimage->coord2dp)fprintf(dimage->opooMet," %.2f %.2f",data->lon,data->lat);
+  else                fprintf(dimage->opooMet," %.10f %.10f",data->lon,data->lat);
+  fprintf(dimage->opooMet," %f %f %f",data->gLap,data->gMinimum,data->gInfl); 
+  fprintf(dimage->opooMet," %f %f",metric->totE,metric->blairSense);
+  fprintf(dimage->opooMet," %f %f",data->pointDense,data->beamDense);
+  fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
+  fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
+  fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
   if(dimage->hdfGedi){
-    if(dimage->hdfGedi->solarElev)fprintf2(dimage->opooMet," %f",dimage->hdfGedi->solarElev[numb]);
+    if(dimage->hdfGedi->solarElev)fprintf(dimage->opooMet," %f",dimage->hdfGedi->solarElev[numb]);
   }
   if(dimage->noCanopy==0){
-    fprintf2(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
-    fprintf2(dimage->opooMet," %f %f",metric->FHDcanGauss,metric->FHDcanGhist);
-    for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %f",metric->tLAI[i]);
-    for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %f",metric->gLAI[i]);
-    for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %f",metric->hgLAI[i]);
-    for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %f",metric->hiLAI[i]);
-    for(i=0;i<metric->laiBins;i++)fprintf2(dimage->opooMet," %f",metric->hmLAI[i]);
+    fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
+    fprintf(dimage->opooMet," %f %f",metric->FHDcanGauss,metric->FHDcanGhist);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->tLAI[i]);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->gLAI[i]);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hgLAI[i]);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hiLAI[i]);
+    for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hmLAI[i]);
   }
-  fprintf2(dimage->opooMet," %f",metric->gSlope);
+  fprintf(dimage->opooMet," %f",metric->gSlope);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomRea[i]);*/
-  fprintf2(dimage->opooMet,"\n");
+  fprintf(dimage->opooMet,"\n");
 
   /*fitted wave if required*/
   if(dimage->writeFit){
     if(data->useID==0)sprintf(waveNamen,"%s.%d.fit",dimage->outRoot,numb);
     else              sprintf(waveNamen,"%s.%s.fit",dimage->outRoot,data->waveID);
     if((opoo=fopen(waveNamen,"w"))==NULL){
-      fprintf2(stderr,"Error opening output file %s\n",waveNamen);
+      errorf("Error opening output file %s\n",waveNamen);
       return(-1);
     }
 
-    fprintf2(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original, 6 ground, 7 canopy");
-    for(i=0;i<dimage->gediIO.gFit->nGauss;i++)fprintf2(opoo,", %d Gauss %d",i+8,i+1);
-    fprintf2(opoo,"\n");
-    fprintf2(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->gediIO.res);
-    if(dimage->coord2dp)fprintf2(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
-    else                fprintf2(opoo,"# coord %.10f %.10f\n",data->lon,data->lat);
-    fprintf2(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
-    fprintf2(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
+    fprintf(opoo,"# 1 elevation, 2 noised, 3 denoised, 4 processed, 5 original, 6 ground, 7 canopy");
+    for(i=0;i<dimage->gediIO.gFit->nGauss;i++)fprintf(opoo,", %d Gauss %d",i+8,i+1);
+    fprintf(opoo,"\n");
+    fprintf(opoo,"# fSigma %f pSigma %f res %f\n",data->fSigma,data->pSigma,dimage->gediIO.res);
+    if(dimage->coord2dp)fprintf(opoo,"# coord %.2f %.2f\n",data->lon,data->lat);
+    else                fprintf(opoo,"# coord %.10f %.10f\n",data->lon,data->lat);
+    fprintf(opoo,"# cover %f rhoG %f rhoC %f\n",data->cov,rhoG,rhoC);
+    fprintf(opoo,"# ground %.2f slope %f\n",data->gElev,data->slope);
     for(i=0;i<data->nBins;i++){
-      if(dimage->noRHgauss==0)fprintf2(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[data->useType][i]);
-      else                    fprintf2(opoo,"%f %f %f ? %f",data->z[i],data->noised[i],denoised[i],data->wave[data->useType][i]);
-      if(dimage->gediIO.ground)fprintf2(opoo," %f %f",data->ground[data->useType][i],data->wave[data->useType][i]-data->ground[data->useType][i]);
-      else              fprintf2(opoo," 0 0");
-      for(j=0;j<dimage->gediIO.gFit->nGauss;j++)fprintf2(opoo," %f",dimage->gediIO.gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gediIO.gFit->gPar[3*j+2],dimage->gediIO.gFit->gPar[3*j]));
-      fprintf2(opoo,"\n");
+      if(dimage->noRHgauss==0)fprintf(opoo,"%f %f %f %f %f",data->z[i],data->noised[i],denoised[i],processed[i],data->wave[data->useType][i]);
+      else                    fprintf(opoo,"%f %f %f ? %f",data->z[i],data->noised[i],denoised[i],data->wave[data->useType][i]);
+      if(dimage->gediIO.ground)fprintf(opoo," %f %f",data->ground[data->useType][i],data->wave[data->useType][i]-data->ground[data->useType][i]);
+      else              fprintf(opoo," 0 0");
+      for(j=0;j<dimage->gediIO.gFit->nGauss;j++)fprintf(opoo," %f",dimage->gediIO.gFit->gPar[j*3+1]*gauss((float)data->z[i],dimage->gediIO.gFit->gPar[3*j+2],dimage->gediIO.gFit->gPar[3*j]));
+      fprintf(opoo,"\n");
     }
     if(opoo){
       fclose(opoo);
       opoo=NULL;
     }
-    fprintf2(stdout,"Wave to %s\n",waveNamen);
+    msgf("Wave to %s\n",waveNamen);
   }/*fitted wave if required*/
 
   return(0);
@@ -1038,7 +1038,7 @@ double *bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doub
   /*allocate*/
   metric->nBgr=6;
   if(!(metric->bGr=(bGround *)calloc(metric->nBgr,sizeof(bGround)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -1065,7 +1065,7 @@ double *bayesGround(float *wave,int nBins,control *dimage,metStruct *metric,doub
 
   /*for others, make an array*/
   if(!(den=(denPar *)calloc(metric->nBgr,sizeof(denPar)))){
-    fprintf2(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     return(NULL);
   }
   for(i=1;i<metric->nBgr;i++){
@@ -1300,7 +1300,7 @@ double gaussianGround(float *energy,float *mu,float *sig,int *gInd,int nGauss,fl
   }
 
   if(sig==NULL){
-    fprintf(stderr,"No signal\n");
+    errorf("No signal\n");
   }
 
   /*determine slope*/
@@ -1435,7 +1435,7 @@ lvisL2struct *readLvisL2(char *namen)
 
   /*allocate structures*/
   if(!(lvisL2=(lvisL2struct *)calloc(1,sizeof(lvisL2struct)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   lvisL2->numb=0;
@@ -1445,7 +1445,7 @@ lvisL2struct *readLvisL2(char *namen)
 
   /*open file*/
   if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf2(stderr,"Error opening input file %s\n",namen);
+    errorf("Error opening input file %s\n",namen);
     return(NULL);
   }
 
@@ -1454,18 +1454,18 @@ lvisL2struct *readLvisL2(char *namen)
 
   /*allocate arrays*/
   if(!(lvisL2->lfid=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
-    fprintf2(stderr,"error in L2 lfid allocation.\n");
+    errorf("error in L2 lfid allocation.\n");
     return(NULL);
   }
   if(!(lvisL2->shotN=(uint32_t *)calloc(lvisL2->numb,sizeof(uint32_t)))){
-    fprintf2(stderr,"error in L2 shotN allocation.\n");
+    errorf("error in L2 shotN allocation.\n");
     return(NULL);
   }
   ASSIGN_CHECKNULL_RETNULL(lvisL2->zG,falloc((uint64_t)lvisL2->numb,"L2 zG",0));
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf2(stderr,"fseek error\n");
+    errorf("fseek error\n");
     return(NULL);
   }
 
@@ -1512,7 +1512,7 @@ lvisL2struct *readLvisL2(char *namen)
 #ifndef USEPHOTON
 int photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,char *outRoot,int numb,denPar *den,noisePar *noise)
 {
-  fprintf2(stderr,"This has been compiled without photon counting functions\n");
+  errorf("This has been compiled without photon counting functions\n");
   return(-1);
 }/*photonCountCloud*/
 #endif
@@ -1531,15 +1531,15 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   if(!(dimage->gediIO.den=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   if(!(dimage->gediIO.gFit=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -1703,7 +1703,7 @@ control *readCommands(int argc,char **argv)
         dimage->noise.nSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-seed",5)){
         ISINTRETNULL(checkArguments(1,i,argc,"-seed"));
-        srand(atoi(argv[++i]));
+        srand2(atoi(argv[++i]));
       }else if(!strncasecmp(argv[i],"-meanN",5)){
         ISINTRETNULL(checkArguments(1,i,argc,"-meanN"));
         dimage->gediIO.den->meanN=atof(argv[++i]);
@@ -1908,7 +1908,7 @@ control *readCommands(int argc,char **argv)
         writeHelp();
         return(NULL);
       }else{
-        fprintf2(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         return(NULL);
       }
     }
@@ -1919,7 +1919,7 @@ control *readCommands(int argc,char **argv)
     ISINTRETNULL(readPulse(dimage->gediIO.den)); 
   }
   if((!dimage->gediIO.ground)&&(dimage->noise.missGround)){
-    fprintf2(stderr,"Noise option conflict. Cannot use missGround without ground\n");
+    errorf("Noise option conflict. Cannot use missGround without ground\n");
     return(NULL);
   }
 
@@ -1932,7 +1932,7 @@ control *readCommands(int argc,char **argv)
 
 void writeHelp()
 {
-  fprintf2(stdout,"\n#########################\nProgram to calculate GEDI waveform metrics\n#########################\n\
+  msgf("\n#########################\nProgram to calculate GEDI waveform metrics\n#########################\n\
 \nInput output\n\
 -input name;      waveform  input filename\n\
 -outRoot name;    output filename root\n\
@@ -1980,7 +1980,7 @@ void writeHelp()
 -missGround;      assume ground is missed to assess RH metrics\n\
 -minGap gap;      delete signal beneath min detectable gap fraction\n");
   #ifdef USEPHOTON
-  fprintf2(stdout,"\nPhoton counting\n\
+  msgf("\nPhoton counting\n\
 -photonCount;     output point cloud from photon counting\n\
 -nPhotons n;      mean number of photons\n\
 -photonWind x;    window length for photon counting search, metres\n\
@@ -1990,12 +1990,12 @@ void writeHelp()
 -nPhotG n;        mean number of ground photons (replaces nPhotons and rhoVrhoG)\n\
 -photHDF;         write photon-counting output in HDF5\n");
   #endif
-  fprintf2(stdout,"\nUnfinished\n\
+  msgf("\nUnfinished\n\
 -photonPCL;       convert to photon counting pulse-compressed before processing\n\
 -pcl;             pulse-compressed processing\n\
 -shotNoise;       apply shot noise\n\
 ");
-  fprintf2(stdout,"\nDenoising:\n\
+  msgf("\nDenoising:\n\
 -meanN n;         mean noise level, if using a predefined mean level\n\
 -thresh n;        noise threshold, if using a predefined noise threshold\n\
 -varNoise;        use a variable noise threshold\n\

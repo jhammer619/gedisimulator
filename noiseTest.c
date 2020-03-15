@@ -131,7 +131,7 @@ int main(int argc,char **argv)
 
   /*loop over files*/
   for(i=0;i<dimage->nFiles;i++){
-    //fprintf(stdout,"Wave %d of %d\n",i+1,dimage->nFiles);
+    //msgf("Wave %d of %d\n",i+1,dimage->nFiles);
 
     /*read waveform*/
     data=readData(dimage->inList[i],dimage);
@@ -193,7 +193,7 @@ void addNoise(dataStruct *data,control *dimage)
     data->noised=digitiseWave(tempNoise,data->nBins,dimage->bitRate,dimage->maxDN,tot);
     TIDY(tempNoise);
   }else{
-    fprintf(stderr,"Not ready for that yet\n");
+    errorf("Not ready for that yet\n");
   }
   return;
 }/*addNoise*/
@@ -400,7 +400,7 @@ void writeWaves(dataStruct *data,control *dimage,int numb)
 
   sprintf(namen,"%s.%d.wave",dimage->outRoot,numb);
   if((opoo=fopen(namen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",namen);
+    errorf("Error opening output file %s\n",namen);
     exit(1);
   }
 
@@ -412,7 +412,7 @@ void writeWaves(dataStruct *data,control *dimage,int numb)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",namen);
+  msgf("Written to %s\n",namen);
   return;
 }/*writeWaves*/
 
@@ -508,12 +508,12 @@ dataStruct *readData(char *namen,control *dimage)
 
   /*open input*/
   if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",namen);
+    errorf("Error opening input file %s\n",namen);
     exit(1);
   }
 
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -527,7 +527,7 @@ dataStruct *readData(char *namen,control *dimage)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -588,7 +588,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   strcpy(dimage->outRoot,"teast");
@@ -653,10 +653,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-trueSig");
         dimage->trueSig=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to add noise to GEDI waveforms\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-linkM m c;      link margin in db and cover in fraction\n-deSigma s;      detector response width\n-bitRate bits;   digitiser bit rate\n-seed n;         random number seed\n-trueSig sig;    true noise sigma for scaling\n\n");
+        msgf("\n#####\nProgram to add noise to GEDI waveforms\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename root\n-inList list;    input file list for multiple files\n-linkM m c;      link margin in db and cover in fraction\n-deSigma s;      detector response width\n-bitRate bits;   digitiser bit rate\n-seed n;         random number seed\n-trueSig sig;    true noise sigma for scaling\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

@@ -103,7 +103,7 @@ dataStruct **readMultiData(control *dimage)
 
   /*allocate space for all*/
   if(!(data=(dataStruct **)calloc(dimage->gediIO.nFiles,sizeof(dataStruct *)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -126,15 +126,15 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   if(!(dimage->gediIO.den=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   if(!(dimage->gediIO.gFit=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -171,10 +171,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-output");
         strcpy(dimage->outNamen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to convert ASCII GEDI waveforms to HDF5\n#####\n\n-input name;     single input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n\n");
+        msgf("\n#####\nProgram to convert ASCII GEDI waveforms to HDF5\n#####\n\n-input name;     single input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

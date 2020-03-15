@@ -99,7 +99,7 @@ void clipLidar(control *dimage)
 
   /*open output*/
   if((opoo=fopen(dimage->outNamen,"wb"))==NULL){
-    fprintf(stderr,"Error opening output file \"%s\"\n",dimage->outNamen);
+    errorf("Error opening output file \"%s\"\n",dimage->outNamen);
     exit(1);
   }
 
@@ -155,7 +155,7 @@ void clipLidar(control *dimage)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  msgf("Written to %s\n",dimage->outNamen);
   return;
 }/*clipLidar*/
 
@@ -169,7 +169,7 @@ control *readCommands(int argc,char **argv)
   control *dimage=NULL;
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -202,10 +202,10 @@ control *readCommands(int argc,char **argv)
         dimage->pBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0)/2;
         dimage->oBuffSize=(uint64_t)(atof(argv[++i])*1000000000.0)/2;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to clip out section of lidar data\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-bounds minX minY maxX maxX;  bounds of area to clip out\n-pBuff s;        point reading buffer size in Gbytes\n\n");
+        msgf("\n#####\nProgram to clip out section of lidar data\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-bounds minX minY maxX maxX;  bounds of area to clip out\n-pBuff s;        point reading buffer size in Gbytes\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

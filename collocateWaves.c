@@ -331,7 +331,7 @@ void rapidGeolocation(control *dimage,float **denoised,int nTypeWaves,dataStruct
   /*open output if needed*/
   if((dimage->opoo==NULL)&&(dimage->writeSimProg)){
     if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
-      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+      errorf("Error opening output file %s\n",dimage->outNamen);
       exit(1);
     }
   }
@@ -379,7 +379,7 @@ void bestRoughGeo(float *x,float *y,float *z,float *roughCorrel,int nX,int nZ,do
     }/*y loop*/
   }/*x loop*/
 
-  fprintf(stdout,"Starting from %f %f %f\n",*x,*y,*z);
+  msgf("Starting from %f %f %f\n",*x,*y,*z);
   return;
 }/*bestRoughGeo*/
 
@@ -455,7 +455,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
   if(dimage->nUsed>0){
     if(dimage->opoo==NULL){
       if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
-        fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+        errorf("Error opening output file %s\n",dimage->outNamen);
         exit(1);
       }
     }
@@ -467,7 +467,7 @@ void simplexBullseye(control *dimage,float **denoised,int nTypeWaves,dataStruct 
       fclose(dimage->opoo);
       dimage->opoo=NULL;
     }
-    fprintf(stdout,"Written to %s\n",dimage->outNamen);
+    msgf("Written to %s\n",dimage->outNamen);
   }
 
   /*output waveforms if needed*/
@@ -739,7 +739,7 @@ void writeAnnealResult(control *dimage,double *p, annealStruct *anneal)
   if(dimage->nUsed>0){
     if(dimage->opoo==NULL){
       if((dimage->opoo=fopen(dimage->outNamen,"w"))==NULL){
-        fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+        errorf("Error opening output file %s\n",dimage->outNamen);
         exit(1);
       }
     }
@@ -750,7 +750,7 @@ void writeAnnealResult(control *dimage,double *p, annealStruct *anneal)
       fclose(dimage->opoo);
       dimage->opoo=NULL;
     }
-    fprintf(stdout,"Written to %s\n",dimage->outNamen);
+    msgf("Written to %s\n",dimage->outNamen);
   }
   return;
 }/*writeAnnealResult*/
@@ -808,7 +808,7 @@ void printAnnealPos(void *xp)
   double *p=NULL;
 
   p=(double *)xp;
-  fprintf(stdout," %f %f %f correl %f deltaCofG %f ",p[0],p[1],p[2],globAnneal.meanCorrel,globAnneal.deltaCofG);
+  msgf(" %f %f %f correl %f deltaCofG %f ",p[0],p[1],p[2],globAnneal.meanCorrel,globAnneal.deltaCofG);
 
   return;
 }/*printAnnealPos*/
@@ -898,7 +898,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
   /*open output file and write header*/
   if(meanCorrel==NULL){
     if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-      fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+      errorf("Error opening output file %s\n",dimage->outNamen);
       exit(1);
     }
     fprintf(opoo,"# 1 xOff, 2 yOff");
@@ -962,7 +962,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
     opoo=NULL;
   }
   /*let them know output file, if made*/
-  if(meanCorrel==NULL)fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  if(meanCorrel==NULL)msgf("Written to %s\n",dimage->outNamen);
   return;
 }/*fullBullseyePlot*/
 
@@ -979,7 +979,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
 
 
   /*progress report*/
-  if(globAnneal.dimage==NULL)fprintf(stdout,"Testing x %.2f y %.2f z %.2f fSig %.2f\n",xOff,yOff,zOff,dimage->simIO.fSigma);
+  if(globAnneal.dimage==NULL)msgf("Testing x %.2f y %.2f z %.2f fSig %.2f\n",xOff,yOff,zOff,dimage->simIO.fSigma);
 
   /*shift prints*/
   dimage->gediRat.coords=shiftPrints(coords,xOff,yOff,dimage->gediRat.gNx);
@@ -1015,7 +1015,7 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
 
   /*check that we have something*/
   if((*contN)==0){
-    fprintf(stderr,"No usable footprints contained\n");
+    errorf("No usable footprints contained\n");
     TTIDY((void **)correl,dimage->gediRat.gNx);
     correl=NULL;
     if(leaveEmpty)exit(1);
@@ -1347,7 +1347,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
   /*allocate space*/
   if(!(als=(pCloudStruct **)calloc(dimage->simIO.nFiles,sizeof(pCloudStruct *)))){
-    fprintf(stderr,"error in lvis data allocation.\n");
+    errorf("error in lvis data allocation.\n");
     exit(1);
   }
 
@@ -1358,7 +1358,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
     /*read data*/
     als[i]=readALSdata(las,&dimage->gediRat,i);
-    if(als[i]->nPoints>0)fprintf(stdout,"Found %d ALS points in file %d of %d\n",als[i]->nPoints,i+1,dimage->simIO.nFiles);
+    if(als[i]->nPoints>0)msgf("Found %d ALS points in file %d of %d\n",als[i]->nPoints,i+1,dimage->simIO.nFiles);
 
     /*tidy up*/
     las=tidyLasFile(las);
@@ -1368,7 +1368,7 @@ pCloudStruct **readMultiALS(control *dimage,dataStruct **lvis)
 
   /*is there data?*/
   if(totPoints==0){
-    fprintf(stderr,"No ALS data contained\n");
+    errorf("No ALS data contained\n");
     exit(1);
   }
 
@@ -1501,9 +1501,9 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   *res/=(float)dimage->nLvis;
 
 
-  fprintf(stdout,"Found %d waveforms\n",dimage->nLvis);
+  msgf("Found %d waveforms\n",dimage->nLvis);
   if(dimage->nLvis==0){
-    fprintf(stderr,"No large-footprints found\n");
+    errorf("No large-footprints found\n");
     exit(1);
   }
   return(lvis);
@@ -1549,12 +1549,12 @@ dataStruct **copyLVISlgw(char *namen,dataStruct **lvis,control *dimage,double *b
   /*allocate space*/
   if(lvis==NULL){
     if(!(lvis=(dataStruct **)calloc(nNew,sizeof(dataStruct *)))){
-      fprintf(stderr,"error in lvis data allocation.\n");
+      errorf("error in lvis data allocation.\n");
       exit(1);
     }
   }else{
     if(!(lvis=(dataStruct **)realloc(lvis,(dimage->nLvis+nNew)*sizeof(dataStruct *)))){
-      fprintf(stderr,"Balls\n");
+      errorf("Balls\n");
       exit(1);
     }
   }
@@ -1609,12 +1609,12 @@ dataStruct **copyGEDIhdf(gediHDF *hdf,dataStruct **lvis,control *dimage,double *
   /*allocate space*/
   if(lvis==NULL){
     if(!(lvis=(dataStruct **)calloc(nNew,sizeof(dataStruct *)))){
-      fprintf(stderr,"error in lvis data allocation.\n");
+      errorf("error in lvis data allocation.\n");
       exit(1);
     }
   }else{
     if(!(lvis=(dataStruct **)realloc(lvis,(dimage->nLvis+nNew)*sizeof(dataStruct *)))){
-      fprintf(stderr,"Balls\n");
+      errorf("Balls\n");
       exit(1);
     }
   }
@@ -1660,12 +1660,12 @@ dataStruct **copyLVIShdf(lvisHDF *hdf,dataStruct **lvis,control *dimage,double *
   /*allocate space*/
   if(lvis==NULL){
     if(!(lvis=(dataStruct **)calloc(nNew,sizeof(dataStruct *)))){
-      fprintf(stderr,"error in lvis data allocation.\n");
+      errorf("error in lvis data allocation.\n");
       exit(1);
     }
   }else{
     if(!(lvis=(dataStruct **)realloc(lvis,(dimage->nLvis+nNew)*sizeof(dataStruct *)))){
-      fprintf(stderr,"Balls\n");
+      errorf("Balls\n");
       exit(1);
     }
   }
@@ -1706,7 +1706,7 @@ void setALSbounds(control *dimage)
   dimage->maxX=dimage->maxY=-10000000000.0;
 
   if(!dimage->simIO.nFiles){
-    fprintf(stderr,"No ALS data provided?\n");
+    errorf("No ALS data provided?\n");
     exit(1);
   }
 
@@ -1750,16 +1750,16 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   if(!(dimage->simIO.den=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   dimage->simIO.gFit=NULL;
   if(!(dimage->lvisIO.den=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   dimage->lvisIO.gFit=NULL;
@@ -2088,7 +2088,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readBeams");
         setBeamsToRead(&(dimage->lvisIO.useBeam[0]),argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\
+        msgf("\n#####\nProgram to colocate large-footprint and small-footprint lidar data\n#####\n\
 \n# Input-output\n\
 -output name;     output filename\n\
 -listAls list;    input file list for multiple als files\n\
@@ -2158,7 +2158,7 @@ control *readCommands(int argc,char **argv)
 \n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

@@ -207,7 +207,7 @@ int main(int argc,char **argv)
 
 
   if(!(las=(lasFile **)calloc(dimage->nFiles,sizeof(lasFile *)))){
-    fprintf(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     exit(1);
   }
   /*read headers and bounds*/
@@ -381,7 +381,7 @@ gridStruct *setUpGrid(lasFile **las,control *dimage)
   gridStruct *grid=NULL;
 
   if(!(grid=(gridStruct *)calloc(dimage->nFiles,sizeof(gridStruct)))){
-    fprintf(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     exit(1);
   }
 
@@ -411,7 +411,7 @@ gridStruct *setUpGrid(lasFile **las,control *dimage)
 void checkThisFile(lasFile *las,control *dimage,int i)
 {
   if(checkFileBounds(las,dimage->minX,dimage->maxX,dimage->minY,dimage->maxY)){
-    fprintf(stdout,"Need %s\n",dimage->inList[i]);
+    msgf("Need %s\n",dimage->inList[i]);
   }
 
   return;
@@ -434,7 +434,7 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
 
   /*allocate maximum number of points*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error dataStruct allocation.\n");
+    errorf("error dataStruct allocation.\n");
     exit(1);
   }
 
@@ -450,11 +450,11 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     for(i=0;i<3;i++)data->grad[i]=falloc((uint64_t)las->nPoints,"grad",i+1);
     data->time=falloc((uint64_t)las->nPoints,"time",0);              /*time in picoseconds of this wave*/
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
-      fprintf(stderr,"error in input filename structure.\n");
+      errorf("error in input filename structure.\n");
       exit(1);
     }
     if(!(data->waveLen=(uint32_t *)calloc(las->nPoints,sizeof(uint32_t)))){
-      fprintf(stderr,"error in input filename structure.\n");
+      errorf("error in input filename structure.\n");
       exit(1);
     }
 
@@ -503,23 +503,23 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     data->nPoints=pUsed;
     if(pUsed>0){
       if(!(data->x=(double *)realloc(data->x,data->nPoints*sizeof(double)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->y=(double *)realloc(data->y,data->nPoints*sizeof(double)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->z=(double *)realloc(data->z,data->nPoints*sizeof(double)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->refl=(int *)realloc(data->refl,data->nPoints*sizeof(int)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->class=(unsigned char *)realloc(data->class,data->nPoints*sizeof(unsigned char)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
     }else{
@@ -532,29 +532,29 @@ dataStruct *readALSdata(lasFile *las,control *dimage)
     if(hasWave==1){
       data->waveStart=las->waveStart;
       if(!(data->retNumb=(char *)realloc(data->retNumb,data->nPoints*sizeof(char)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->packetDes=(unsigned char *)realloc(data->packetDes,data->nPoints*sizeof(unsigned char)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       for(i=0;i<3;i++){
         if(!(data->grad[i]=(float *)realloc(data->grad[i],data->nPoints*sizeof(float)))){
-          fprintf(stderr,"Balls\n");
+          errorf("Balls\n");
           exit(1);
         }
       }
       if(!(data->time=(float *)realloc(data->time,data->nPoints*sizeof(float)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->waveMap=(uint64_t *)realloc(data->waveMap,data->nPoints*sizeof(uint64_t)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
       if(!(data->waveLen=(uint32_t *)realloc(data->waveLen,data->nPoints*sizeof(uint32_t)))){
-        fprintf(stderr,"Balls\n");
+        errorf("Balls\n");
         exit(1);
       }
     }else{  /*clear out all the waveform bits*/
@@ -602,7 +602,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   FILE *opoo=NULL;
 
   if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    errorf("Error opening output file %s\n",dimage->outNamen);
     exit(1);
   }
 
@@ -625,7 +625,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  msgf("Written to %s\n",dimage->outNamen);
   return;
 }/*writeGEDIwave*/
 
@@ -750,7 +750,7 @@ void cleanOutliers(waveStruct *waves,control *dimage)
   float max=0,thresh=0;
 
   if(!dimage->ground){
-    fprintf(stderr,"No need to clean without ground\n");
+    errorf("No need to clean without ground\n");
     exit(1);
   }
 
@@ -831,7 +831,7 @@ void checkFootCovered(control *dimage)
 
   thresh=(int)((float)nWithin*2.0/3.0);
   if(nMissed>thresh){
-    fprintf(stderr,"Too many missed %d of %d\n",nMissed,nWithin);
+    errorf("Too many missed %d of %d\n",nMissed,nWithin);
     exit(1);
   }
 
@@ -941,7 +941,7 @@ denPar *setDeconForGEDI(control *dimage)
 
   /*set defaults*/
   if(!(decon=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf(stderr,"error decon structure allocation.\n");
+    errorf("error decon structure allocation.\n");
     exit(1);
   }
   setDenoiseDefault(decon);
@@ -975,7 +975,7 @@ waveStruct *allocateGEDIwaves(control *dimage,dataStruct **data)
   char hasPoints=0;
 
   if(!(waves=(waveStruct *)calloc(1,sizeof(waveStruct)))){
-    fprintf(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     exit(1);
   }
 
@@ -993,13 +993,13 @@ waveStruct *allocateGEDIwaves(control *dimage,dataStruct **data)
   }/*bound finding*/
 
   if(hasPoints==0){
-    fprintf(stderr,"No points included\n");
+    errorf("No points included\n");
     exit(1);
   }
 
   waves->minZ=minZ-buff;
   waves->maxZ=maxZ+buff;
-  /*fprintf(stdout,"Bounds are %f %f\n",waves->minZ,waves->maxZ);*/
+  /*msgf("Bounds are %f %f\n",waves->minZ,waves->maxZ);*/
 
   waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)dimage->res);
   waves->nWaves=8;
@@ -1043,7 +1043,7 @@ void setGediFootprint(control *dimage)
   if(dimage->sideLobe==0)dimage->nLobes=1;
   else                   dimage->nLobes=7;
   if(!(dimage->lobe=(lobeStruct *)calloc(dimage->nLobes,sizeof(lobeStruct)))){
-    fprintf(stderr,"error lobeStruct allocation.\n");
+    errorf("error lobeStruct allocation.\n");
     exit(1);
   }
 
@@ -1171,7 +1171,7 @@ void setGediPulse(control *dimage)
   float max=0,tot=0;
 
   if(!(dimage->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
-    fprintf(stderr,"error pulseStruct allocation.\n");
+    errorf("error pulseStruct allocation.\n");
     exit(1);
   }
 
@@ -1232,13 +1232,13 @@ dataStruct *readAsciiData(char *inNamen)
 
 
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error dataStruct allocation.\n");
+    errorf("error dataStruct allocation.\n");
     exit(1);
   }
 
 
   if((ipoo=fopen(inNamen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",inNamen);
+    errorf("Error opening input file %s\n",inNamen);
     exit(1);
   }
 
@@ -1255,7 +1255,7 @@ dataStruct *readAsciiData(char *inNamen)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){ 
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -1290,7 +1290,7 @@ control *readCommands(int argc,char **argv)
   control *dimage=NULL;
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -1374,10 +1374,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-checkCover",11)){
         dimage->checkCover=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
+        msgf("\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-decon;          deconvolve\n-indDecon;       deconvolve individual beams\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-pSigma sig;     set pulse width\n-fSigma sig;     set footprint width\n-readWave;       read full-waveform where available\n-ground;         split ground and canopy  points\n-sideLobe;       use side lobes\n-lobeAng ang;    lobe axis azimuth\n-pBuff s;        point reading buffer size in Gbytes\n-checkCover;     check that the footprint is covered by ALS data. Exit if not\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

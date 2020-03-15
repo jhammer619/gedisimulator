@@ -9,7 +9,7 @@
 #include "libLidarHDF.h"
 #include "libOctree.h"
 #include "tools.h"
-#include "msgHandling.h"
+#include "functionWrappers.h"
 #include "gediIO.h"
 #include "gediNoise.h"
 #include "photonCount.h"
@@ -70,7 +70,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 
   /*do we have a usable pulse?*/
   if(gediIO->pulse==NULL){
-    fprintf2(stderr,"No pulse. Cannot use PCL\n");
+    errorf("No pulse. Cannot use PCL\n");
     return(NULL);
   }
 
@@ -83,7 +83,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
 
   #ifdef DEBUG
-  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %f %f %f %f debug2\n",c,data->z[i],wave[i],photWave[i],corrWave[i]);
+  for(i=0;i<data->nBins;i++)msgf("%d %f %f %f %f debug2\n",c,data->z[i],wave[i],photWave[i],corrWave[i]);
   c++;
   #endif
 
@@ -232,7 +232,7 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   /*for(i=pulse->centBin;i<pulse->nBins;i++){
     bin=(int)((float)(i-pulse->centBin)*pRes/res+0.5);
     if((bin<0)||(bin>=numb)){
-      fprintf2(stderr,"Out of bounds when splitting pulse, %d of %d\n",bin,numb);
+      errorf("Out of bounds when splitting pulse, %d of %d\n",bin,numb);
       continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
@@ -241,7 +241,7 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   for(i=0;i<pulse->centBin;i++){
     bin=numb-((int)((float)(pulse->centBin-i)*pRes/res+0.5)+1);
     if((bin<0)||(bin>=numb)){
-      fprintf2(stderr,"Out of bounds when splitting pulse, %d of %d\n",bin,numb);
+      errorf("Out of bounds when splitting pulse, %d of %d\n",bin,numb);
       continue;
     }
     compPulse[2*bin]+=(double)pulse->y[i];
@@ -361,7 +361,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   #ifdef DEBUG
   static int count=0;
-  fprintf(stdout,"Photon counting\n");
+  msgf("Photon counting\n");
   #endif
 
   /*set minimum to zero*/
@@ -408,7 +408,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   }/*apply shot noise check*/
 
   #ifdef DEBUG
-  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %f %f %f ta\n",count,data->z[i],temp[i],data->wave[0][i]);
+  for(i=0;i<data->nBins;i++)msgf("%d %f %f %f ta\n",count,data->z[i],temp[i],data->wave[0][i]);
   count++;
   #endif
 
@@ -451,7 +451,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   }
 
   /*choose a number of signal photons to use*/
-  photThresh=(float)rand()/(float)RAND_MAX;
+  photThresh=frand();
   ASSIGN_CHECKINT_RETNULL(nPhotons,(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0));
 
   /*generate noise photons*/
@@ -465,7 +465,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   /*generate signal photons*/
   for(i=0;i<nPhotons;i++){
     /*pick a point along the waveform*/
-    photThresh=(float)rand()/(float)RAND_MAX;
+    photThresh=frand();
     d=pickArrayElement(photThresh,wave,data->nBins,1);
     if(fabs(d+1.0)< TOL)
       return(NULL);
@@ -484,7 +484,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*add noise photons*/
   for(i=0;i<nNoise;i++){
-    thisZ=(maxZ-minZ)*((float)rand()/(float)RAND_MAX)+minZ;
+    thisZ=(maxZ-minZ)*frand()+minZ;
 
     phots[0][i+nPhotons]=thisZ;   /*determine range*/
     phots[1][i+nPhotons]=0.0;     /*is signal*/
@@ -517,10 +517,10 @@ int photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,
   if(photonCount->opoo==NULL){
     sprintf(photonCount->outNamen,"%s.pts",outRoot);
     if((photonCount->opoo=fopen(photonCount->outNamen,"w"))==NULL){
-      fprintf2(stderr,"Error opening input file %s\n",photonCount->outNamen);
+      errorf("Error opening input file %s\n",photonCount->outNamen);
       return(-1);
     }
-    fprintf2(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal, 19 ground\n");
+    fprintf(photonCount->opoo,"# 1 X, 2 Y, 3 Z, 4 minht, 5 WFGroundZ, 6 RH50, 7 RH60, 8 RH75, 9 RH90, 10 RH95, 11 CanopyZ, 12 canopycover, 13 shot#, 14 photon#, 15 iteration#, 16 refdem, 17 noiseInt, 18 signal, 19 ground\n");
   }
 
   /*generate photons*/
@@ -534,7 +534,7 @@ int photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*write out photons*/
   for(i=0;i<nPhot;i++){
-    fprintf2(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f %d %d\n",data->lon,data->lat,phots[0][i],rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,(int)phots[1][i],(int)phots[2][i]);
+    fprintf(photonCount->opoo,"%.2f %.2f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %d %d 1 %.3f %.3f %d %d\n",data->lon,data->lat,phots[0][i],rhReal[0],data->gElev,rhReal[10],rhReal[12],rhReal[15],rhReal[18],rhReal[19],rhReal[nRH-1],data->cov,numb,i,data->gElev,noiseInt,(int)phots[1][i],(int)phots[2][i]);
   }/*mutiple photon loop*/
 
   TTIDY((void **)phots,3);
@@ -610,7 +610,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
     if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
     else{  /*if it is needed, do it*/
       if(den->varNoise||noise->linkNoise){
-        fprintf2(stderr,"Not able to readjust denoised waveforms just yet\n");
+        errorf("Not able to readjust denoised waveforms just yet\n");
         return NULL;
       }else{
         /*find canopy portion*/
@@ -734,7 +734,7 @@ float photonNoiseIntensity(float cov)
   /*this is what is in the ICEsat-2 code, just about*/
   if(cov<0.25)noiseInt=2.5;
   else if(cov>0.75)noiseInt=1.0;
-  else noiseInt=1.5+(float)rand()/(float)RAND_MAX;
+  else noiseInt=1.5+frand();
 
   return(noiseInt);
 }/*photonNoiseIntensity*/

@@ -100,7 +100,7 @@ gridStruct *setMapGrid(control *dimage,trackStruct *tracks)
 
   /*allocate space*/
   if(!(grid=(gridStruct *)calloc(1,sizeof(gridStruct)))){
-    fprintf(stderr,"error grid map allocation.\n");
+    errorf("error grid map allocation.\n");
     exit(1);
   }
 
@@ -158,7 +158,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
 
   /*open metrics*/
   if((ipoo=fopen(metricNamen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",metricNamen);
+    errorf("Error opening input file %s\n",metricNamen);
     exit(1);
   }
   thresh=minSep*minSep;
@@ -166,13 +166,13 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
 
   /*open output*/
   if((opoo=fopen(outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",outNamen);
+    errorf("Error opening input file %s\n",outNamen);
     exit(1);
   }
 
   /*choose metrics*/
   if(!(useList=(int64_t *)calloc(tracks->nTracks,sizeof(int64_t)))){
-    fprintf(stderr,"error useList allocation.\n");
+    errorf("error useList allocation.\n");
     exit(1);
   } 
 
@@ -254,7 +254,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
         token=strtok(NULL," ");
         j++;
       }
-      fprintf(stdout,"Metric coord cols %d %d\n",xCol,yCol);
+      msgf("Metric coord cols %d %d\n",xCol,yCol);
 
       /*write header to output*/
       if(writtenHead==0){
@@ -264,7 +264,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
     }
   }
   TIDY(minSepSq);
-  fprintf(stdout,"Read %lld metrics and selected %d\n",(long long int)i,nUse);
+  msgf("Read %lld metrics and selected %d\n",(long long int)i,nUse);
   if(ipoo){
     fclose(ipoo);
     ipoo=NULL;
@@ -282,7 +282,7 @@ void selectMetrics(trackStruct *tracks,char *metricNamen,char *outNamen,double m
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",outNamen);
+  msgf("Written to %s\n",outNamen);
   return;
 }/*selectMetrics*/
 
@@ -299,7 +299,7 @@ trackStruct *readTracks(char *namen)
 
   /*allocate*/
   if(!(tracks=(trackStruct *)calloc(1,sizeof(trackStruct)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
   tracks->x=NULL;
@@ -310,7 +310,7 @@ trackStruct *readTracks(char *namen)
 
   /*open data*/
   if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",namen);
+    errorf("Error opening output file %s\n",namen);
     exit(1);
   }
 
@@ -321,7 +321,7 @@ trackStruct *readTracks(char *namen)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -339,7 +339,7 @@ trackStruct *readTracks(char *namen)
         if(tracks->y[i]>tracks->maxY)tracks->maxY=tracks->y[i];
         i++;
       }else{
-        fprintf(stderr,"Error reading %s\n",namen);
+        errorf("Error reading %s\n",namen);
         exit(1);
       }
     }
@@ -350,7 +350,7 @@ trackStruct *readTracks(char *namen)
     fclose(ipoo);
     ipoo=NULL;
   }
-  fprintf(stdout,"There will be %d footprints\n",tracks->nTracks);
+  msgf("There will be %d footprints\n",tracks->nTracks);
   return(tracks);
 }/*readTracks*/
 
@@ -365,7 +365,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -391,10 +391,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-gridRes");
         dimage->gridRes=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n\n\n");
+        msgf("\n\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry chooseMetricPrints -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry chooseMetricPrints -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

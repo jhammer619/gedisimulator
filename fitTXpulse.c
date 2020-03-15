@@ -121,7 +121,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen,float mea
   FILE *opoo=NULL;
 
   if((opoo=fopen(outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",outNamen);
+    errorf("Error opening input file %s\n",outNamen);
     exit(1);
   }
 
@@ -133,7 +133,7 @@ void writeResults(float **meanWaves,int nBins,float res,char *outNamen,float mea
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",outNamen);
+  msgf("Written to %s\n",outNamen);
   return;
 }/*writeResults*/
 
@@ -176,7 +176,7 @@ float **fitPulseGauss(pulseData *data,int *meanBins,float oRes,float inRes,int m
   /*open stats output file if needed*/
   if(dimage->txStats){
     if((statsOpoo=fopen(dimage->statsNamen,"w"))==NULL){
-      fprintf(stderr,"Error opening input file %s\n",dimage->statsNamen);
+      errorf("Error opening input file %s\n",dimage->statsNamen);
       exit(1);
     }
     fprintf(statsOpoo,"# 1 integral, 2 width, 3 A, 4 sigma, 5 gaussIntegral\n");
@@ -254,7 +254,7 @@ float **fitPulseGauss(pulseData *data,int *meanBins,float oRes,float inRes,int m
   if(statsOpoo){
     fclose(statsOpoo);
     statsOpoo=NULL;
-    fprintf(stdout,"Stats written to %s\n",dimage->statsNamen);
+    msgf("Stats written to %s\n",dimage->statsNamen);
   }
 
   /*normalise*/
@@ -416,7 +416,7 @@ pulseData *readData(char *namen,control *dimage)
 
   /*read data*/
   if(isHDF){
-fprintf(stdout,"Reading %s\n",namen);
+msgf("Reading %s\n",namen);
     data=readHDFdata(namen,dimage);
   }else{ /*ascii*/
     data=readAsciiData(namen);
@@ -477,7 +477,7 @@ pulseData *readHDFdata(char *namen,control *dimage)
 
   /*allocate space*/
   if(!(data=(pulseData *)calloc(1,sizeof(pulseData)))){
-    fprintf(stderr,"error metric structure allocation.\n");
+    errorf("error metric structure allocation.\n");
     exit(1);
   }
 
@@ -513,10 +513,10 @@ pulseData *readHDFdata(char *namen,control *dimage)
     tempWave=readGEDItxwave(group,sInds,nBins,data->nBins,nWaves);
 
     /*add waveform to end*/
-    fprintf(stdout,"Adding %d waves for a total of %d\n",nWaves,data->nWaves+nWaves);
+    msgf("Adding %d waves for a total of %d\n",nWaves,data->nWaves+nWaves);
     if(data->nWaves>0){
       if(!(data->wave=(float **)realloc(data->wave,(uint64_t)(data->nWaves+nWaves)*(uint64_t)sizeof(float *)))){
-        fprintf(stderr,"Error in reallocation, allocating %" PRIu64 "\n",(data->nWaves+nWaves)*(uint64_t)sizeof(float **));
+        errorf("Error in reallocation, allocating %" PRIu64 "\n",(data->nWaves+nWaves)*(uint64_t)sizeof(float **));
         exit(1);
       }
     }else data->wave=fFalloc(nWaves,"waves",0);
@@ -536,7 +536,7 @@ pulseData *readHDFdata(char *namen,control *dimage)
 
   /*close file*/
   if(H5Fclose(file)){
-    fprintf(stderr,"Issue closing file\n");
+    errorf("Issue closing file\n");
     exit(1);
   }
 
@@ -581,12 +581,12 @@ pulseData *readAsciiData(char *namen)
   FILE *ipoo=NULL;
 
   if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",namen);
+    errorf("Error opening input file %s\n",namen);
     exit(1);
   }
 
   if(!(data=(pulseData *)calloc(1,sizeof(pulseData)))){
-    fprintf(stderr,"error metric structure allocation.\n");
+    errorf("error metric structure allocation.\n");
     exit(1);
   }
 
@@ -609,7 +609,7 @@ pulseData *readAsciiData(char *namen)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -653,7 +653,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -699,10 +699,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-readBeams");
         setBeamsToRead(&(dimage->useBeam[0]),argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n-txStats name; write TX stats to a file\n-beamList 11111111; 0/1 for whether or not to use beams 1-8\n-skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n-readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\n");
+        msgf("\n#####\nProgram to determine LVIS pulse shape\n#####\n\n-input name;   input filaname\n-output name;  output filename\n-res res;      output resolution\n-inRes res;    input resolution\n-minN min;     minimum number of samples to trust\n-txStats name; write TX stats to a file\n-beamList 11111111; 0/1 for whether or not to use beams 1-8\n-skipBeams n;     list of beam numbers to skip. No spaces between (eg 123)\n-readBeams n;     list of beam numbers to read. No spaces between (eg 123)\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

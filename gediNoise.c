@@ -5,8 +5,8 @@
 #include "float.h"
 #include "hdf5.h"
 #include "tools.h"
-#include "msgHandling.h"
-#include "msgHandling.h"
+#include "functionWrappers.h"
+#include "functionWrappers.h"
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
@@ -74,7 +74,7 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
 
   if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if(gNoise->minGap==0.0){
-      fprintf2(stderr,"Cannot delete ground without a defined minimum gap\n");
+      errorf("Cannot delete ground without a defined minimum gap\n");
       return(-1);
     }
     deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
@@ -102,7 +102,7 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
   }else if((gNoise->nSig>0.0)||(gNoise->meanN>0.0)){   /*mean and stdev based noise*/
     for(i=0;i<data->nBins;i++){
       noise=gNoise->nSig*GaussNoise();
-      if((float)rand()/(float)RAND_MAX<0.5)noise*=-1.0; /*to allow negative numbers*/
+      if(frand()<0.5)noise*=-1.0; /*to allow negative numbers*/
       data->noised[i]=tempWave[i]+gNoise->meanN+noise;
     }/*bin loop*/
   }else if(gNoise->hNoise>0.0){  /*hard threshold noise*/
@@ -320,17 +320,14 @@ void scaleNoiseDN(float *noised,int nBins,float noiseSig,float trueSig,float off
 
 float GaussNoise()
 {
-  float noise=0,max=0;
+  float noise=0;
   float x1=0,x2=0,w=0;
-
-  if(RAND_MAX>0)max=(float)RAND_MAX;
-  else          max=-1.0*(float)RAND_MAX;
 
   /*Box approximation to Gaussian random number*/
   w=0.0;
   do{
-    x1=2.0*(float)rand()/max-1.0;
-    x2=2.0*(float)rand()/max-1.0;
+    x1=2.0*frand()-1.0;
+    x2=2.0*frand()-1.0;
     w=x1*x1+x2*x2;
   }while(w>=1.0);
   w=sqrt((-2.0*log(w))/w);
@@ -380,7 +377,7 @@ int modifyTruth(dataStruct *data,noisePar *gNoise)
   /*change pulse width*/
   if(gNoise->newPsig>0.0){
     if(gNoise->newPsig<data->pSigma){   /*reduce pulse width*/
-      fprintf2(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
+      errorf("Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
       return(-1);
     }else if(gNoise->newPsig>data->pSigma){  /*increase pulse width*/
       sigDiff=sqrt(gNoise->newPsig*gNoise->newPsig-data->pSigma*data->pSigma);

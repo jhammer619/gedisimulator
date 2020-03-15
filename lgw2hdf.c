@@ -122,10 +122,10 @@ void writeHDFlvis(lvisHDF *hdf,char *outNamen)
 
   /*close file*/
   if(H5Fclose(file)){
-    fprintf(stderr,"Issue closing file\n");
+    errorf("Issue closing file\n");
     exit(1);
   }
-  fprintf(stdout,"Waveforms to %s\n",outNamen);
+  msgf("Waveforms to %s\n",outNamen);
   return;
 }/*writeHDFlvis*/
 
@@ -147,13 +147,13 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
 
   /*allocate structure*/
   if(!(hdf=(lvisHDF *)calloc(1,sizeof(lvisHDF)))){
-    fprintf(stderr,"error in HDF structure allocation.\n");
+    errorf("error in HDF structure allocation.\n");
     exit(1);
   }
   hdf->nWaves=lgw->nWaves;
   hdf->nBins=1024; /*lgw->nBins; must be 1023 to match new LVIS*/
   hdf->pBins=lgw->nTxBins;
-  fprintf(stdout,"Bins %d %d\n",lgw->nWaves,lgw->nBins);
+  msgf("Bins %d %d\n",lgw->nWaves,lgw->nBins);
 
   /*allocate arrays*/
   hdf->lon0=dalloc(hdf->nWaves,"lon0",0);
@@ -161,28 +161,28 @@ lvisHDF *copyLVISdata(lvisLGWstruct *lgw)
   hdf->lon1023=dalloc(hdf->nWaves,"lon0",0);
   hdf->lat1023=dalloc(hdf->nWaves,"lat0",0);
   if(!(hdf->lfid=(uint32_t *)calloc(hdf->nWaves,sizeof(uint32_t)))){
-    fprintf(stderr,"error in lfid allocation, allocating %ld.\n",hdf->nWaves*sizeof(uint32_t));
+    errorf("error in lfid allocation, allocating %ld.\n",hdf->nWaves*sizeof(uint32_t));
     exit(1);
   }
   if(!(hdf->shotN=(uint32_t *)calloc(hdf->nWaves,sizeof(uint32_t)))){
-    fprintf(stderr,"error in shotN allocation, allocating %ld\n",hdf->nWaves*sizeof(uint32_t));
+    errorf("error in shotN allocation, allocating %ld\n",hdf->nWaves*sizeof(uint32_t));
     exit(1);
   }
   if(!(hdf->wave=(uint16_t **)calloc(1,sizeof(uint16_t *)))){
-    fprintf(stderr,"error in wave array allocation, allocating 1.\n");
+    errorf("error in wave array allocation, allocating 1.\n");
     exit(1);
   }
   if(!(hdf->wave[0]=(uint16_t *)calloc((uint64_t)hdf->nWaves*(uint64_t)hdf->nBins,(uint64_t)sizeof(uint16_t)))){
-    fprintf(stderr,"error in wave array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->nBins*(uint64_t)sizeof(uint16_t));
+    errorf("error in wave array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->nBins*(uint64_t)sizeof(uint16_t));
     exit(1);
   }
   if(usePulse){
     if(!(hdf->pulse=(uint16_t **)calloc(1,sizeof(uint16_t *)))){
-      fprintf(stderr,"error pulse array allocation, allocating 1.\n");
+      errorf("error pulse array allocation, allocating 1.\n");
       exit(1);
     }
     if(!(hdf->pulse[0]=(uint16_t *)calloc((uint64_t)hdf->nWaves*(uint64_t)hdf->pBins,(uint64_t)sizeof(uint16_t)))){
-      fprintf(stderr,"error pulse array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->pBins*(uint64_t)sizeof(uint16_t));
+      errorf("error pulse array allocation, allocating %ld.\n",(uint64_t)hdf->nWaves*(uint64_t)hdf->pBins*(uint64_t)sizeof(uint16_t));
       exit(1);
     }
   }
@@ -272,7 +272,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -291,10 +291,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-output");
         strcpy(dimage->outNamen,argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to convert LVIS lgw files to HDF5\n#####\n\n-input name;     input LGW filename\n-output name;   output HDF5 filename\n\n");
+        msgf("\n#####\nProgram to convert LVIS lgw files to HDF5\n#####\n\n-input name;     input LGW filename\n-output name;   output HDF5 filename\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry lgw2hdf -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry lgw2hdf -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

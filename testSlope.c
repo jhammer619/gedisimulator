@@ -73,7 +73,7 @@ int main(int argc,char **argv)
 
   /*open output and write header*/
   if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    errorf("Error opening output file %s\n",dimage->outNamen);
     exit(1);
   }
   fprintf(opoo,"# 1 slope, 2 stdev, 3 fSlope, 4 pSig, 5 fSig, 6 maxAmp\n");
@@ -101,7 +101,7 @@ int main(int argc,char **argv)
     slope+=dimage->step;
   }
 
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  msgf("Written to %s\n",dimage->outNamen);
 
   if(opoo){
     fclose(opoo);
@@ -124,7 +124,7 @@ void writeWave(float slope, float *wave,int nBins,control *dimage)
 
   sprintf(namen,"%s.%g.wave",dimage->outNamen,slope*180.0/M_PI);
   if((opoo=fopen(namen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",namen);
+    errorf("Error opening output file %s\n",namen);
     exit(1);
   }
 
@@ -136,7 +136,7 @@ void writeWave(float slope, float *wave,int nBins,control *dimage)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",namen);
+  msgf("Written to %s\n",namen);
   return;
 }/*writeWave*/
 
@@ -230,7 +230,7 @@ float *makeWave(float slope,float pSig,float fSig,float A,int *nBins,float res)
     z=x*sin(slope)/cos(slope);
     bin=(int)(z/res)+(*nBins)/2;
     if((bin<0)||(bin>=(*nBins))){
-      fprintf(stderr,"Not enough bins\n");
+      errorf("Not enough bins\n");
       exit(1);
     }
 
@@ -263,7 +263,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate space*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -307,10 +307,10 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-writeWave",10)){
         dimage->writeWave=1;
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to assess the impact of slope on lidar and test slope calculation\n#####\n\n-output name;        output filename\n-res res;            waveform resolution\n-A A;                ground ampltiude\n-pSig pSig;          pulse length (sigma)\n-fSig fSig;          footprint width (sigma)\n-maxSlope maxSlope;  maximum slope to go to\n-step step;          output slope resolution\n-writeWave;          write waveforms\n\n");
+        msgf("\n#####\nProgram to assess the impact of slope on lidar and test slope calculation\n#####\n\n-output name;        output filename\n-res res;            waveform resolution\n-A A;                ground ampltiude\n-pSig pSig;          pulse length (sigma)\n-fSig fSig;          footprint width (sigma)\n-maxSlope maxSlope;  maximum slope to go to\n-step step;          output slope resolution\n-writeWave;          write waveforms\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

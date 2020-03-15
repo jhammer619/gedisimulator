@@ -4,7 +4,7 @@
 #include "math.h"
 #include "stdint.h"
 #include "tools.h"
-#include "msgHandling.h"
+#include "functionWrappers.h"
 #include "hdf5.h"
 #include "libLasRead.h"
 #include "libDEMhandle.h"
@@ -83,12 +83,12 @@ int main(int argc,char **argv)
 
   /*loop over las files and read*/
   if(!(data=(pCloudStruct **)calloc(dimage->gediIO.nFiles,sizeof(pCloudStruct *)))){
-    fprintf2(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     return(1);
   }
   for(i=0;i<dimage->gediIO.nFiles;i++){
     /*report progress if reading all data here*/
-    if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf2(stdout,"File %d of %d",i+1,dimage->gediIO.nFiles);
+    if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)msgf("File %d of %d",i+1,dimage->gediIO.nFiles);
     /*read lasFile*/
     ASSIGN_CHECKNULL_RETONE(las,readLasHead(dimage->inList[i],dimage->pBuffSize));
 
@@ -97,7 +97,7 @@ int main(int argc,char **argv)
       ASSIGN_CHECKNULL_RETONE(data[i],readALSdata(las,&dimage->gediRat,i));
     }
     else                    checkThisFile(las,dimage,i);
-    if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)fprintf2(stdout," nPoints %u\n",data[i]->nPoints);
+    if(dimage->gediRat.doGrid||dimage->gediRat.readALSonce)msgf(" nPoints %u\n",data[i]->nPoints);
 
     /*tidy lasFIle*/
     las=tidyLasFile(las);
@@ -133,7 +133,7 @@ int main(int argc,char **argv)
           /*progress report*/
           if(dimage->writeHDF){
             if((dimage->hdfCount%dimage->gediIO.nMessages)==0){
-              fprintf2(stdout,"Wave %d of %d\n",i*dimage->gediRat.gNy+j,dimage->gediRat.gNx*dimage->gediRat.gNy);
+              msgf("Wave %d of %d\n",i*dimage->gediRat.gNy+j,dimage->gediRat.gNx*dimage->gediRat.gNy);
             }
           }
           /*find the ground if needed*/
@@ -373,7 +373,7 @@ float *waveFromDEM(double *gDEM,int nX,int nY,float res,double minX,double minY,
 void checkThisFile(lasFile *las,control *dimage,int i)
 {
   if(checkFileBounds(las,dimage->gediRat.minX,dimage->gediRat.maxX,dimage->gediRat.minY,dimage->gediRat.maxY)){
-    fprintf2(stdout,"Need %s\n",dimage->inList[i]);
+    msgf("Need %s\n",dimage->inList[i]);
   }
   return;
 }/*checkThisFile*/
@@ -407,39 +407,39 @@ int writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
 
   if((opoo=fopen(dimage->waveNamen,"w"))==NULL){
-    fprintf2(stderr,"Error opening output file %s\n",dimage->waveNamen);
+    errorf("Error opening output file %s\n",dimage->waveNamen);
     return(-1);
   }
 
   /*write header*/
-  if(dimage->gediIO.ground==0)fprintf2(opoo,"# 1 elevation, 2 discrete intensity, 3 discrete count, 4 discrete fraction, 5 ALS pulse, 6 ALS and GEDI pulse, 7 ind decon, 8 ind decon GEDI, 9 decon GEDI, 10 ind decon\n");
-  else                 fprintf2(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
-  fprintf2(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,dimage->gediRat.sideLobe);
-  if(dimage->gediRat.geoCoords)fprintf2(opoo,"# coord %.2f %.2f\n",dimage->gediRat.geoCoords[numb][0],dimage->gediRat.geoCoords[numb][1]);
-  else                         fprintf2(opoo,"# coord %.2f %.2f\n",dimage->gediRat.coord[0],dimage->gediRat.coord[1]);
-  fprintf2(opoo,"# density point %f beam %f\n",dimage->gediRat.pointDense,dimage->gediRat.beamDense);
-  fprintf2(opoo,"# meanScanAng %f\n",waves->meanScanAng);
-  if(dimage->useID)fprintf2(opoo,"# waveID %s\n",waveID);
-  if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr))fprintf2(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
-  if(dimage->gediIO.ground)fprintf2(opoo,"# simpleGround %f\n",waves->gElevSimp);
+  if(dimage->gediIO.ground==0)fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 discrete count, 4 discrete fraction, 5 ALS pulse, 6 ALS and GEDI pulse, 7 ind decon, 8 ind decon GEDI, 9 decon GEDI, 10 ind decon\n");
+  else                 fprintf(opoo,"# 1 elevation, 2 discrete intensity, 3 int canopy, 4 int ground, 5 discrete count, 6 count canopy, 7 count ground, 8 discrete fraction, 9 fraction canopy, 10 fraction ground, 11 ALS pulse, 12 ALS and GEDI pulse, 13 ind decon, 14 ind decon GEDI, 15 decon GEDI, 16 ind decon\n");
+  fprintf(opoo,"# fSigma %f pSigma %f res %f sideLobes %d\n",dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,dimage->gediRat.sideLobe);
+  if(dimage->gediRat.geoCoords)fprintf(opoo,"# coord %.2f %.2f\n",dimage->gediRat.geoCoords[numb][0],dimage->gediRat.geoCoords[numb][1]);
+  else                         fprintf(opoo,"# coord %.2f %.2f\n",dimage->gediRat.coord[0],dimage->gediRat.coord[1]);
+  fprintf(opoo,"# density point %f beam %f\n",dimage->gediRat.pointDense,dimage->gediRat.beamDense);
+  fprintf(opoo,"# meanScanAng %f\n",waves->meanScanAng);
+  if(dimage->useID)fprintf(opoo,"# waveID %s\n",waveID);
+  if(dimage->gediIO.ground&&(dimage->polyGr||dimage->nnGr))fprintf(opoo,"# ground %f %f\n",waves->gElev,waves->gSlope);
+  if(dimage->gediIO.ground)fprintf(opoo,"# simpleGround %f\n",waves->gElevSimp);
 
   /*write data*/
   for(i=0;i<waves->nBins;i++){
     r=(float)waves->maxZ-(float)i*dimage->gediIO.res;
 
-    fprintf2(opoo,"%f",r);
+    fprintf(opoo,"%f",r);
     for(j=0;j<dimage->gediIO.nTypeWaves;j++){
-      fprintf2(opoo," %f",waves->wave[j][i]);
-       if(dimage->gediIO.ground&&(j<3))fprintf2(opoo," %f %f",waves->canopy[j][i],waves->ground[j][i]);
+      fprintf(opoo," %f",waves->wave[j][i]);
+       if(dimage->gediIO.ground&&(j<3))fprintf(opoo," %f %f",waves->canopy[j][i],waves->ground[j][i]);
     }
-    fprintf2(opoo,"\n");
+    fprintf(opoo,"\n");
   }
 
   if(opoo){
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf2(stdout,"Written to %s\n",dimage->waveNamen);
+  msgf("Written to %s\n",dimage->waveNamen);
   return(0);
 }/*writeGEDIwave*/
 
@@ -458,13 +458,13 @@ pCloudStruct *readAsciiData(char *inNamen)
 
 
   if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
-    fprintf2(stderr,"error pCloudStruct allocation.\n");
+    errorf("error pCloudStruct allocation.\n");
     return(NULL);
   }
 
 
   if((ipoo=fopen(inNamen,"r"))==NULL){
-    fprintf2(stderr,"Error opening input file %s\n",inNamen);
+    errorf("Error opening input file %s\n",inNamen);
     return(NULL);
   }
 
@@ -481,7 +481,7 @@ pCloudStruct *readAsciiData(char *inNamen)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){ 
-    fprintf2(stderr,"fseek error\n");
+    errorf("fseek error\n");
     return(NULL);
   }
 
@@ -517,7 +517,7 @@ control *readCommands(int argc,char **argv)
   void writeGediRatHelpMessage();
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -720,7 +720,7 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.useFrac=0;
       }else if(!strncasecmp(argv[i],"-seed",5)){
         ISINTRETNULL(checkArguments(1,i,argc,"-seed"));
-        srand(atoi(argv[++i]));
+        srand2(atoi(argv[++i]));
       }else if(!strncasecmp(argv[i],"-decimate",9)){
         ISINTRETNULL(checkArguments(1,i,argc,"-decimate"));
         dimage->gediRat.decimate=atof(argv[++i]);
@@ -733,7 +733,7 @@ control *readCommands(int argc,char **argv)
         writeGediRatHelpMessage();
         return(NULL);
       }else{
-        fprintf2(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         return(NULL);
       }
     }
@@ -754,7 +754,7 @@ control *readCommands(int argc,char **argv)
 
 void writeGediRatHelpMessage()
 {
-        fprintf2(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las or pts files. laz not yet supported\n#####\n\n\
+        msgf("\n#####\nProgram to create GEDI waveforms from ALS las or pts files. laz not yet supported\n#####\n\n\
 \n# Input output filenames and format\n\
 -input name;     lasfile input filename\n\
 -inList list;    input file list (ASCII file) for multiple files\n\

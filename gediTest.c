@@ -160,7 +160,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
   FILE *opoo=NULL;
 
  if((opoo=fopen(dimage->outNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->outNamen);
+    errorf("Error opening output file %s\n",dimage->outNamen);
     exit(1);
   } 
 
@@ -176,7 +176,7 @@ void writeGEDIwave(control *dimage,waveStruct *waves)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"Written to %s\n",dimage->outNamen);
+  msgf("Written to %s\n",dimage->outNamen);
   return;
 }/*writeGEDIwave*/
 
@@ -243,7 +243,7 @@ waveStruct *allocateGEDIwaves(control *dimage,dataStruct *data)
   waveStruct *waves=NULL;
 
   if(!(waves=(waveStruct *)calloc(1,sizeof(waveStruct)))){
-    fprintf(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     exit(1);
   }
 
@@ -279,7 +279,7 @@ void setGediPulse(control *dimage)
   float max=0,tot=0;
 
   if(!(dimage->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
-    fprintf(stderr,"error pulseStruct allocation.\n");
+    errorf("error pulseStruct allocation.\n");
     exit(1);
   }
 
@@ -343,13 +343,13 @@ dataStruct *readAsciiData(char *inNamen)
 
 
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf(stderr,"error dataStruct allocation.\n");
+    errorf("error dataStruct allocation.\n");
     exit(1);
   }
 
 
   if((ipoo=fopen(inNamen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",inNamen);
+    errorf("Error opening input file %s\n",inNamen);
     exit(1);
   }
 
@@ -366,7 +366,7 @@ dataStruct *readAsciiData(char *inNamen)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){ 
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -400,7 +400,7 @@ control *readCommands(int argc,char **argv)
   control *dimage=NULL;
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 

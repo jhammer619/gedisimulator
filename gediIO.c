@@ -4,7 +4,7 @@
 #include "math.h"
 #include "inttypes.h"
 #include "tools.h"
-#include "msgHandling.h"
+#include "functionWrappers.h"
 #include "hdf5.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
@@ -60,12 +60,12 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 
   /*open input*/
   if((ipoo=fopen(namen,"r"))==NULL){
-    fprintf2(stderr,"Error opening input file %s\n",namen);
+    errorf("Error opening input file %s\n",namen);
     return(NULL);
   }
 
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   data->pSigma=-1.0;    /*nonesense pulse length*/
@@ -98,7 +98,7 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 
     /*rewind to start of file*/
     if(fseek(ipoo,(long)0,SEEK_SET)){
-      fprintf2(stderr,"fseek error\n");
+      errorf("fseek error\n");
       return(NULL);
     }
 
@@ -243,7 +243,7 @@ gediHDF *arrangeGEDIhdf(dataStruct **data,gediIOstruct *gediIO)
 
   /*allocate space for all*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -498,7 +498,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
     writeComp1dFloatHDF5(group_id,"rxwaveform",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
     if(hdfData->ground)writeComp1dFloatHDF5(group_id,"grxwaveform",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
   }else{
-    fprintf(stderr,"Issues with HDF5 format and not using the count method\n");
+    errorf("Issues with HDF5 format and not using the count method\n");
     return -1;
   }
   tempUint16=setSelectStretchL1B(hdfData->nWaves);
@@ -558,7 +558,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dDoubleHDF5(sgID,"master_time_epoch",tempDouble,1);
   TIDY(tempDouble);
   if(!(tempInt64=(int64_t *)calloc(1,sizeof(int64_t)))){
-    fprintf(stderr,"error in tempInt64 allocation.\n");
+    errorf("error in tempInt64 allocation.\n");
     return -1;
   } 
   tempInt64[0]=100;
@@ -570,7 +570,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tempDouble);
   status=H5Gclose(sgID);
  if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     return -1;
   }
 
@@ -665,7 +665,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tempInt8);
   status=H5Gclose(sgID);
  if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     return -1;
   }
 
@@ -685,7 +685,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tempDouble);
   status=H5Gclose(sgID);
   if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     return -1;
   }
 
@@ -693,17 +693,17 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   /*close the beam group*/
   status=H5Gclose(group_id);
  if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     return -1;
   }
 
   /*close file*/
   if(H5Fclose(file)){
-    fprintf(stderr,"Issue closing file\n");
+    errorf("Issue closing file\n");
     return -1;
   }
 
-  fprintf(stdout,"Waveforms written to %s\n",namen);
+  msgf("Waveforms written to %s\n",namen);
   return 0;
 }/*writeGEDIl1b*/
 
@@ -732,7 +732,7 @@ uint16_t *setThUsedL1B(int nWaves)
   uint16_t *tempUint16=NULL;
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
-    fprintf(stderr,"error in tempUint16 allocation.\n");
+    errorf("error in tempUint16 allocation.\n");
     exit(1);
   }
 
@@ -751,7 +751,7 @@ uint16_t *setSelectStretchL1B(int nWaves)
   uint16_t *tempUint16=NULL;
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
-    fprintf(stderr,"error in tempUint16 allocation.\n");
+    errorf("error in tempUint16 allocation.\n");
     exit(1);
   }
 
@@ -805,7 +805,7 @@ int8_t *setSurfaceTypeL1B(int nWaves,int nLayers)
 
   /*allocate space*/
   if(!(tempInt8=(int8_t *)calloc(nWaves*nLayers,sizeof(int8_t)))){
-    fprintf(stderr,"error in txCount allocation.\n");
+    errorf("error in txCount allocation.\n");
     exit(1);
   } 
 
@@ -1023,11 +1023,11 @@ void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
 
   /*allocate space*/
   if(!(tx->txCount=(uint16_t *)calloc(hdfData->nWaves,sizeof(uint16_t)))){
-    fprintf(stderr,"error in txCount allocation.\n");
+    errorf("error in txCount allocation.\n");
     exit(1);
   }
   if(!(tx->txStart=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
-    fprintf(stderr,"error in txStart allocation.\n");
+    errorf("error in txStart allocation.\n");
     exit(1);
   }
 
@@ -1082,7 +1082,7 @@ int32_t *padInt32ones(int numb)
   int32_t *jimlad=NULL;
 
   if(!(jimlad=(int32_t *)calloc(numb,sizeof(int32_t)))){
-    fprintf(stderr,"error in padInt32ones allocation.\n");
+    errorf("error in padInt32ones allocation.\n");
     exit(1);
   }
 
@@ -1101,7 +1101,7 @@ uint64_t *setShotNumber(int nWaves)
   uint64_t *tempUint64=NULL;
 
   if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
-    fprintf(stderr,"error in tempUint64 allocation.\n");
+    errorf("error in tempUint64 allocation.\n");
     exit(1);
   }
 
@@ -1120,7 +1120,7 @@ uint64_t *setRXstarts(int nWaves,int *nBins)
   uint64_t *tempUint64=NULL;
 
   if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
-    fprintf(stderr,"error in tempUint64 allocation.\n");
+    errorf("error in tempUint64 allocation.\n");
     exit(1);
   }
 
@@ -1139,7 +1139,7 @@ uint16_t *setRxSampleCount(int *nBins,int nWaves)
   uint16_t *tempUint16=NULL;
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
-    fprintf(stderr,"error in tempUint16 allocation.\n");
+    errorf("error in tempUint16 allocation.\n");
     exit(1);
   }
 
@@ -1158,7 +1158,7 @@ uint8_t *padUint8zeros(int numb)
   uint8_t *tempUint8=NULL;
 
   if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
-    fprintf(stderr,"error in tempUint8 allocation.\n");
+    errorf("error in tempUint8 allocation.\n");
     exit(1);
   } 
 
@@ -1177,7 +1177,7 @@ uint8_t *padUint8ones(int numb)
   uint8_t *tempUint8=NULL;
 
   if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
-    fprintf(stderr,"error in tempUint8 allocation.\n");
+    errorf("error in tempUint8 allocation.\n");
     exit(1);
   }
 
@@ -1196,7 +1196,7 @@ uint16_t *padUint16zeros(int numb)
   uint16_t *tempUint16=NULL;
 
   if(!(tempUint16=(uint16_t *)calloc(numb,sizeof(uint16_t)))){
-    fprintf(stderr,"error in tempUint16 allocation.\n");
+    errorf("error in tempUint16 allocation.\n");
     exit(1);
   }
 
@@ -1216,7 +1216,7 @@ uint32_t *padUint32zeros(int numb)
   uint32_t *tempUint32=NULL;
 
   if(!(tempUint32=(uint32_t *)calloc(numb,sizeof(uint32_t)))){
-    fprintf(stderr,"error in tempUint32 allocation.\n");
+    errorf("error in tempUint32 allocation.\n");
     exit(1);
   } 
 
@@ -1280,10 +1280,10 @@ int writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
   /*close file*/
   if(H5Fclose(file)){
-    fprintf2(stderr,"Issue closing file\n");
+    errorf("Issue closing file\n");
     return(-1);
   }
-  fprintf2(stdout,"Waveforms written to %s\n",namen);
+  msgf("Waveforms written to %s\n",namen);
   return(0);
 }/*writeGEDIhdf*/
 
@@ -1301,12 +1301,12 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
 
   /*allocate space for all*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
   /*open file*/
-  fprintf2(stdout,"Reading %s\n",namen);
+  msgf("Reading %s\n",namen);
   file=H5Fopen(namen,H5F_ACC_RDONLY,H5P_DEFAULT);
 
   /*is the file a simulation or real?*/
@@ -1318,7 +1318,7 @@ gediHDF *readGediHDF(char *namen,gediIOstruct *gediIO)
 
   /*close file*/
   if(H5Fclose(file)){
-    fprintf2(stderr,"Issue closing file\n");
+    errorf("Issue closing file\n");
     return(NULL);
   }
   return(hdfData);
@@ -1409,7 +1409,7 @@ int readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
 
   /*determine how many waveforms we want to read*/
   if((int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac)>hdfData->nTypeWaves){
-    fprintf2(stderr,"Not enough waveform types for that option set. %d %d from %d %d %d\n",hdfData->nTypeWaves,\
+    errorf("Not enough waveform types for that option set. %d %d from %d %d %d\n",hdfData->nTypeWaves,\
                gediIO->useInt+gediIO->useCount+gediIO->useFrac,gediIO->useCount,gediIO->useInt,gediIO->useFrac);
     return(-1);
   }else hdfData->nTypeWaves=(int)(gediIO->useInt+gediIO->useCount+gediIO->useFrac);
@@ -1418,7 +1418,7 @@ int readSimGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData)
   ASSIGN_CHECKNULL_RETINT(hdfData->wave,fFalloc(hdfData->nTypeWaves,"hdf waveforms",0));
   if(gediIO->ground) {ASSIGN_CHECKNULL_RETINT(hdfData->ground,fFalloc(hdfData->nTypeWaves,"hdf waveforms",0));}
   if(!(hdfData->sInd=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
-    fprintf2(stderr,"error in sInd buffer allocation.\n");
+    errorf("error in sInd buffer allocation.\n");
     return(-1);
   }
   for(i=0;i<hdfData->nWaves;i++)hdfData->sInd[i]=(uint64_t)i*(uint64_t)hdfData->nBins[0];
@@ -1580,7 +1580,7 @@ int readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfData
   TTIDY((void **)beamList,nBeams);
 
   if(hdfData->nWaves==0){
-    fprintf2(stderr,"No footprints contained\n");
+    errorf("No footprints contained\n");
     return(-1);
   }
   return(0);
@@ -1603,7 +1603,7 @@ int readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *h
   dtype=H5Dget_type(dset);
   status=H5Dclose(dset);
  if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     exit(1);
   }
 
@@ -1616,12 +1616,12 @@ int readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *h
     ASSIGN_CHECKNULL_RETINT(tempF,read1dFloatHDF5(group,"rxwaveform",nSamps));
     *l1b=1;
   }else{
-    fprintf2(stderr,"rxwaveform data type not recognised\n");
+    errorf("rxwaveform data type not recognised\n");
     return(-1);
   }
   status=H5Tclose(dtype);
  if(status<0){
-    fprintf(stderr,"Error closing HDF5 group\n");
+    errorf("Error closing HDF5 group\n");
     exit(1);
   }
 
@@ -1807,7 +1807,7 @@ int unwrapRealGEDI(uint16_t *tempI,float *tempF,uint64_t *sInds,int nSamps,int n
   }else{
     offset=hdfData->sInd[hdfData->nWaves];
     if(!(hdfData->wave[0]=(float *)realloc(hdfData->wave[0],(totBins+offset)*(uint64_t)sizeof(float)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",(totBins+offset)*(uint64_t)sizeof(float *));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",(totBins+offset)*(uint64_t)sizeof(float *));
       return(-1);
     }
   }
@@ -1862,39 +1862,39 @@ int updateGEDInWaves(int numb,gediHDF *hdfData)
   /*if already allocated, reallocate*/
   if(hdfData->nWaves>0){
     if(!(hdfData->z0=(float *)realloc(hdfData->z0,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->zN=(float *)realloc(hdfData->zN,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->lon=(double *)realloc(hdfData->lon,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
       return(-1);
     }
     if(!(hdfData->lat=(double *)realloc(hdfData->lat,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(double));
       return(-1);
     }
     if(!(hdfData->zen=(float *)realloc(hdfData->zen,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->solarElev=(float *)realloc(hdfData->solarElev,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->nBins=(int *)realloc(hdfData->nBins,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(int)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->sInd=(uint64_t *)realloc(hdfData->sInd,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(uint64_t)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
     if(!(hdfData->waveID=(char *)realloc(hdfData->waveID,((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)hdfData->idLength*(uint64_t)sizeof(char)))){
-      fprintf2(stderr,"Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
+      errorf("Error in reallocation, allocating %" PRIu64 "\n",((uint64_t)numb+(uint64_t)hdfData->nWaves)*(uint64_t)sizeof(float));
       return(-1);
     }
   }else{  /*allocate for the first time*/
@@ -1907,7 +1907,7 @@ int updateGEDInWaves(int numb,gediHDF *hdfData)
     ASSIGN_CHECKNULL_RETINT(hdfData->solarElev,falloc((uint64_t)numb,"solarElev",0));
     ASSIGN_CHECKNULL_RETINT(hdfData->nBins,ialloc(numb,"nBins",0));
     if(!(hdfData->sInd=(uint64_t *)calloc(numb,sizeof(uint64_t)))){
-      fprintf2(stderr,"error in sInd allocation.\n");
+      errorf("error in sInd allocation.\n");
       return(-1);
     }
     hdfData->idLength=50;
@@ -2054,7 +2054,7 @@ void setBeamsToRead(char *useBeam,char *instruction)
 int checkNwavesDF(int nRead,int nWaves)
 {
   if(nRead!=nWaves){
-    fprintf2(stderr,"number of waves mismatch: read %d, expecting %d\n",nRead,nWaves);
+    errorf("number of waves mismatch: read %d, expecting %d\n",nRead,nWaves);
     return(-1);
   }
 
@@ -2115,7 +2115,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -2172,7 +2172,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   /*read pulse*/
   if((hdfGedi[0]->nPbins>0)&&(gediIO->pulse==NULL)){
     if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
-      fprintf2(stderr,"error pulse allocation.\n");
+      errorf("error pulse allocation.\n");
       return(NULL);
     }
     gediIO->pulse->y=hdfGedi[0]->pulse;
@@ -2299,7 +2299,7 @@ dataStruct *unpackHDFlvis(char *namen,lvisHDF **hdfLvis,gediIOstruct *gediIO,int
 
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   data->useID=1;
@@ -2466,7 +2466,7 @@ dataStruct *readBinaryLVIS(char *namen,lvisLGWstruct *lvis,int numb,gediIOstruct
 
   /*allocate space*/
   if(!(data=(dataStruct *)calloc(1,sizeof(dataStruct)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
   data->useID=1;
@@ -2551,7 +2551,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
 
   /*allocate maximum number of points*/
   if(!(data=(pCloudStruct *)calloc(1,sizeof(pCloudStruct)))){
-    fprintf2(stderr,"error pCloudStruct allocation.\n");
+    errorf("error pCloudStruct allocation.\n");
     return(NULL);
   }
 
@@ -2573,7 +2573,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     ASSIGN_CHECKNULL_RETNULL(data->nRet,challoc((uint64_t)las->nPoints,"nRet",0));
     ASSIGN_CHECKNULL_RETNULL(data->retNumb,challoc((uint64_t)las->nPoints,"retNumb",0));
     if(!(data->scanAng=(int16_t *)calloc(las->nPoints,sizeof(int16_t)))){
-      fprintf2(stderr,"error in input filename structure.\n");
+      errorf("error in input filename structure.\n");
       return(NULL);
     }
     ASSIGN_CHECKNULL_RETNULL(data->packetDes,uchalloc((uint64_t)las->nPoints,"packetDes",0));
@@ -2581,11 +2581,11 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     for(i=0;i<las->nPoints;i++) {ASSIGN_CHECKNULL_RETNULL(data->grad[i],falloc(3,"grad",i+1));}
     ASSIGN_CHECKNULL_RETNULL(data->time,falloc((uint64_t)las->nPoints,"time",0));
     if(!(data->waveMap=(uint64_t *)calloc(las->nPoints,sizeof(uint64_t)))){
-      fprintf2(stderr,"error in input filename structure.\n");
+      errorf("error in input filename structure.\n");
       return(NULL);
     }
     if(!(data->waveLen=(uint32_t *)calloc(las->nPoints,sizeof(uint32_t)))){
-      fprintf2(stderr,"error in input filename structure.\n");
+      errorf("error in input filename structure.\n");
       return(NULL);
     }
 
@@ -2610,7 +2610,7 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
       if(usePoint){
         if(gediRat->decimate<1.0){
           if(decThresh>gediRat->decimate)usePoint=0;   /*are we accepting this point*/
-          if(las->retNumb==las->nRet)decThresh=(float)rand()/(float)RAND_MAX;  /*if last return, draw a new random number*/
+          if(las->retNumb==las->nRet)decThresh=frand();  /*if last return, draw a new random number*/
         }
       }
 
@@ -2659,41 +2659,41 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     data->nPoints=pUsed;
     if(pUsed>0){
       if(!(data->x=(double *)realloc(data->x,data->nPoints*sizeof(double)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->y=(double *)realloc(data->y,data->nPoints*sizeof(double)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->z=(double *)realloc(data->z,data->nPoints*sizeof(double)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->refl=(int *)realloc(data->refl,data->nPoints*sizeof(int)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->class=(unsigned char *)realloc(data->class,data->nPoints*sizeof(unsigned char)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->nRet=(char *)realloc(data->nRet,data->nPoints*sizeof(char)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->retNumb=(char *)realloc(data->retNumb,data->nPoints*sizeof(char)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->scanAng=(int16_t *)realloc(data->scanAng,data->nPoints*sizeof(int16_t)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(gediRat->useShadow){
         for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
         if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
-          fprintf2(stderr,"Balls\n");
+          errorf("Balls\n");
           return(NULL);
         }
       }else if(hasWave==0){
@@ -2712,24 +2712,24 @@ pCloudStruct *readALSdata(lasFile *las,gediRatStruct *gediRat,int nFile)
     if(hasWave==1){
       data->waveStart=las->waveStart;
       if(!(data->packetDes=(unsigned char *)realloc(data->packetDes,data->nPoints*sizeof(unsigned char)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->time=(float *)realloc(data->time,data->nPoints*sizeof(float)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->waveMap=(uint64_t *)realloc(data->waveMap,data->nPoints*sizeof(uint64_t)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       if(!(data->waveLen=(uint32_t *)realloc(data->waveLen,data->nPoints*sizeof(uint32_t)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
       for(i=data->nPoints;i<las->nPoints-data->nPoints;i++)TIDY(data->grad[i]);
       if(!(data->grad=(float **)realloc(data->grad,data->nPoints*sizeof(float *)))){
-        fprintf2(stderr,"Balls\n");
+        errorf("Balls\n");
         return(NULL);
       }
     }else{  /*clear out all the waveform bits*/
@@ -2888,7 +2888,7 @@ int readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
 
   /*open file*/
   if((ipoo=fopen(gediRat->wavefront->frontFile,"r"))==NULL){
-    fprintf2(stderr,"Error opening wavefront file \"%s\"\n",gediRat->wavefront->frontFile);
+    errorf("Error opening wavefront file \"%s\"\n",gediRat->wavefront->frontFile);
     return(-1);
   }
 
@@ -2919,7 +2919,7 @@ int readWavefront(gediRatStruct *gediRat,gediIOstruct *gediIO)
 
   /*rewind*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf2(stderr,"fseek error\n");
+    errorf("fseek error\n");
     return(-1);
   }
 
@@ -3073,7 +3073,7 @@ int readFeetList(gediRatStruct *gediRat)
 
   /*open file*/
   if((ipoo=fopen(gediRat->coordList,"r"))==NULL){
-    fprintf2(stderr,"Error opening input file list \"%s\"\n",gediRat->coordList);
+    errorf("Error opening input file list \"%s\"\n",gediRat->coordList);
     return(-1);
   }
 
@@ -3091,7 +3091,7 @@ int readFeetList(gediRatStruct *gediRat)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf2(stderr,"fseek error\n");
+    errorf("fseek error\n");
     return(-1);
   }
 
@@ -3120,7 +3120,7 @@ int readFeetList(gediRatStruct *gediRat)
         ASSIGN_CHECKNULL_RETINT(gediRat->waveIDlist[i],challoc((int)strlen(temp3)+1,"wave ID list",i+1));
         strcpy(gediRat->waveIDlist[i],temp3);
       }else{
-        fprintf2(stderr,"coord list reading error \"%s\"\n",line);
+        errorf("coord list reading error \"%s\"\n",line);
         return(-1);
       }
       i++;
@@ -3148,7 +3148,7 @@ int setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   int readSimPulse(gediIOstruct *);
 
   if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
-    fprintf2(stderr,"error pulseStruct allocation.\n");
+    errorf("error pulseStruct allocation.\n");
     return(-1);
   }
 
@@ -3222,7 +3222,7 @@ int readSimPulse(gediIOstruct *gediIO)
   FILE *ipoo=NULL;
 
   if((ipoo=fopen(gediIO->pulseFile,"r"))==NULL){
-    fprintf2(stderr,"Error opening input file %s\n",gediIO->pulseFile);
+    errorf("Error opening input file %s\n",gediIO->pulseFile);
     return(-1);
   }
 
@@ -3235,7 +3235,7 @@ int readSimPulse(gediIOstruct *gediIO)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf2(stderr,"fseek error\n");
+    errorf("fseek error\n");
     return(-1);
   }
 
@@ -3324,7 +3324,7 @@ int setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
   if(gediRat->sideLobe==0)gediRat->nLobes=1;
   else                    gediRat->nLobes=7;
   if(!(gediRat->lobe=(lobeStruct *)calloc(gediRat->nLobes,sizeof(lobeStruct)))){
-    fprintf2(stderr,"error lobeStruct allocation.\n");
+    errorf("error lobeStruct allocation.\n");
     return(-1);
   }
 
@@ -3528,7 +3528,7 @@ int packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *ge
     if(start<0)start=0;
     buff=0.0;
     TIDY(thresh);
-    //fprintf(stdout,"Start %d\n",start);
+    //msgf("Start %d\n",start);
   }
 
   /*copy data*/
@@ -3591,7 +3591,7 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
 
   /*allocate space*/
   if(!(hdfData=(gediHDF *)calloc(1,sizeof(gediHDF)))){
-    fprintf2(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     return(NULL);
   }
 
@@ -3681,7 +3681,7 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   char hasPoints=0;
 
   if(!(waves=(waveStruct *)calloc(1,sizeof(waveStruct)))){
-    fprintf2(stderr,"error waveStruct allocation.\n");
+    errorf("error waveStruct allocation.\n");
     return(NULL);
   }
 
@@ -3702,7 +3702,7 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }/*bound finding*/
 
   if(hasPoints==0){
-    fprintf2(stderr,"No points included\n");
+    errorf("No points included\n");
     return(NULL);
   }
 
@@ -3821,7 +3821,7 @@ void checkFootCovered(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
   thresh=(int)((float)nWithin*2.0/3.0);
   if(nMissed>thresh){
-    fprintf2(stderr,"Too many missed %d of %d\n",nMissed,nWithin);
+    errorf("Too many missed %d of %d\n",nMissed,nWithin);
     gediRat->useFootprint=0;
   }else gediRat->useFootprint=1;
 
@@ -3840,7 +3840,7 @@ denPar *setDeconForGEDI(gediRatStruct *gediRat)
 
   /*set defaults*/
   if(!(decon=(denPar *)calloc(1,sizeof(denPar)))){
-    fprintf2(stderr,"error decon structure allocation.\n");
+    errorf("error decon structure allocation.\n");
     return(NULL);
   }
   setDenoiseDefault(decon);
@@ -4214,7 +4214,7 @@ int waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **d
   rImageStruct *rImage=NULL;    /*range image, a stack nBins long*/
   lidVoxPar lidPar;
 
-  fprintf2(stderr,"Silouhette images do not currently work with octrees\n");
+  errorf("Silouhette images do not currently work with octrees\n");
   return(-1);
 
   /*iRes=0.02;*/
@@ -4235,7 +4235,7 @@ int waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **d
   /*create images*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,gediIO->pRes*4.0,iRes,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ);*/
   /*rImage=allocateRangeImage(gediIO->nFiles,data,NULL,0.15,0.01,&(grad[0]),gediRat->coord[0],gediRat->coord[1],waves->maxZ,NULL);*/
-  fprintf2(stderr,"This method is no longer operational. Do not use\n");
+  errorf("This method is no longer operational. Do not use\n");
   return(-1);
 
 
@@ -4246,7 +4246,7 @@ int waveFromShadows(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **d
   ASSIGN_CHECKNULL_RETINT(tempWave,fFalloc(2,"",0));
   for(i=0;i<2;i++) {ASSIGN_CHECKNULL_RETINT(tempWave[i],falloc((uint64_t)rImage->nBins,"",i+1));}
   waveFromImage(rImage,tempWave,1,gediIO->fSigma);
-  for(i=0;i<rImage->nBins;i++)fprintf2(stdout,"%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
+  for(i=0;i<rImage->nBins;i++)msgf("%f %f %f\n",waves->maxZ-(double)i*rImage->rRes,tempWave[0][i],tempWave[1][i]);
   TTIDY((void **)tempWave,2);
   tempWave=NULL;
 
@@ -4273,7 +4273,7 @@ int cleanOutliers(waveStruct *waves,gediIOstruct *gediIO)
   float max=0,thresh=0;
 
   if(!gediIO->ground){
-    fprintf2(stderr,"No need to clean without ground\n");
+    errorf("No need to clean without ground\n");
     return(-1);
   }
 
@@ -4467,7 +4467,7 @@ pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,
   }else{   /*use all points*/
     /*allocate space*/
     if(!(pointmap=(pointMapStruct *)calloc(1,sizeof(pointMapStruct)))){
-      fprintf2(stderr,"error pointMapStruct allocation.\n");
+      errorf("error pointMapStruct allocation.\n");
       return(NULL);
     }
     pointmap->nPoints=0;
@@ -4477,11 +4477,11 @@ pointMapStruct *findIntersectingMap(gediRatStruct *gediRat,gediIOstruct *gediIO,
     for(i=0;i<gediIO->nFiles;i++){
       if(data[i]->nPoints==0)continue;
       if(!(pointmap->fList=(int *)realloc(pointmap->fList,(pointmap->nPoints+data[i]->nPoints)*sizeof(int)))){
-        fprintf2(stderr,"Error allocating memory\n");
+        errorf("Error allocating memory\n");
         return(NULL);
       }
       if(!(pointmap->pList=(uint32_t *)realloc(pointmap->pList,(pointmap->nPoints+data[i]->nPoints)*sizeof(uint32_t)))){
-        fprintf2(stderr,"Error allocating memory\n");
+        errorf("Error allocating memory\n");
         return(NULL);
       }
       for(j=0;j<+data[i]->nPoints;j++){
@@ -4504,7 +4504,7 @@ wFrontStruct *copyFrontFilename(char *namen)
   wFrontStruct *wavefront=NULL;
 
   if(!(wavefront=(wFrontStruct *)calloc(1,sizeof(wFrontStruct)))){
-    fprintf2(stderr,"error in wavefront allocation.\n");
+    errorf("error in wavefront allocation.\n");
     return(NULL);
   }
 

@@ -105,8 +105,8 @@ int main(int argc,char **argv)
   }/*file loop*/
 
 
-  fprintf(stdout,"Points to %s\n",dimage->canNamen);
-  if(dimage->ground)fprintf(stdout,"Ground to %s\n",dimage->grNamen);
+  msgf("Points to %s\n",dimage->canNamen);
+  if(dimage->ground)msgf("Ground to %s\n",dimage->grNamen);
 
 
   /*tidy up*/
@@ -203,7 +203,7 @@ void openOutput(control *dimage)
 {
   sprintf(dimage->canNamen,"%s.can.pts",dimage->outRoot);
   if((dimage->opoo=fopen(dimage->canNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",dimage->canNamen);
+    errorf("Error opening output file %s\n",dimage->canNamen);
     exit(1);
   }
   fprintf(dimage->opoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng, 6+ RGB if available\n");
@@ -211,7 +211,7 @@ void openOutput(control *dimage)
   if(dimage->ground){
     sprintf(dimage->grNamen,"%s.ground.pts",dimage->outRoot);
     if((dimage->gPoo=fopen(dimage->grNamen,"w"))==NULL){
-      fprintf(stderr,"Error opening output file %s\n",dimage->grNamen);
+      errorf("Error opening output file %s\n",dimage->grNamen);
       exit(1);
     }
     fprintf(dimage->gPoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng\n");
@@ -230,7 +230,7 @@ control *readCommands(int argc,char **argv)
   control *dimage=NULL;
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -302,10 +302,10 @@ control *readCommands(int argc,char **argv)
         dimage->bound[2]=atof(argv[++i]);
         dimage->bound[3]=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-fSigma sigma;   footprint width\n-rad rad;        radius to output\n-bounds minX maxX minY maxY;  output points within a rectangle\n-allPoints;      write all points\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
+        msgf("\n#####\nProgram to output ALS points within GEDI footprints\n#####\n\n-input name;     lasfile input filename\n-outRoot name;   output filename\n-inList list;    input file list for multiple files\n-coord lon lat;  footprint coordinate in same system as lasfile\n-fSigma sigma;   footprint width\n-rad rad;        radius to output\n-bounds minX maxX minY maxY;  output points within a rectangle\n-allPoints;      write all points\n-LVIS;           use LVIS pulse length, sigma=6.25m\n-ground;         output canopy and ground separately\n-thresh t;       energy threshold to accept points\n-pBuff s;        point reading buffer size in Gbytes\n\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

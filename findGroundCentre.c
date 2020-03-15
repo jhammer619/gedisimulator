@@ -72,7 +72,7 @@ int main(int argc,char **argv)
   ground=findGround(data,nBins,dimage,&sigma);
 
   /*print results*/
-  fprintf(stdout,"%.4f sigma %f\n",ground,sigma);
+  msgf("%.4f sigma %f\n",ground,sigma);
 
   /*tidy up*/
   TTIDY((void **)data,2);
@@ -122,7 +122,7 @@ float **readData(char *inNamen,int *nBins,int useCol)
 
   /*open file*/
   if((ipoo=fopen(inNamen,"r"))==NULL){
-    fprintf(stderr,"Error opening input file %s\n",inNamen);
+    errorf("Error opening input file %s\n",inNamen);
     exit(1);
   }
 
@@ -134,7 +134,7 @@ float **readData(char *inNamen,int *nBins,int useCol)
 
   /*rewind to start of file*/
   if(fseek(ipoo,(long)0,SEEK_SET)){
-    fprintf(stderr,"fseek error\n");
+    errorf("fseek error\n");
     exit(1);
   }
 
@@ -156,7 +156,7 @@ float **readData(char *inNamen,int *nBins,int useCol)
           data[1][i]=atof(temp2);
         }
       }else{
-        fprintf(stderr,"Are you sure you want to read column %d?\n",useCol);
+        errorf("Are you sure you want to read column %d?\n",useCol);
         exit(1);
       }
       i++;
@@ -184,7 +184,7 @@ control *readCommands(int argc,char **argv)
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error control allocation.\n");
+    errorf("error control allocation.\n");
     exit(1);
   }
 
@@ -209,10 +209,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-col");
         dimage->useCol=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to fit single Gaussian to wave\n#####\n\n-input name;   input filaname\n-col n;      column to read waveform from\n\n");
+        msgf("\n#####\nProgram to fit single Gaussian to wave\n#####\n\n-input name;   input filaname\n-col n;      column to read waveform from\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }

@@ -147,7 +147,7 @@ int main(int argc,char **argv)
       if(dimage->epsg==0)readLasGeo(las);
       else               las->epsg=dimage->epsg;
       if(dimage->writeBounds)writeFileBounds(las,dimage->inList[i],dimage);
-      if(dimage->printNpoint)fprintf(stdout,"nPoints %s %u\n",dimage->inList[i],las->nPoints);
+      if(dimage->printNpoint)msgf("nPoints %s %u\n",dimage->inList[i],las->nPoints);
       if(dimage->findBounds)updateBounds(dimage->bounds,las);
       las=tidyLasFile(las);
     }
@@ -176,7 +176,7 @@ int main(int argc,char **argv)
 
   /*write image*/
   if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)writeImage(dimage,image);
-  if(dimage->writeBounds)fprintf(stdout,"Written to %s\n",dimage->bNamen);
+  if(dimage->writeBounds)msgf("Written to %s\n",dimage->bNamen);
 
 
   /*tidy up arrays*/
@@ -242,7 +242,7 @@ void fillGaps(control *dimage,imageStruct *image)
       place=(uint64_t)j*(uint64_t)image->nX+(uint64_t)i;
       /*print progress*/
       if(((place*100)%((uint64_t)image->nX*(uint64_t)image->nY))<100){
-        fprintf(stdout,"Gap filling %d%%\n",(int)((place*100)/((uint64_t)image->nX*(uint64_t)image->nY)));
+        msgf("Gap filling %d%%\n",(int)((place*100)/((uint64_t)image->nX*(uint64_t)image->nY)));
       }
 
       /*is the data missing?*/
@@ -343,7 +343,7 @@ uint64_t *setFillList(int i,int j,int w,int *nTest,imageStruct *image)
   /*allocate maximum possible space*/
   tempN=(2*w+1)*(2*w+1)-((2*w-1)*(2*w-1));
   if(!(indList=(uint64_t *)calloc(tempN,sizeof(uint64_t)))){
-    fprintf(stderr,"error fill index list allocation.\n");
+    errorf("error fill index list allocation.\n");
     exit(1);
   }
   (*nTest)=0;
@@ -402,7 +402,7 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
 
   /*check EPSG*/
   if(las->epsg!=image->epsg){
-    fprintf(stderr,"EPSG mismatch %d %d\n",(int)image->epsg,las->epsg);
+    errorf("EPSG mismatch %d %d\n",(int)image->epsg,las->epsg);
     exit(1);
   }
 
@@ -423,7 +423,7 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
           if(image->minH[place]<-999.0)image->minH[place]=(float)z-image->hRange/2.0;
           hBin=(int)(((float)z-image->minH[place])/image->hRes+0.5);
           if((hBin>=0)&&(hBin<image->nHeight))image->heightStack[place][hBin]+=1.0;
-          else fprintf(stderr,"Height bounds not quite wide enough. Point %f bounds %f %f\n",z,image->minH[place],image->minH[place]+image->hRange);
+          else errorf("Height bounds not quite wide enough. Point %f bounds %f %f\n",z,image->minH[place],image->minH[place]+image->hRange);
         }
       }else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
       if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
@@ -511,8 +511,8 @@ void finishImage(control *dimage,imageStruct *image)
   if(dimage->findDens){
     if(nContF>0)meanFoot/=(float)nContF;
     if(nContP>0)meanPoint/=(float)nContP;
-    fprintf(stdout,"Mean point density %f per m2\n",meanPoint/(dimage->res*dimage->res));
-    fprintf(stdout,"Mean footprint density %f per m2\n",meanFoot/(dimage->res*dimage->res));
+    msgf("Mean point density %f per m2\n",meanPoint/(dimage->res*dimage->res));
+    msgf("Mean footprint density %f per m2\n",meanFoot/(dimage->res*dimage->res));
   }
 
 
@@ -656,7 +656,7 @@ imageStruct *allocateImage(control *dimage)
   imageStruct *image=NULL;
 
   if(!(image=(imageStruct *)calloc(1,sizeof(imageStruct)))){
-    fprintf(stderr,"error imageStruct allocation.\n");
+    errorf("error imageStruct allocation.\n");
     exit(1);
   }
 
@@ -669,19 +669,19 @@ imageStruct *allocateImage(control *dimage)
   /*size of image*/
   image->nX=(int)((image->maxX-image->minX)/(double)dimage->res)+1;
   image->nY=(int)((image->maxY-image->minY)/(double)dimage->res)+1;
-  fprintf(stdout,"Image will be %d by %d\n",image->nX,image->nY);
+  msgf("Image will be %d by %d\n",image->nX,image->nY);
 
   /*allocate data arrays*/
   if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)image->jimlad=falloc((uint64_t)image->nX*(uint64_t)image->nY,"jimlad",0);
   else                                                                        image->jimlad=NULL;
   if(dimage->drawCov){
     if(!(image->nCan=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){
-      fprintf(stderr,"error in canopy allocation\n");
+      errorf("error in canopy allocation\n");
       exit(1);
     }
   }
   if(!(image->nIn=(uint64_t *)calloc(image->nX*image->nY,sizeof(uint64_t)))){
-    fprintf(stderr,"error in canopy allocation\n");
+    errorf("error in canopy allocation\n");
     exit(1);
   }
   if(dimage->findDens)image->nFoot=ialloc(image->nX*image->nY,"nFoot",0);
@@ -733,7 +733,7 @@ control *readCommands(int argc,char **argv)
   char **readInList(int *,char *);
 
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
-    fprintf(stderr,"error contN allocation.\n");
+    errorf("error contN allocation.\n");
     exit(1);
   }
 
@@ -823,7 +823,7 @@ control *readCommands(int argc,char **argv)
         dimage->writeBounds=1;
         strcpy(dimage->bNamen,argv[++i]);
         if((dimage->bFile=fopen(dimage->bNamen,"w"))==NULL){
-          fprintf(stderr,"Error opening output file %s\n",dimage->bNamen);
+          errorf("Error opening output file %s\n",dimage->bNamen);
           exit(1);
         }
       }else if(!strncasecmp(argv[i],"-pBuff",6)){
@@ -851,10 +851,10 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-maxVint");
         dimage->maxVint=(uint16_t)atoi(argv[++i]);   
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-DTM;            make a bare Earth DEM\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-hRange x;       range to expect points over for CHM\n-hThresh x;      percentile threshold to use for CHM in presence of noise\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
+        msgf("\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-DTM;            make a bare Earth DEM\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-hRange x;       range to expect points over for CHM\n-hThresh x;      percentile threshold to use for CHM in presence of noise\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
-        fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
+        errorf("%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
         exit(1);
       }
     }
