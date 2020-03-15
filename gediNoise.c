@@ -5,6 +5,8 @@
 #include "float.h"
 #include "hdf5.h"
 #include "tools.h"
+#include "msgHandling.h"
+#include "msgHandling.h"
 #include "libLasRead.h"
 #include "libLasProcess.h"
 #include "libLidarHDF.h"
@@ -72,7 +74,7 @@ int addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float r
 
   if(gNoise->missGround){        /*Delete all signal beneath ground peak*/
     if(gNoise->minGap==0.0){
-      fprintf(stderr,"Cannot delete ground without a defined minimum gap\n");
+      fprintf2(stderr,"Cannot delete ground without a defined minimum gap\n");
       return(-1);
     }
     deleteGround(data->noised,tempWave,data->ground[data->useType],data->nBins,gNoise->minGap,pSigma,fSigma,res,data->cov,rhoc,rhog);
@@ -378,7 +380,7 @@ int modifyTruth(dataStruct *data,noisePar *gNoise)
   /*change pulse width*/
   if(gNoise->newPsig>0.0){
     if(gNoise->newPsig<data->pSigma){   /*reduce pulse width*/
-      fprintf(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
+      fprintf2(stderr,"Can't deconvolve for new pulse length just yet. Old sigma %f new sigma %f\n",data->pSigma,gNoise->newPsig);
       return(-1);
     }else if(gNoise->newPsig>data->pSigma){  /*increase pulse width*/
       sigDiff=sqrt(gNoise->newPsig*gNoise->newPsig-data->pSigma*data->pSigma);
