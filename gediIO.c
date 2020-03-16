@@ -14,7 +14,9 @@
 #include "libOctree.h"
 #include "gediIO.h"
 #include "gediNoise.h"
-#include "ogr_srs_api.h"
+#ifndef WITHOUT_GDAL
+  #include "ogr_srs_api.h"
+#endif
 
 
 /*tolerances*/
@@ -1701,6 +1703,7 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
 
 double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
 {
+#ifndef WITHOUT_GDAL
   double *x=NULL,*y=NULL,*z=NULL;
   OGRCoordinateTransformationH hTransform;
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
@@ -1760,6 +1763,9 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   TIDY(y);
   TIDY(z);
   return(bounds);
+#else
+  return(inBounds);
+#endif
 }/*reprojectWaveBounds*/
 
 
