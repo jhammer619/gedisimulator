@@ -201,7 +201,11 @@ float findSigma(float probNoise,float probMiss,float groundAmp,float linkM)
     }
     err=fabs(thisLink-linkM);
   }while(err>minErr);
-
+  
+  free(noiseSigs.threshS);
+  free(noiseSigs.probNoise);
+  free(noiseSigs.probMiss);
+  free(noiseSigs.threshN);
   return(sig);
 }/*findSigma*/
 
