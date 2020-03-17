@@ -193,8 +193,12 @@ errorf("No longer usable\n");
     if(data){
       TIDY(data->noised);
       if(dimage->readHDFgedi){  /*pointer to array. do not free*/
+	free(data->wave[0]);
         data->wave[0]=NULL;
-        if(data->ground)data->ground[0]=NULL;
+        if(data->ground){
+	  free(data->ground[0]);
+          data->ground[0]=NULL;
+	}
       }
       TTIDY((void **)data->ground,data->nWaveTypes);
       TTIDY((void **)data->wave,data->nWaveTypes);
