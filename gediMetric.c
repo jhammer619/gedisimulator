@@ -644,9 +644,11 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     fprintf(dimage->opooMet,", %d niM2, %d niM2.1",14+4*metric->nRH+1+dimage->bayesGround+19,14+4*metric->nRH+1+dimage->bayesGround+20);
     fprintf(dimage->opooMet,", %d meanNoise, %d noiseStdev, %d noiseThresh",14+4*metric->nRH+1+dimage->bayesGround+21,14+4*metric->nRH+1+dimage->bayesGround+22,14+4*metric->nRH+1+dimage->bayesGround+23);
     offset=24;
-    if(dimage->hdfGedi->solarElev){
-      fprintf(dimage->opooMet,", %d solarElev,",14+4*metric->nRH+1+dimage->bayesGround+offset);
-      offset++;
+    if(dimage->hdfGedi){   /*has the HDF structure been allocated*/
+      if(dimage->hdfGedi->solarElev){
+        fprintf(dimage->opooMet,", %d solarElev,",14+4*metric->nRH+1+dimage->bayesGround+offset);
+        offset++;
+      }
     }
     if(dimage->noCanopy==0){
       fprintf(dimage->opooMet,", %d FHDhist, %d FHDcan, %d FHDcanHist",14+4*metric->nRH+1+dimage->bayesGround+offset,14+4*metric->nRH+1+dimage->bayesGround+offset+1,14+4*metric->nRH+1+dimage->bayesGround+offset+3);
@@ -703,7 +705,9 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
   fprintf(dimage->opooMet," %f %f",data->zen,metric->FHD);
   fprintf(dimage->opooMet," %f %f",metric->niM2,metric->niM21);
   fprintf(dimage->opooMet," %f %f %f",dimage->gediIO.den->meanN,(dimage->gediIO.den->thresh-dimage->gediIO.den->meanN)/dimage->gediIO.den->threshScale,dimage->gediIO.den->thresh);
-  if(dimage->hdfGedi->solarElev)fprintf(dimage->opooMet," %f",dimage->hdfGedi->solarElev[numb]);
+  if(dimage->hdfGedi){
+    if(dimage->hdfGedi->solarElev)fprintf(dimage->opooMet," %f",dimage->hdfGedi->solarElev[numb]);
+  }
   if(dimage->noCanopy==0){
     fprintf(dimage->opooMet," %f %f %f",metric->FHDhist,metric->FHDcan,metric->FHDcanH);
     fprintf(dimage->opooMet," %f %f",metric->FHDcanGauss,metric->FHDcanGhist);
@@ -1846,6 +1850,9 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-deconTol",9)){
         checkArguments(1,i,argc,"-deconTol");
         dimage->gediIO.den->deChang=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-deconIter",10)){
+        checkArguments(1,i,argc,"-deconIter");
+        dimage->gediIO.den->maxIter=atoi(argv[++i]);
       }else if(!strncasecmp(argv[i],"-preMatchF",10)){
         dimage->gediIO.den->preMatchF=1;
       }else if(!strncasecmp(argv[i],"-postMatchF",11)){
@@ -2094,7 +2101,8 @@ void writeHelp()
 -rhoC rho;        canopy reflectance\n\
 -pSigma sig;      pulse width to smooth by if using Gaussian pulse\n\
 -gold;            deconvolve with Gold's method\n\
--deconTol;        deconvolution tolerance\n\
+-deconTol tol;    deconvolution tolerance\n\
+-deconIter n;     maximum number of deconvolution iterations\n\
 \nQuestions to svenhancock@gmail.com\n\n");
 
   return;

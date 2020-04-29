@@ -51,7 +51,7 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 {
   int i=0,ind=0,*numb=NULL;
   dataStruct *data=NULL;
-  char line[801],temp1[100],temp2[100];
+  char line[1000],temp1[100],temp2[100];
   char temp3[100],temp4[100],temp5[100];
   char temp6[100],temp7[100],temp8[100];
   char temp9[100],temp10[100];
@@ -76,9 +76,10 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
 
   /*count number of wavebins*/
   data->nBins=0;
-  while(fgets(&(line[0]),800,ipoo)!=NULL){
+  while(fgets(&(line[0]),1000,ipoo)!=NULL){
     if(strncasecmp(line,"#",1))data->nBins++;
   }
+
 
   /*is there usable data?*/
   if(data->nBins==0){
