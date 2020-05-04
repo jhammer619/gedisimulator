@@ -406,11 +406,15 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
   int i=0,nGroups=0;
+  uint16_t *tempUint16=NULL;
+  uint16_t *padUint16zeros(int);
   hid_t file,group_id;         /* Handles */
   hid_t *sgID=NULL;     /*sub-group ID array*/
   herr_t      status;
   char **setL1BgroupList(int *);
   char **groupList=NULL;
+
+fprintf(stdout,"Writing in L1B format\n");
 
 
   /*open new file*/
@@ -420,14 +424,25 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   group_id=H5Gcreate2(file,"BEAM0000", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   /*create all sub-groups*/
-  groupList=setL1BgroupList(&nGroups);
+  /*groupList=setL1BgroupList(&nGroups);
   if(!(sgID=(hid_t *)calloc(nGroups,sizeof(hid_t)))){
     fprintf(stderr,"error in sub-group ID allocation.\n");
     exit(1);
   }
-  for(i=0;i<nGroups;i++)sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  for(i=0;i<nGroups;i++)sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);*/
 
   /*write the data*/
+  tempUint16=padUint16zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
+  writeComp1dUint16HDF5(group_id,"beam",tempUint16,hdfData->nWaves);
+  TIDY(tempUint16);
+
+  if(gediIO->useCount){
+    writeComp1dFloatHDF5(group_id,"rxwaveform",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
+    //if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
+  }else{
+    fprintf(stderr,"Issues with HDF5 format and not using the count method\n");
+    exit(1);
+  }
 
 
   /*close all groups*/
@@ -452,6 +467,24 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
 
 /*####################################################*/
+
+uint16_t *padUint16zeros(int numb)
+{
+  int i=0;
+  uint16_t *tempUint16=NULL;
+
+  if(!(tempUint16=(uint16_t *)calloc(numb,sizeof(uint16_t)))){
+    fprintf(stderr,"error in tempUint16 allocation.\n");
+    exit(1);
+  } 
+
+  for(i=0;i<numb;i++)tempUint16[i]=0;
+
+  return(tempUint16);
+}/*padUint16zeros*/
+
+
+/*####################################################*/
 /*set the group labels for HDF5 L1B files*/
 
 char **setL1BgroupList(int *nGroups)
@@ -459,7 +492,7 @@ char **setL1BgroupList(int *nGroups)
   int i=0;
   char **groupList=NULL;
 
-  *nGroups=19;
+  *nGroups=17;
 
   /*allocate space*/
   groupList=chChalloc(*nGroups,"L1B group list",0);
@@ -468,7 +501,6 @@ char **setL1BgroupList(int *nGroups)
   /*copy the names*/
   i=0;
   strcpy(&(groupList[0][i++]),"ancillary");
-  strcpy(&(groupList[0][i++]),"beam");
   strcpy(&(groupList[0][i++]),"channel");
   strcpy(&(groupList[0][i++]),"geolocation");
   strcpy(&(groupList[0][i++]),"geophys_corr");
@@ -477,7 +509,6 @@ char **setL1BgroupList(int *nGroups)
   strcpy(&(groupList[0][i++]),"mean");
   strcpy(&(groupList[0][i++]),"rx_sample_count");
   strcpy(&(groupList[0][i++]),"rx_sample_start_index");
-  strcpy(&(groupList[0][i++]),"rxwaveform");
   strcpy(&(groupList[0][i++]),"shot_number");
   strcpy(&(groupList[0][i++]),"stale_return_flag");
   strcpy(&(groupList[0][i++]),"stddev");
