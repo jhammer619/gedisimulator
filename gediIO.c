@@ -401,6 +401,97 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 
 
 /*####################################################*/
+/*write data to HDF5 in L1B format*/
+
+void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
+{
+  int i=0,nGroups=0;
+  hid_t file,group_id;         /* Handles */
+  hid_t *sgID=NULL;     /*sub-group ID array*/
+  herr_t      status;
+  char **setL1BgroupList(int *);
+  char **groupList=NULL;
+
+
+  /*open new file*/
+  file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+
+  /*create the groups*/
+  group_id=H5Gcreate2(file,"BEAM0000", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  /*create all sub-groups*/
+  groupList=setL1BgroupList(&nGroups);
+  if(!(sgID=(hid_t *)calloc(nGroups,sizeof(hid_t)))){
+    fprintf(stderr,"error in sub-group ID allocation.\n");
+    exit(1);
+  }
+  for(i=0;i<nGroups;i++)sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+
+  /*write the data*/
+
+
+  /*close all groups*/
+  for(i=0;i<nGroups;i++)status=H5Gclose(sgID[i]);
+
+  TIDY(sgID);
+  TTIDY((void **)groupList,nGroups);
+
+
+  /*close the group*/
+  status=H5Gclose(group_id);
+
+  /*close file*/
+  if(H5Fclose(file)){
+    fprintf(stderr,"Issue closing file\n");
+    exit(1);
+  }
+
+  fprintf(stdout,"Waveforms written to %s\n",namen);
+  return;
+}/*writeGEDIl1b*/
+
+
+/*####################################################*/
+/*set the group labels for HDF5 L1B files*/
+
+char **setL1BgroupList(int *nGroups)
+{
+  int i=0;
+  char **groupList=NULL;
+
+  *nGroups=19;
+
+  /*allocate space*/
+  groupList=chChalloc(*nGroups,"L1B group list",0);
+  for(i=0;i<*nGroups;i++)groupList[i]=challoc(22,"L1B group list",i+1);
+
+  /*copy the names*/
+  i=0;
+  strcpy(&(groupList[0][i++]),"ancillary");
+  strcpy(&(groupList[0][i++]),"beam");
+  strcpy(&(groupList[0][i++]),"channel");
+  strcpy(&(groupList[0][i++]),"geolocation");
+  strcpy(&(groupList[0][i++]),"geophys_corr");
+  strcpy(&(groupList[0][i++]),"master_frac");
+  strcpy(&(groupList[0][i++]),"master_int");
+  strcpy(&(groupList[0][i++]),"mean");
+  strcpy(&(groupList[0][i++]),"rx_sample_count");
+  strcpy(&(groupList[0][i++]),"rx_sample_start_index");
+  strcpy(&(groupList[0][i++]),"rxwaveform");
+  strcpy(&(groupList[0][i++]),"shot_number");
+  strcpy(&(groupList[0][i++]),"stale_return_flag");
+  strcpy(&(groupList[0][i++]),"stddev");
+  strcpy(&(groupList[0][i++]),"tx_gloc");
+  strcpy(&(groupList[0][i++]),"tx_pulseflag");
+  strcpy(&(groupList[0][i++]),"tx_sample_count");
+  strcpy(&(groupList[0][i++]),"tx_sample_start_index");
+  strcpy(&(groupList[0][i++]),"txwaveform");
+
+  return(groupList);
+}/*setL1BgroupList*/
+
+
+/*####################################################*/
 /*write data to HDF5*/
 
 void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
@@ -409,6 +500,8 @@ void writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
   /*open new file*/
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+
+
 
  /*write header*/
   write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1);

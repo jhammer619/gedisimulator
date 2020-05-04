@@ -333,6 +333,7 @@ waveStruct *makeGediWaves(gediRatStruct *,gediIOstruct *,pCloudStruct **);
 void setGediGrid(gediIOstruct *,gediRatStruct *);
 void setGediPulse(gediIOstruct *,gediRatStruct *);
 void writeGEDIhdf(gediHDF *,char *,gediIOstruct *);
+void writeGEDIl1b(gediHDF *,char *,gediIOstruct *);
 void setGediFootprint(gediRatStruct *,gediIOstruct *);
 void updateGediCoord(gediRatStruct *,int,int);
 void packGEDIhdf(waveStruct *,gediHDF *,int,gediIOstruct *,gediRatStruct *,int *,char,char *);

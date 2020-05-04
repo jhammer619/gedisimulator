@@ -76,6 +76,7 @@ typedef struct{
 
   /*HDF5 output*/
   char writeHDF;       /*write output as hdf5*/
+  char writeL1B;       /*write L1B HDF5 output format*/
   int maxBins;         /*bins per wave for HDF5 output*/
   int hdfCount;        /*count used footprints*/
 }control;
@@ -183,7 +184,8 @@ int main(int argc,char **argv)
     /*write HDF if needed and not blank*/
     if(dimage->writeHDF&&(dimage->hdfCount>0)){
       hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
-      writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO));
+      if(dimage->writeL1B)writeGEDIl1b(hdfData,dimage->outNamen,&(dimage->gediIO));
+      else                writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO));
     }
   }/*make and write a waveform if needed*/
 
@@ -574,6 +576,7 @@ control *readCommands(int argc,char **argv)
   dimage->overWrite=1;          /*over write any files with the same name if they exist*/
   dimage->gediRat.readALSonce=0;/*read each footprint separately*/
   dimage->writeHDF=0;           /*write output as ascii*/
+  dimage->writeL1B=0;           /*write output as ascii*/
   dimage->gediRat.defWfront=0;  /*Gaussian footprint*/
   dimage->gediRat.wavefront=NULL;
   dimage->gediIO.pcl=0;         /*do not use PCL*/
@@ -709,6 +712,9 @@ control *readCommands(int argc,char **argv)
         strcpy(dimage->gediRat.coordList,argv[++i]);
       }else if(!strncasecmp(argv[i],"-hdf",4)){
         dimage->writeHDF=1;
+      }else if(!strncasecmp(argv[i],"-l1b",4)){
+        dimage->writeHDF=1;
+        dimage->writeL1B=1;
       }else if(!strncasecmp(argv[i],"-ascii",6)){
         dimage->writeHDF=0;
       }else if(!strncasecmp(argv[i],"-maxBins",8)){
@@ -767,6 +773,7 @@ void writeGediRatHelpMessage()
 -output name;    output filename\n\
 -ground;         record separate ground and canopy waveforms\n\
 -hdf;            write output as HDF5. Best with gridded or list of coords\n\
+-l1b;            write output in the GEDI L1B HDF5 format. Best with gridded or list of coords\n\
 -ascii;          write output as ASCII (default). Good for quick tests\n\
 -waveID id;      supply a waveID to pass to the output (only for single footprints)\n\
 \n# Single footprint, list of footprints, or grid of footprints\n\
