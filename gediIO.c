@@ -406,15 +406,22 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
   int i=0,nGroups=0;
+  uint8_t *tempUint8=NULL;
+  uint8_t *padUint8zeros(int);
   uint16_t *tempUint16=NULL;
   uint16_t *padUint16zeros(int);
+  uint16_t *setRxSampleCount(int *,int);
+  uint32_t *tempUint32=NULL;
+  uint32_t *padUint32zeros(int);
+  uint64_t *tempUint64=NULL;
+  uint64_t *setRXstarts(int,int *);
+  uint64_t *setShotNumber(int);
+  float *tempFloat=NULL;
   hid_t file,group_id;         /* Handles */
   hid_t *sgID=NULL;     /*sub-group ID array*/
   herr_t      status;
   char **setL1BgroupList(int *);
   char **groupList=NULL;
-
-fprintf(stdout,"Writing in L1B format\n");
 
 
   /*open new file*/
@@ -424,25 +431,54 @@ fprintf(stdout,"Writing in L1B format\n");
   group_id=H5Gcreate2(file,"BEAM0000", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   /*create all sub-groups*/
-  /*groupList=setL1BgroupList(&nGroups);
+  groupList=setL1BgroupList(&nGroups);
   if(!(sgID=(hid_t *)calloc(nGroups,sizeof(hid_t)))){
     fprintf(stderr,"error in sub-group ID allocation.\n");
     exit(1);
   }
-  for(i=0;i<nGroups;i++)sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);*/
+  for(i=0;i<nGroups;i++){
+fprintf(stdout,"Creating group %s\n",groupList[i]);
+    sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  }
 
   /*write the data*/
   tempUint16=padUint16zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
   writeComp1dUint16HDF5(group_id,"beam",tempUint16,hdfData->nWaves);
   TIDY(tempUint16);
-
+  tempUint8=padUint8zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
+  writeComp1dUint8HDF5(group_id,"channel",tempUint8,hdfData->nWaves);
+  TIDY(tempUint8);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
+  writeComp1dFloatHDF5(group_id,"master_frac",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
+  tempUint32=padUint32zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
+  writeComp1dUint32HDF5(group_id,"master_int",tempUint32,hdfData->nWaves);
+  TIDY(tempUint32);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
+  writeComp1dFloatHDF5(group_id,"mean",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
+  tempUint16=setRxSampleCount(hdfData->nBins,hdfData->nWaves);
+  writeComp1dUint16HDF5(group_id,"rx_sample_count",tempUint16,hdfData->nWaves);
+  TIDY(tempUint16);
+  tempUint64=setRXstarts(hdfData->nWaves,hdfData->nBins);
+  writeComp1dUint64HDF5(group_id,"rx_sample_start_index",tempUint64,hdfData->nWaves);
+  TIDY(tempUint64);
   if(gediIO->useCount){
     writeComp1dFloatHDF5(group_id,"rxwaveform",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
-    //if(hdfData->ground)writeComp2dFloatHDF5(file,"GRWAVECOUNT",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves,hdfData->nBins[0]);
+    if(hdfData->ground)writeComp1dFloatHDF5(group_id,"grxwaveform",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
   }else{
     fprintf(stderr,"Issues with HDF5 format and not using the count method\n");
     exit(1);
   }
+  tempUint64=setShotNumber(hdfData->nWaves);
+  writeComp1dUint64HDF5(group_id,"shot_number",tempUint64,hdfData->nWaves);
+  TIDY(tempUint64);
+  tempUint8=padUint8zeros(hdfData->nWaves);
+  writeComp1dUint8HDF5(group_id,"stale_return_flag",tempUint8,hdfData->nWaves);
+  TIDY(tempUint8);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
+  writeComp1dFloatHDF5(group_id,"stddev",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
 
 
   /*close all groups*/
@@ -467,6 +503,83 @@ fprintf(stdout,"Writing in L1B format\n");
 
 
 /*####################################################*/
+/*set a shot number*/
+
+uint64_t *setShotNumber(int nWaves)
+{
+  int i=0;
+  uint64_t *tempUint64=NULL;
+
+  if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
+    fprintf(stderr,"error in tempUint64 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<nWaves;i++)tempUint64[i]=(uint64_t)i;
+
+  return(tempUint64);
+}/*setShotNumber*/
+
+
+/*####################################################*/
+/*make array to map RX wave starts*/
+
+uint64_t *setRXstarts(int nWaves,int *nBins)
+{
+  int i=0;
+  uint64_t *tempUint64=NULL;
+
+  if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
+    fprintf(stderr,"error in tempUint64 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<nWaves;i++)tempUint64[i]=(uint64_t)i*(uint64_t)nBins[0];
+
+  return(tempUint64);
+}/*setRXstarts*/
+
+
+/*####################################################*/
+/*get Rx Sample Count in to L1B format*/
+
+uint16_t *setRxSampleCount(int *nBins,int nWaves)
+{
+  int i=0;
+  uint16_t *tempUint16=NULL;
+
+  if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
+    fprintf(stderr,"error in tempUint16 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<nWaves;i++)tempUint16[i]=(uint16_t)nBins[0];
+
+  return(tempUint16);
+}/*setRxSampleCount*/
+
+
+/*####################################################*/
+/*make an array of 0s in uint8 for HDF5*/
+
+uint8_t *padUint8zeros(int numb)
+{
+  int i=0;
+  uint8_t *tempUint8=NULL;
+
+  if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
+    fprintf(stderr,"error in tempUint8 allocation.\n");
+    exit(1);
+  } 
+
+  for(i=0;i<numb;i++)tempUint8[i]=0;
+
+  return(tempUint8);
+}/*padUint8zeros*/
+
+
+/*####################################################*/
+/*make an array of 0s in uint16 for HDF5*/
 
 uint16_t *padUint16zeros(int numb)
 {
@@ -476,12 +589,31 @@ uint16_t *padUint16zeros(int numb)
   if(!(tempUint16=(uint16_t *)calloc(numb,sizeof(uint16_t)))){
     fprintf(stderr,"error in tempUint16 allocation.\n");
     exit(1);
-  } 
+  }
 
   for(i=0;i<numb;i++)tempUint16[i]=0;
 
   return(tempUint16);
 }/*padUint16zeros*/
+
+
+/*####################################################*/
+/*make an array of 0s in uint32 for HDF5*/
+
+uint32_t *padUint32zeros(int numb)
+{
+  int i=0;
+  uint32_t *tempUint32=NULL;
+
+  if(!(tempUint32=(uint32_t *)calloc(numb,sizeof(uint32_t)))){
+    fprintf(stderr,"error in tempUint32 allocation.\n");
+    exit(1);
+  } 
+
+  for(i=0;i<numb;i++)tempUint32[i]=0;
+
+  return(tempUint32);
+}/*padUint32zeros*/
 
 
 /*####################################################*/
@@ -492,7 +624,7 @@ char **setL1BgroupList(int *nGroups)
   int i=0;
   char **groupList=NULL;
 
-  *nGroups=17;
+  *nGroups=3;
 
   /*allocate space*/
   groupList=chChalloc(*nGroups,"L1B group list",0);
@@ -500,11 +632,10 @@ char **setL1BgroupList(int *nGroups)
 
   /*copy the names*/
   i=0;
-  strcpy(&(groupList[0][i++]),"ancillary");
-  strcpy(&(groupList[0][i++]),"channel");
-  strcpy(&(groupList[0][i++]),"geolocation");
-  strcpy(&(groupList[0][i++]),"geophys_corr");
-  strcpy(&(groupList[0][i++]),"master_frac");
+  strcpy(&(groupList[i++][0]),"ancillary");
+  strcpy(&(groupList[i++][0]),"geolocation");
+  strcpy(&(groupList[i++][0]),"geophys_corr");
+  /*strcpy(&(groupList[0][i++]),"master_frac");
   strcpy(&(groupList[0][i++]),"master_int");
   strcpy(&(groupList[0][i++]),"mean");
   strcpy(&(groupList[0][i++]),"rx_sample_count");
@@ -516,7 +647,13 @@ char **setL1BgroupList(int *nGroups)
   strcpy(&(groupList[0][i++]),"tx_pulseflag");
   strcpy(&(groupList[0][i++]),"tx_sample_count");
   strcpy(&(groupList[0][i++]),"tx_sample_start_index");
-  strcpy(&(groupList[0][i++]),"txwaveform");
+  strcpy(&(groupList[0][i++]),"txwaveform");*/
+
+  if(i!=*nGroups){
+    fprintf(stderr,"Group number mismatch %d %d\n",i,*nGroups);
+    exit(1);
+  }
+
 
   return(groupList);
 }/*setL1BgroupList*/
