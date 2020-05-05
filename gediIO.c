@@ -405,7 +405,7 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 
 void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
-  int i=0,nGroups=0;
+  int i=0;
   uint8_t *tempUint8=NULL;
   uint8_t *padUint8zeros(int);
   uint16_t *tempUint16=NULL;
@@ -416,10 +416,15 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   uint64_t *tempUint64=NULL;
   uint64_t *setRXstarts(int,int *);
   uint64_t *setShotNumber(int);
+  int32_t *tempInt32=NULL;
+  int32_t *padInt32ones(int);
+  int64_t *tempInt64=NULL;
   float *tempFloat=NULL;
-  hid_t file,group_id;         /* Handles */
-  hid_t *sgID=NULL;     /*sub-group ID array*/
+  double *tempDouble=NULL;
+  hid_t file,group_id,sgID;         /* Handles */
   herr_t      status;
+  TXstruct tx;          /*to hold pulse information for TX*/
+  void rearrangePulsetoTX(gediIOstruct *,gediHDF *,TXstruct *);
   char **setL1BgroupList(int *);
   char **groupList=NULL;
 
@@ -427,19 +432,8 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   /*open new file*/
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 
-  /*create the groups*/
+  /*create the beam group*/
   group_id=H5Gcreate2(file,"BEAM0000", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-  /*create all sub-groups*/
-  groupList=setL1BgroupList(&nGroups);
-  if(!(sgID=(hid_t *)calloc(nGroups,sizeof(hid_t)))){
-    fprintf(stderr,"error in sub-group ID allocation.\n");
-    exit(1);
-  }
-  for(i=0;i<nGroups;i++){
-fprintf(stdout,"Creating group %s\n",groupList[i]);
-    sgID[i]=H5Gcreate2(group_id,groupList[i],H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
-  }
 
   /*write the data*/
   tempUint16=padUint16zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
@@ -454,7 +448,7 @@ fprintf(stdout,"Creating group %s\n",groupList[i]);
   tempUint32=padUint32zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
   writeComp1dUint32HDF5(group_id,"master_int",tempUint32,hdfData->nWaves);
   TIDY(tempUint32);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);    /*needs updating if noise added*/
   writeComp1dFloatHDF5(group_id,"mean",tempFloat,hdfData->nWaves);
   TIDY(tempFloat);
   tempUint16=setRxSampleCount(hdfData->nBins,hdfData->nWaves);
@@ -476,19 +470,55 @@ fprintf(stdout,"Creating group %s\n",groupList[i]);
   tempUint8=padUint8zeros(hdfData->nWaves);
   writeComp1dUint8HDF5(group_id,"stale_return_flag",tempUint8,hdfData->nWaves);
   TIDY(tempUint8);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*needs updating if noise added*/
   writeComp1dFloatHDF5(group_id,"stddev",tempFloat,hdfData->nWaves);
   TIDY(tempFloat);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*I am not sure what this is. Look at the data directory*/
+  writeComp1dFloatHDF5(group_id,"tx_gloc",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
+  tempInt32=padInt32ones(hdfData->nWaves);
+  writeComp1dInt32HDF5(group_id,"tx_pulseflag",tempInt32,hdfData->nWaves);
+  TIDY(tempInt32);
+
+  /*rearrange the pulse in to the TX format*/
+  rearrangePulsetoTX(gediIO,hdfData,&tx);
+  writeComp1dUint16HDF5(group_id,"tx_sample_count",tx.txCount,hdfData->nWaves);
+  writeComp1dUint64HDF5(group_id,"tx_sample_start_index",tx.txStart,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"txwaveform",tx.txwave,hdfData->nWaves*(int)tx.nBins);
+
+  /*tidy up*/
+  TIDY(tx.txCount);
+  TIDY(tx.txStart);
+  TIDY(tx.txwave);
+
+  /*add the sub-groups*/
+  sgID=H5Gcreate2(group_id,"ancillary",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  tempDouble=dalloc(1,"temp double",0);
+  tempDouble[0]=(double)rand();
+  write1dDoubleHDF5(sgID,"master_time_epoch",tempDouble,1);
+  TIDY(tempDouble);
+  if(!(tempInt64=(int64_t *)calloc(1,sizeof(int64_t)))){
+    fprintf(stderr,"error in tempInt64 allocation.\n");
+    exit(1);
+  } 
+  tempInt64[0]=100;
+  write1dInt64HDF5(sgID,"mean_samples",tempInt64,1);
+  TIDY(tempInt64);
+  tempDouble=dalloc(1,"temp double",0);
+  tempDouble[0]=0.0;
+  write1dDoubleHDF5(sgID,"smoothing_width",tempDouble,1);
+  TIDY(tempDouble);
+  status=H5Gclose(sgID);
+
+  sgID=H5Gcreate2(group_id,"geolocation",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  status=H5Gclose(sgID);
+
+  sgID=H5Gcreate2(group_id,"geophys_corr",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  status=H5Gclose(sgID);
 
 
-  /*close all groups*/
-  for(i=0;i<nGroups;i++)status=H5Gclose(sgID[i]);
 
-  TIDY(sgID);
-  TTIDY((void **)groupList,nGroups);
-
-
-  /*close the group*/
+  /*close the beam group*/
   status=H5Gclose(group_id);
 
   /*close file*/
@@ -500,6 +530,87 @@ fprintf(stdout,"Creating group %s\n",groupList[i]);
   fprintf(stdout,"Waveforms written to %s\n",namen);
   return;
 }/*writeGEDIl1b*/
+
+
+/*####################################################*/
+/*Rearrange pulse information in to TX structure*/
+
+void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
+{
+  int i=0,j=0;
+  int *contN=NULL;
+  int buff=0;
+  float *txwave=NULL;
+
+  /*resample the resolution*/
+  buff=50;   /*pad before and after the TX wave incase the L2A code needs some workspace*/
+  tx->nBins=(uint16_t)((float)gediIO->pulse->nBins*gediIO->pRes/gediIO->res)+(uint16_t)(2*buff);
+
+  /*allocate space*/
+  if(!(tx->txCount=(uint16_t *)calloc(hdfData->nWaves,sizeof(uint16_t)))){
+    fprintf(stderr,"error in txCount allocation.\n");
+    exit(1);
+  }
+  if(!(tx->txStart=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
+    fprintf(stderr,"error in txStart allocation.\n");
+    exit(1);
+  }
+
+
+  /*make a resampled pulse*/
+  tx->txwave=falloc((int)tx->nBins*hdfData->nWaves,"txwave",0);
+  txwave=falloc((int)tx->nBins,"temp txwave",0);
+  contN=ialloc((int)tx->nBins,"txwave counter",0);
+
+  /*zero counters*/
+  for(i=0;i<(int)tx->nBins;i++){
+    txwave[i]=0.0;
+    contN[i]=0;
+  }
+
+  /*count up*/
+  for(i=0;i<gediIO->pulse->nBins;i++){
+    j=(int)(gediIO->pulse->x[i]/gediIO->res)+buff;
+    if((j>=0)&&(j<(int)tx->nBins)){
+      txwave[j]+=gediIO->pulse->y[i];
+      contN[j]++;
+    }
+  }
+
+  /*normalise*/
+  for(i=0;i<(int)tx->nBins;i++){
+    if(contN[i]>0)txwave[i]/=(float)contN[i];
+  }
+
+  /*populate arrays*/
+  for(i=0;i<hdfData->nWaves;i++){
+    tx->txCount[i]=tx->nBins;
+    tx->txStart[i]=(uint64_t)i*(uint64_t)tx->nBins;
+    for(j=0;j<(int)tx->nBins;j++)tx->txwave[i*(int)tx->nBins+j]=txwave[j];
+  }
+  TIDY(txwave);
+
+  return;
+}/*rearrangePulsetoTX*/
+
+
+/*####################################################*/
+/*make an array of int32 of 1*/
+
+int32_t *padInt32ones(int numb)
+{
+  int i=0;
+  int32_t *jimlad=NULL;
+
+  if(!(jimlad=(int32_t *)calloc(numb,sizeof(int32_t)))){
+    fprintf(stderr,"error in padInt32ones allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<numb;i++)jimlad[i]=1;
+
+  return(jimlad);
+}/*padInt32ones*/
 
 
 /*####################################################*/
@@ -614,49 +725,6 @@ uint32_t *padUint32zeros(int numb)
 
   return(tempUint32);
 }/*padUint32zeros*/
-
-
-/*####################################################*/
-/*set the group labels for HDF5 L1B files*/
-
-char **setL1BgroupList(int *nGroups)
-{
-  int i=0;
-  char **groupList=NULL;
-
-  *nGroups=3;
-
-  /*allocate space*/
-  groupList=chChalloc(*nGroups,"L1B group list",0);
-  for(i=0;i<*nGroups;i++)groupList[i]=challoc(22,"L1B group list",i+1);
-
-  /*copy the names*/
-  i=0;
-  strcpy(&(groupList[i++][0]),"ancillary");
-  strcpy(&(groupList[i++][0]),"geolocation");
-  strcpy(&(groupList[i++][0]),"geophys_corr");
-  /*strcpy(&(groupList[0][i++]),"master_frac");
-  strcpy(&(groupList[0][i++]),"master_int");
-  strcpy(&(groupList[0][i++]),"mean");
-  strcpy(&(groupList[0][i++]),"rx_sample_count");
-  strcpy(&(groupList[0][i++]),"rx_sample_start_index");
-  strcpy(&(groupList[0][i++]),"shot_number");
-  strcpy(&(groupList[0][i++]),"stale_return_flag");
-  strcpy(&(groupList[0][i++]),"stddev");
-  strcpy(&(groupList[0][i++]),"tx_gloc");
-  strcpy(&(groupList[0][i++]),"tx_pulseflag");
-  strcpy(&(groupList[0][i++]),"tx_sample_count");
-  strcpy(&(groupList[0][i++]),"tx_sample_start_index");
-  strcpy(&(groupList[0][i++]),"txwaveform");*/
-
-  if(i!=*nGroups){
-    fprintf(stderr,"Group number mismatch %d %d\n",i,*nGroups);
-    exit(1);
-  }
-
-
-  return(groupList);
-}/*setL1BgroupList*/
 
 
 /*####################################################*/

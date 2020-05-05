@@ -317,6 +317,17 @@ typedef struct{
 
 
 /*###########################################################*/
+/*structure to hold pulse for TX L1B format*/
+
+typedef struct{
+  uint16_t *txCount;   /*tx_sample_count*/
+  uint64_t *txStart;   /*tx_sample_start_index*/
+  float *txwave;       /*txwaveform*/
+  uint16_t nBins;           /*number of bins for the pulse*/
+}TXstruct;
+
+
+/*###########################################################*/
 /*functions*/
 
 dataStruct **tidyAsciiStruct(dataStruct **,int);
