@@ -421,6 +421,8 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   int64_t *tempInt64=NULL;
   float *tempFloat=NULL;
   double *tempDouble=NULL;
+  double *setAltitude(int);
+  double *setBounceOffset(int,int *,float);
   hid_t file,group_id,sgID;         /* Handles */
   herr_t      status;
   TXstruct tx;          /*to hold pulse information for TX*/
@@ -511,6 +513,66 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   status=H5Gclose(sgID);
 
   sgID=H5Gcreate2(group_id,"geolocation",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  tempDouble=setAltitude(hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"altitude_instrument",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"altitude_instrument_error",0);
+  writeComp1dDoubleHDF5(sgID,"altitude_instrument_error",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setBounceOffset(hdfData->nWaves,NULL,gediIO->res);
+  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"bounce_time_offset_bin0_error",0);
+  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0_error",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setBounceOffset(hdfData->nWaves,hdfData->nBins,gediIO->res);
+  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"bounce_time_offset_lastbin_error",0);
+  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin_error",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+
+
+ //'delta_time',
+ //'digital_elevation_model',
+ //'elevation_bin0',
+ //'elevation_bin0_error',
+ //'elevation_lastbin',
+ //'elevation_lastbin_error',
+ //'landsat_treecover',
+ //'latitude_bin0',
+ //'latitude_bin0_error',
+ //'latitude_instrument',
+ //'latitude_instrument_error',
+ //'latitude_lastbin',
+ //'latitude_lastbin_error',
+ //'local_beam_azimuth',
+ //'local_beam_azimuth_error',
+ //'local_beam_elevation',
+ //'local_beam_elevation_error',
+ //'longitude_bin0',
+ //'longitude_bin0_error',
+ //'longitude_instrument',
+ //'longitude_instrument_error',
+ //'longitude_lastbin',
+ //'longitude_lastbin_error',
+ //'mean_sea_surface',
+ //'modis_nonvegetated',
+ //'modis_nonvegetated_sd',
+ //'modis_treecover',
+ //'modis_treecover_sd',
+ //'neutat_delay_derivative_bin0',
+ //'neutat_delay_derivative_lastbin',
+ //'neutat_delay_total_bin0',
+ //'neutat_delay_total_lastbin',
+ //'range_bias_correction',
+ //'shot_number',
+ //'solar_azimuth',
+ //'solar_elevation',
+ //'surface_type']
+
+
+
   status=H5Gclose(sgID);
 
   sgID=H5Gcreate2(group_id,"geophys_corr",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
@@ -530,6 +592,45 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   fprintf(stdout,"Waveforms written to %s\n",namen);
   return;
 }/*writeGEDIl1b*/
+
+
+
+/*####################################################*/
+/*set bounds offset for bins*/
+
+double *setBounceOffset(int nWaves,int *nBins,float res)
+{
+  int i=0;
+  double *tempDouble=NULL;
+  double c=0;
+
+  tempDouble=dalloc(nWaves,"setBounceOffset",0);
+
+  /*is this dfor bin 0 or bin 1*/
+  if(nBins){
+    c=299792458.0;
+    for(i=0;i<nWaves;i++)tempDouble[i]=0.0013691+(double)nBins[0]*(double)res/c;
+  }else{
+    for(i=0;i<nWaves;i++)tempDouble[i]=0.0013691;
+  }
+
+  return(tempDouble);
+}/*setBounceOffset*/
+
+
+/*####################################################*/
+/*set instrument altitude*/
+
+double *setAltitude(int nWaves)
+{
+  int i=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(nWaves,"setAltitude",0);
+  for(i=0;i<nWaves;i++)tempDouble[i]=410560.0;
+
+  return(tempDouble);
+}/*setAltitude*/
 
 
 /*####################################################*/
