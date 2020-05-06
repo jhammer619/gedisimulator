@@ -416,6 +416,8 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   uint64_t *tempUint64=NULL;
   uint64_t *setRXstarts(int,int *);
   uint64_t *setShotNumber(int);
+  int8_t *tempInt8=NULL;
+  int8_t *setSurfaceTypeL1B(int,int);
   int32_t *tempInt32=NULL;
   int32_t *padInt32ones(int);
   int64_t *tempInt64=NULL;
@@ -423,13 +425,17 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   double *tempDouble=NULL;
   double *setAltitude(int);
   double *setBounceOffset(int,int *,float);
+  double *setDeltaTime(int);
+  double *setDEMl1b(gediHDF *,int);
+  double *setElevBinL1B(int,float *);
+  double *setCovL1B(gediHDF *,int);
+  double *setL1Bcoords(int,gediHDF *);
+  double *setHalfPiL1B(int);
+  double *setDelayDerivL1B(int);
   hid_t file,group_id,sgID;         /* Handles */
   herr_t      status;
   TXstruct tx;          /*to hold pulse information for TX*/
   void rearrangePulsetoTX(gediIOstruct *,gediHDF *,TXstruct *);
-  char **setL1BgroupList(int *);
-  char **groupList=NULL;
-
 
   /*open new file*/
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
@@ -494,6 +500,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tx.txwave);
 
   /*add the sub-groups*/
+  /*ancillary subgroup*/
   sgID=H5Gcreate2(group_id,"ancillary",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
   tempDouble=dalloc(1,"temp double",0);
   tempDouble[0]=(double)rand();
@@ -512,6 +519,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   TIDY(tempDouble);
   status=H5Gclose(sgID);
 
+  /*geolocation subgroup*/
   sgID=H5Gcreate2(group_id,"geolocation",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
   tempDouble=setAltitude(hdfData->nWaves);
   writeComp1dDoubleHDF5(sgID,"altitude_instrument",tempDouble,hdfData->nWaves);
@@ -531,53 +539,92 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   tempDouble=dalloc(hdfData->nWaves,"bounce_time_offset_lastbin_error",0);
   writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin_error",tempDouble,hdfData->nWaves);
   TIDY(tempDouble);
-
-
- //'delta_time',
- //'digital_elevation_model',
- //'elevation_bin0',
- //'elevation_bin0_error',
- //'elevation_lastbin',
- //'elevation_lastbin_error',
- //'landsat_treecover',
- //'latitude_bin0',
- //'latitude_bin0_error',
- //'latitude_instrument',
- //'latitude_instrument_error',
- //'latitude_lastbin',
- //'latitude_lastbin_error',
- //'local_beam_azimuth',
- //'local_beam_azimuth_error',
- //'local_beam_elevation',
- //'local_beam_elevation_error',
- //'longitude_bin0',
- //'longitude_bin0_error',
- //'longitude_instrument',
- //'longitude_instrument_error',
- //'longitude_lastbin',
- //'longitude_lastbin_error',
- //'mean_sea_surface',
- //'modis_nonvegetated',
- //'modis_nonvegetated_sd',
- //'modis_treecover',
- //'modis_treecover_sd',
- //'neutat_delay_derivative_bin0',
- //'neutat_delay_derivative_lastbin',
- //'neutat_delay_total_bin0',
- //'neutat_delay_total_lastbin',
- //'range_bias_correction',
- //'shot_number',
- //'solar_azimuth',
- //'solar_elevation',
- //'surface_type']
-
-
-
+  tempDouble=setDeltaTime(hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setDEMl1b(hdfData,(int)gediIO->useInt);
+  writeComp1dDoubleHDF5(sgID,"digital_elevation_model",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setElevBinL1B(hdfData->nWaves,hdfData->z0);
+  writeComp1dDoubleHDF5(sgID,"elevation_bin0",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"elevation_bin0_error",0);
+  writeComp1dDoubleHDF5(sgID,"elevation_bin0_error",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setElevBinL1B(hdfData->nWaves,hdfData->zN);
+  writeComp1dDoubleHDF5(sgID,"elevation_lastbin",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"elevation_lastbin_error",0);
+  writeComp1dDoubleHDF5(sgID,"elevation_lastbin_error",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setCovL1B(hdfData,(int)gediIO->useInt);
+  writeComp1dDoubleHDF5(sgID,"landsat_treecover",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"modis_treecover",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  /*reproject bounds to 4326 for GEDI*/
+  tempDouble=setL1Bcoords(gediIO->aEPSG,hdfData);
+  writeComp1dDoubleHDF5(sgID,"longitude_bin0",&(tempDouble[0]),hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"longitude_lastbin",&(tempDouble[0]),hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"longitude_instrument",&(tempDouble[0]),hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"latitude_bin0",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"latitude_lastbin",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"latitude_instrument",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"latitude_bin0_error",0);
+  writeComp1dDoubleHDF5(sgID,"latitude_bin0_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"latitude_instrument_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"latitude_lastbin_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"local_beam_azimuth",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"local_beam_azimuth_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"local_beam_elevation_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"longitude_bin0_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"longitude_instrument_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"longitude_lastbin_error",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"mean_sea_surface",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"modis_nonvegetated",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"modis_nonvegetated_sd",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"modis_treecover_sd",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setHalfPiL1B(hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"local_beam_elevation",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setDelayDerivL1B(hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_bin0",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_lastbin",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"neutat_delay_total_bin0",0);
+  writeComp1dDoubleHDF5(sgID,"neutat_delay_total_bin0",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"neutat_delay_total_lastbin",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"range_bias_correction",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"solar_azimuth",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"solar_elevation",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempUint64=setShotNumber(hdfData->nWaves);
+  tempDouble=dalloc(hdfData->nWaves,"shot_number",0);
+  for(i=0;i<hdfData->nWaves;i++)tempDouble[i]=(double)tempUint64[i];
+  writeComp1dDoubleHDF5(sgID,"shot_number",tempDouble,hdfData->nWaves);
+  TIDY(tempUint64);
+  TIDY(tempDouble);
+  tempInt8=setSurfaceTypeL1B(hdfData->nWaves,5);
+  writeComp2dInt8HDF5(sgID,"surface_type",tempInt8,5,hdfData->nWaves);
+  TIDY(tempInt8);
   status=H5Gclose(sgID);
 
+  /*geophys_corr subgroup*/
   sgID=H5Gcreate2(group_id,"geophys_corr",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+  tempDouble=setDeltaTime(hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"dynamic_atmosphere_correction",0);
+  writeComp1dDoubleHDF5(sgID,"dynamic_atmosphere_correction",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"geoid",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"tide_earth",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"tide_load",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"tide_ocean",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"tide_ocean_pole",tempDouble,hdfData->nWaves);
+  writeComp1dDoubleHDF5(sgID,"tide_pole",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
   status=H5Gclose(sgID);
-
 
 
   /*close the beam group*/
@@ -593,6 +640,194 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   return;
 }/*writeGEDIl1b*/
 
+
+/*####################################################*/
+/*set neutat_delay_derivative*/
+
+double *setDelayDerivL1B(int nWaves)
+{
+  int i=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(nWaves,"setDelayDerivL1B",0);
+  for(i=0;i<nWaves;i++)tempDouble[i]=-8.82508928*pow(10.0,-8.0);
+
+  return(tempDouble);
+}/*setDelayDerivL1B*/
+
+
+/*####################################################*/
+/*set a 2D array of surface types for L1B format*/
+
+int8_t *setSurfaceTypeL1B(int nWaves,int nLayers)
+{
+  int i=0,j=0;
+  int8_t *tempInt8=NULL;
+
+  /*allocate space*/
+  if(!(tempInt8=(int8_t *)calloc(nWaves*nLayers,sizeof(int8_t)))){
+    fprintf(stderr,"error in txCount allocation.\n");
+    exit(1);
+  } 
+
+  for(i=0;i<nLayers;i++){
+    if(i>0){
+      for(j=0;j<nWaves;j++)tempInt8[i*nWaves+j]=1;
+    }else{
+      for(j=0;j<nWaves;j++)tempInt8[i*nWaves+j]=0;
+    }
+  }
+
+  return(tempInt8);
+}/*setSurfaceTypeL1B*/
+
+
+/*####################################################*/
+/*make an array of pi/2*/
+
+double *setHalfPiL1B(int numb)
+{
+  int i=0;
+  double *tempDouble=NULL,pi2=0;
+
+  tempDouble=dalloc(numb,"setHalfPiL1B",0);
+  pi2=M_PI/2.0;
+  for(i=0;i<numb;i++)tempDouble[i]=pi2;
+
+  return(tempDouble);
+}/*setHalfPiL1B*/
+
+
+/*####################################################*/
+/*reproject coordinates for L1B format*/
+
+double *setL1Bcoords(int aEPSG,gediHDF *hdfData)
+{
+  int i=0;
+  double *tempDouble=NULL,*z=NULL;
+  double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG);
+  OGRCoordinateTransformationH hTransform;
+  OGRSpatialReferenceH hSourceSRS,hTargetSRS;
+
+  /*allocate space*/
+  tempDouble=dalloc(2*hdfData->nWaves,"setL1Bcoords",0);  /*x*nWaves,y*nWaves*/
+
+  /*copy relevant data*/
+  for(i=0;i<hdfData->nWaves;i++){
+    tempDouble[i]=hdfData->lon[i];
+    tempDouble[i+hdfData->nWaves]=hdfData->lat[i];
+  }
+
+  /*does it need reprojecting?*/
+  if(aEPSG!=4326){
+    /*make dummy z array*/
+    z=dalloc(hdfData->nWaves,"Z setL1Bcoords",0);
+
+    hSourceSRS=OSRNewSpatialReference(NULL);
+    hTargetSRS=OSRNewSpatialReference(NULL);
+    OSRImportFromEPSG(hTargetSRS,4326);
+    OSRImportFromEPSG(hSourceSRS,aEPSG);
+    hTransform=OCTNewCoordinateTransformation(hSourceSRS,hTargetSRS);
+    OCTTransform(hTransform,hdfData->nWaves,&(tempDouble[0]),&(tempDouble[hdfData->nWaves]),z);
+    OCTDestroyCoordinateTransformation(hTransform);
+    OSRDestroySpatialReference(hSourceSRS);
+    OSRDestroySpatialReference(hTargetSRS);
+    TIDY(z);
+  }
+
+  return(tempDouble);
+}/*setL1Bcoords*/
+
+
+/*####################################################*/
+/*set cover for L1B format*/
+
+double *setCovL1B(gediHDF *hdfData,int useInt)
+{
+  int i=0,j=0;
+  float tot=0,totG=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(hdfData->nWaves,"setCovL1B",0);
+
+  if(hdfData->ground){
+    /*loop over waves*/
+    for(i=0;i<hdfData->nWaves;i++){
+      tot=totG=0.0;
+      for(j=0;j<hdfData->nBins[0];j++){
+        tot+=hdfData->wave[useInt][j];
+        totG+=hdfData->ground[useInt][j];
+      }
+      if(tot>0.0)tempDouble[i]=(double)((tot-totG)/tot)*100.0;  /*it is in pecent rather than a fraction*/
+      else       tempDouble[i]=0.0;
+    }
+  }else for(i=0;i<hdfData->nWaves;i++)tempDouble[i]=50.0;       /*where no data, set as 50%*/
+
+  return(tempDouble);
+}/*setCovL1B*/
+
+
+/*####################################################*/
+/*set elevation bin for L1B format*/
+
+double *setElevBinL1B(int nWaves,float *z0)
+{
+  int i=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(nWaves,"setElevBinL1B",0);
+  for(i=0;i<nWaves;i++)tempDouble[i]=(double)z0[i];
+
+  return(tempDouble);
+}/*setElevBinL1B*/
+
+
+/*####################################################*/
+/*make a DEM for the l1b format*/
+
+double *setDEMl1b(gediHDF *hdfData,int useInt)
+{
+  int i=0,j=0;
+  double *tempDouble=NULL;
+  double z=0,contN=0,res=0;
+
+  /*allocate space*/
+  tempDouble=dalloc(hdfData->nWaves,"setDEMl1b",0);
+
+  /*do we have ground data?*/
+  if(hdfData->ground){
+    /*loop over waves*/
+    for(i=0;i<hdfData->nWaves;i++){
+      tempDouble[i]=contN=0.0;
+      res=(double)(hdfData->z0[i]-hdfData->zN[i])/(double)hdfData->nBins[0];
+      /*calculate CofG*/
+      for(j=0;j<hdfData->nBins[0];j++){
+        z=(double)hdfData->z0[i]-(double)j*res;
+        tempDouble[i]+=(double)hdfData->ground[useInt][j]*z;
+        contN+=(double)hdfData->ground[useInt][j];
+      }
+      if(contN>0.0)tempDouble[i]/=contN;
+    }
+  }else for(i=0;i<hdfData->nWaves;i++)tempDouble[i]=0.0;
+
+  return(tempDouble);
+}/*setDEMl1b*/
+
+
+/*####################################################*/
+/*set delta time*/
+
+double *setDeltaTime(int nWaves)
+{
+  int i=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(nWaves,"setDeltaTime",0);
+
+  for(i=0;i<nWaves;i++)tempDouble[i]=40179291.0+(double)i/484.0;  /*a dummy time for now, but with the right spacing*/
+
+  return(tempDouble);
+}/*setDeltaTime*/
 
 
 /*####################################################*/

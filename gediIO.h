@@ -126,6 +126,7 @@ typedef struct{
   /*input files*/
   int nFiles;   /*number of waveforms*/
   char **inList;
+  int aEPSG;    /*ALS EPSG for if the output needs to be in degrees*/
 
   /*switches*/
   char ground;      /*read separateground wave or not*/

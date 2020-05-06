@@ -552,6 +552,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.coord[0]=624366.0;
   dimage->gediRat.coord[1]=3.69810*pow(10.0,6.0);
   dimage->gediRat.decon=NULL;
+  dimage->gediIO.aEPSG=4326;      /*default is not to reproject*/
 
   /*switches*/
   dimage->gediRat.readWave=0;
@@ -744,6 +745,9 @@ control *readCommands(int argc,char **argv)
         dimage->gediRat.decimate=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-pcl",4)){
         dimage->gediIO.pcl=1;
+      }else if(!strncasecmp(argv[i],"-aEPSG",6)){
+        checkArguments(1,i,argc,"-aEPSG");
+        dimage->gediIO.aEPSG=atoi(argv[++i]);;
       }else if(!strncasecmp(argv[i],"-help",5)){
         writeGediRatHelpMessage();
         exit(1);
@@ -774,6 +778,7 @@ void writeGediRatHelpMessage()
 -ground;         record separate ground and canopy waveforms\n\
 -hdf;            write output as HDF5. Best with gridded or list of coords\n\
 -l1b;            write output in the GEDI L1B HDF5 format. Best with gridded or list of coords\n\
+-aEPSG epsg;     input EPSG code if the L1B output needs to be in degrees\n\
 -ascii;          write output as ASCII (default). Good for quick tests\n\
 -waveID id;      supply a waveID to pass to the output (only for single footprints)\n\
 \n# Single footprint, list of footprints, or grid of footprints\n\
