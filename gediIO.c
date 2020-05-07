@@ -408,9 +408,12 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   int i=0;
   uint8_t *tempUint8=NULL;
   uint8_t *padUint8zeros(int);
+  uint8_t *padUint8ones(int);
   uint16_t *tempUint16=NULL;
   uint16_t *padUint16zeros(int);
   uint16_t *setRxSampleCount(int *,int);
+  uint16_t *setSelectStretchL1B(int);
+  uint16_t *setThUsedL1B(int);
   uint32_t *tempUint32=NULL;
   uint32_t *padUint32zeros(int);
   uint64_t *tempUint64=NULL;
@@ -422,6 +425,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   int32_t *padInt32ones(int);
   int64_t *tempInt64=NULL;
   float *tempFloat=NULL;
+  float *setTXegAmpL1B(int,float);
   double *tempDouble=NULL;
   double *setAltitude(int);
   double *setBounceOffset(int,int *,float);
@@ -432,6 +436,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   double *setL1Bcoords(int,gediHDF *);
   double *setHalfPiL1B(int);
   double *setDelayDerivL1B(int);
+  double *setRXenergyL1B(gediHDF *);
   hid_t file,group_id,sgID;         /* Handles */
   herr_t      status;
   TXstruct tx;          /*to hold pulse information for TX*/
@@ -450,6 +455,9 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   tempUint8=padUint8zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
   writeComp1dUint8HDF5(group_id,"channel",tempUint8,hdfData->nWaves);
   TIDY(tempUint8);
+  tempDouble=setDeltaTime(hdfData->nWaves);
+  writeComp1dDoubleHDF5(group_id,"delta_time",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
   tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
   writeComp1dFloatHDF5(group_id,"master_frac",tempFloat,hdfData->nWaves);
   TIDY(tempFloat);
@@ -459,6 +467,27 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   tempFloat=falloc(hdfData->nWaves,"tempFloat",0);    /*needs updating if noise added*/
   writeComp1dFloatHDF5(group_id,"mean",tempFloat,hdfData->nWaves);
   TIDY(tempFloat);
+  tempDouble=dalloc(hdfData->nWaves,"noise_mean_corrected",0);
+  writeComp1dDoubleHDF5(group_id,"noise_mean_corrected",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"noise_stddev_corrected",0);
+  writeComp1dDoubleHDF5(group_id,"noise_stddev_corrected",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"nsemean_even",0);
+  writeComp1dDoubleHDF5(group_id,"nsemean_even",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=dalloc(hdfData->nWaves,"nsemean_odd",0);
+  writeComp1dDoubleHDF5(group_id,"nsemean_odd",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempDouble=setRXenergyL1B(hdfData);
+  writeComp1dDoubleHDF5(group_id,"rx_energy",tempDouble,hdfData->nWaves);
+  TIDY(tempDouble);
+  tempUint16=padUint16zeros(hdfData->nWaves);
+  writeComp1dUint16HDF5(group_id,"rx_offset",tempUint16,hdfData->nWaves);
+  TIDY(tempUint16);
+  tempUint32=padUint32zeros(hdfData->nWaves);
+  writeComp1dUint32HDF5(group_id,"rx_open",tempUint32,hdfData->nWaves);
+  TIDY(tempUint32);
   tempUint16=setRxSampleCount(hdfData->nBins,hdfData->nWaves);
   writeComp1dUint16HDF5(group_id,"rx_sample_count",tempUint16,hdfData->nWaves);
   TIDY(tempUint16);
@@ -472,27 +501,49 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
     fprintf(stderr,"Issues with HDF5 format and not using the count method\n");
     exit(1);
   }
+  tempUint16=setSelectStretchL1B(hdfData->nWaves);
+  writeComp1dUint16HDF5(group_id,"selection_stretchers_x",tempUint16,hdfData->nWaves);
+  writeComp1dUint16HDF5(group_id,"selection_stretchers_y",tempUint16,hdfData->nWaves);
+  TIDY(tempUint16);
   tempUint64=setShotNumber(hdfData->nWaves);
   writeComp1dUint64HDF5(group_id,"shot_number",tempUint64,hdfData->nWaves);
   TIDY(tempUint64);
   tempUint8=padUint8zeros(hdfData->nWaves);
   writeComp1dUint8HDF5(group_id,"stale_return_flag",tempUint8,hdfData->nWaves);
   TIDY(tempUint8);
+  tempUint16=setThUsedL1B(hdfData->nWaves);
+  writeComp1dUint16HDF5(group_id,"th_left_used",tempUint16,hdfData->nWaves);
+  TIDY(tempUint16);
+  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*needs updating if noise added*/
+  writeComp1dFloatHDF5(group_id,"tx_egamplitude_error",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_egbias",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_egbias_error",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_eggamma",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_eggamma_error",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_egsigma",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_egsigma_error",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_gloc",tempFloat,hdfData->nWaves);
+  writeComp1dFloatHDF5(group_id,"tx_gloc_error",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
+  tempUint8=padUint8zeros(hdfData->nWaves);
+  writeComp1dUint8HDF5(group_id,"tx_egflag",tempUint8,hdfData->nWaves);
+  TIDY(tempUint8);
+  tempUint8=padUint8ones(hdfData->nWaves);
+  writeComp1dUint8HDF5(group_id,"tx_pulseflag",tempUint8,hdfData->nWaves);
+  TIDY(tempUint8);
   tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*needs updating if noise added*/
   writeComp1dFloatHDF5(group_id,"stddev",tempFloat,hdfData->nWaves);
   TIDY(tempFloat);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*I am not sure what this is. Look at the data directory*/
-  writeComp1dFloatHDF5(group_id,"tx_gloc",tempFloat,hdfData->nWaves);
-  TIDY(tempFloat);
-  tempInt32=padInt32ones(hdfData->nWaves);
-  writeComp1dInt32HDF5(group_id,"tx_pulseflag",tempInt32,hdfData->nWaves);
-  TIDY(tempInt32);
 
   /*rearrange the pulse in to the TX format*/
   rearrangePulsetoTX(gediIO,hdfData,&tx);
   writeComp1dUint16HDF5(group_id,"tx_sample_count",tx.txCount,hdfData->nWaves);
   writeComp1dUint64HDF5(group_id,"tx_sample_start_index",tx.txStart,hdfData->nWaves);
   writeComp1dFloatHDF5(group_id,"txwaveform",tx.txwave,hdfData->nWaves*(int)tx.nBins);
+  tempFloat=setTXegAmpL1B(hdfData->nWaves,tx.maxAmp);
+  writeComp1dFloatHDF5(group_id,"tx_egamplitude",tempFloat,hdfData->nWaves);
+  TIDY(tempFloat);
+
 
   /*tidy up*/
   TIDY(tx.txCount);
@@ -639,6 +690,78 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   fprintf(stdout,"Waveforms written to %s\n",namen);
   return;
 }/*writeGEDIl1b*/
+
+
+/*####################################################*/
+/*populate array with  TX max amplitude*/
+
+float *setTXegAmpL1B(int nWaves,float maxAmp)
+{
+  int i=0;
+  float *tempFloat=NULL;
+
+  tempFloat=falloc(nWaves,"setTXegAmpL1B",0);
+  for(i=0;i<nWaves;i++)tempFloat[i]=maxAmp;
+
+  return(tempFloat);
+}/*setTXegAmpL1B*/
+
+
+/*####################################################*/
+/*set th_left_used for L1B files*/
+
+uint16_t *setThUsedL1B(int nWaves)
+{
+  int i=0;
+  uint16_t *tempUint16=NULL;
+
+  if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
+    fprintf(stderr,"error in tempUint16 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<nWaves;i++)tempUint16[i]=260;
+
+  return(tempUint16);
+}/*setThUsedL1B*/
+
+
+/*####################################################*/
+/*an array of selection_stretchers_x*/
+
+uint16_t *setSelectStretchL1B(int nWaves)
+{
+  int i=0;
+  uint16_t *tempUint16=NULL;
+
+  if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
+    fprintf(stderr,"error in tempUint16 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<nWaves;i++)tempUint16[i]=50;
+
+  return(tempUint16);
+}/*setSelectStretchL1B*/
+
+
+/*####################################################*/
+/*set RX energy*/
+
+double *setRXenergyL1B(gediHDF *hdfData)
+{
+  int i=0,j=0;
+  double *tempDouble=NULL;
+
+  tempDouble=dalloc(hdfData->nWaves,"setRXenergyL1B",0);
+
+  for(i=0;i<hdfData->nWaves;i++){
+    tempDouble[i]=0.0;
+    for(j=0;j<<hdfData->nBins[0];j++)tempDouble[i]+=hdfData->wave[0][j];
+  }
+
+  return(tempDouble);
+}/*setRXenergyL1B*/
 
 
 /*####################################################*/
@@ -914,15 +1037,19 @@ void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
   }
 
   /*normalise*/
+  tx->maxAmp=0.0;
   for(i=0;i<(int)tx->nBins;i++){
-    if(contN[i]>0)txwave[i]/=(float)contN[i];
+    if(contN[i]>0){
+      txwave[i]/=(float)contN[i];
+      if(txwave[i]>tx->maxAmp)tx->maxAmp=txwave[i];
+    }
   }
 
   /*populate arrays*/
   for(i=0;i<hdfData->nWaves;i++){
     tx->txCount[i]=tx->nBins;
     tx->txStart[i]=(uint64_t)i*(uint64_t)tx->nBins;
-    for(j=0;j<(int)tx->nBins;j++)tx->txwave[i*(int)tx->nBins+j]=txwave[j];
+    memcpy(&(tx->txwave[i*(int)tx->nBins]),&(txwave[0]),sizeof(float)*tx->nBins);
   }
   TIDY(txwave);
 
@@ -1026,6 +1153,25 @@ uint8_t *padUint8zeros(int numb)
 
 
 /*####################################################*/
+/*make an array of 1s in uint8 for HDF5*/
+
+uint8_t *padUint8ones(int numb)
+{
+  int i=0;
+  uint8_t *tempUint8=NULL;
+
+  if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
+    fprintf(stderr,"error in tempUint8 allocation.\n");
+    exit(1);
+  }
+
+  for(i=0;i<numb;i++)tempUint8[i]=1;
+
+  return(tempUint8);
+}/*padUint8ones*/
+
+
+/*####################################################*/
 /*make an array of 0s in uint16 for HDF5*/
 
 uint16_t *padUint16zeros(int numb)
@@ -1039,6 +1185,7 @@ uint16_t *padUint16zeros(int numb)
   }
 
   for(i=0;i<numb;i++)tempUint16[i]=0;
+
 
   return(tempUint16);
 }/*padUint16zeros*/

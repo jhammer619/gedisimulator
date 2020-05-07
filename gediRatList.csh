@@ -26,6 +26,8 @@ set polyGround=" "
 set pFile=" "
 set res=" "
 set hdf=" "
+set l1b=" "
+set aEPSG=" "
 @ useHDF=0
 @ maxPer=40000
 set ending="wave"
@@ -139,6 +141,17 @@ while ($#argv>0)
   shift argv
   breaksw
 
+  case -l1b
+    set l1b="-l1b"
+    @ useHDF=1
+  shift argv
+  breaksw
+
+  case -aEPSG
+    set aEPSG="-aEPSG $argv[2]"
+  shift argv;shift argv
+  breaksw
+
   case -maxPer
     @ maxPer=$argv[2]
   shift argv;shift argv
@@ -208,6 +221,8 @@ while ($#argv>0)
     echo "-maxScanAng ang;   maximimum scan angle to use, degrees"
     echo "-polyGround;       find the ground by fitting polynomial"
     echo "-hdf;              output in HDF5"
+    echo "-l1b;              output in L1B HDF5 format"
+    echo "-aEPSG epsg;       EPSG code of ALS data if reprojecting for L1B HDF5 files"
     echo "-maxPer n;         maximum number of runs per processor"
     echo "-decimate x;       decimate ALS beams by a factor"
     echo "-seed n;           random number seed"
@@ -252,7 +267,7 @@ while( $j <= $nReps )
   if( ! -e $grab )then
     touch $grab
     overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed
+    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $l1b $aEPSG $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed 
 
   endif
 
