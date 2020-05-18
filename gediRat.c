@@ -786,7 +786,7 @@ void writeGediRatHelpMessage()
 -listCoord name; list of coordinates\n\
 -gridBound minX maxX minY maxY;     make a grid of waveforms in this box\n\
 -gridStep res;   grid step size\n\
-\n# Lidar characteristics. Defaults are expected GEDI values.\
+\n# Lidar characteristics. Defaults are expected GEDI values.\n\
 -pSigma sig;     set Gaussian pulse width as 1 sigma\n\
 -pFWHM fhwm;     set Gaussian pulse width as FWHM in ns\n\
 -readPulse file; read pulse shape and width from a file insteda of making Gaussian\n\
