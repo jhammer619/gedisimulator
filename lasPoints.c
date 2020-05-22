@@ -160,8 +160,8 @@ void readWritePoints(control *dimage,lasFile *las)
         else                                 opoo=dimage->opoo;
         fprintf(opoo,"%f %f %f %d %d",x,y,z,(int)(las->refl),(int)las->scanAng);
         if((las->pointFormat==3)||(las->pointFormat==10)||(las->pointFormat==8)||(las->pointFormat==7)||(las->pointFormat==5)){
-          fprintf(opoo," %u %u %u",las->RGB[0],las->RGB[1],las->RGB[2]);
-        }
+          fprintf(opoo," %.4f %.4f %.4f",(float)las->RGB[0]/pow(2.0,16),(float)las->RGB[1]/pow(2.0,16),(float)las->RGB[2]/pow(2.0,16));
+        }   /*RGB scaled to be between 0 and 1*/
         fprintf(opoo,"\n");
         opoo=NULL;
       }/*separation check*/
