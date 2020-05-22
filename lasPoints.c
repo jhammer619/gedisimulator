@@ -158,7 +158,11 @@ void readWritePoints(control *dimage,lasFile *las)
       if((sepSq<=dimage->maxSepSq)||dimage->writeAll||(dimage->useBound&&((x>=dimage->bound[0])&&(x<=dimage->bound[1])&&(y>=dimage->bound[2])&&(y<=dimage->bound[3])))){
         if(dimage->ground&&(las->classif==2))opoo=dimage->gPoo;
         else                                 opoo=dimage->opoo;
-        fprintf(opoo,"%f %f %f %d %d\n",x,y,z,(int)(las->refl),(int)las->scanAng);
+        fprintf(opoo,"%f %f %f %d %d",x,y,z,(int)(las->refl),(int)las->scanAng);
+        if((las->pointFormat==3)||(las->pointFormat==10)||(las->pointFormat==8)||(las->pointFormat==7)||(las->pointFormat==5)){
+          fprintf(opoo," %u %u %u",las->RGB[0],las->RGB[1],las->RGB[2]);
+        }
+        fprintf(opoo,"\n");
         opoo=NULL;
       }/*separation check*/
     }/*point loop*/
@@ -203,7 +207,7 @@ void openOutput(control *dimage)
     fprintf(stderr,"Error opening output file %s\n",dimage->canNamen);
     exit(1);
   }
-  fprintf(dimage->opoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng\n");
+  fprintf(dimage->opoo,"# 1 x, 2 y, 3 z, 4 intensity, 5 scanAng, 6+ RGB if available\n");
 
   if(dimage->ground){
     sprintf(dimage->grNamen,"%s.ground.pts",dimage->outRoot);
