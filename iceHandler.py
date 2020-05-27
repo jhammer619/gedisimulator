@@ -177,6 +177,77 @@ class iceSim(object):
     self.minY=np.min(self.y)
     self.dists=np.sqrt((self.x-self.minX)**2+(self.y-self.minY)**2)
 
+  #################################
+
+  def padData(self,minLen):
+    '''Pad data to make a minimum transect length'''
+
+    # footprint spacing
+    step=0.7
+
+    # determine track length
+    dx=self.x[-1]-self.x[0]
+    dy=self.y[-1]-self.y[0]
+    trackLen=sqrt(dx**2+dy**2)
+
+    # see if 
+    if(trackLen<minLen):  # then we need to pad
+      vectX=dx/trackLen
+      vectY=dy/trackLen
+
+      nPer=self.x.shape[0]
+      nExtras=int(int(minLen/step)/nPer+1)
+
+      # make copies of originals
+      x=np.copy(self.x)
+      y=np.copy(self.y)
+      z=np.copy(self.z)
+      minht=np.copy(self.minht)
+      WFGroundZ=np.copy(self.WFGroundZ)
+      RH50=np.copy(self.RH50)
+      RH60=np.copy(self.RH60)
+      RH75=np.copy(self.RH75)
+      RH90=np.copy(self.RH90)
+      RH95=np.copy(self.RH95)
+      CanopyZ=np.copy(self.CanopyZ)
+      canopycover=np.copy(self.canopycover)
+      shotN=np.copy(self.shotN)
+      photonN=np.copy(self.photonN)
+      iterationN=np.copy(self.iterationN)
+      refdem=np.copy(self.refdem)
+      noiseInt=np.copy(self.noiseInt)
+      signal=np.copy(self.signal)
+
+      for i in range(1,nExtras):
+        # are we reversing?
+        isOdd=i%2
+
+        if(isOdd):
+          self.x=
+          self.y=
+          self.z=
+
+          self.minht=np.append(self.minht,minht)
+          self.WFGroundZ=np.append(self.
+          self.RH50=np.append(self.
+          self.RH60=np.append(self.
+          self.RH75=np.append(self.
+          self.RH90=np.append(self.
+          self.RH95=np.append(self.
+          self.CanopyZ=np.append(self.
+          self.canopycover=np.append(self.
+          self.shotN=np.append(self.
+          self.photonN=np.append(self.
+          self.iterationN=np.append(self.
+          self.refdem=np.append(self.
+          self.noiseInt=np.append(self.
+          self.signal=np.append(self.
+        else:
+ 
+
+    return
+
+
 # iceSim() class end
 ########################################
 
@@ -187,9 +258,13 @@ def readCommands():
   p.add_argument("--input",dest="inNamen",type=str,help=("Input filename"))
   p.add_argument("--output",dest="outNamen",type=str,default='ice2.h5',help=("Output filename"))
   p.add_argument("--epsg",dest="epsg",type=int,default=32632,help=("Input EPSG"))
+  p.add_argument("--minLen",dest="minLen",type=float,default=0,help=("Minimum acceptable length"))
   cmdargs = p.parse_args()
   return cmdargs
 
+
+########################################
+# pad ICESat-2 data
 
 ########################################
 # Main block
@@ -199,6 +274,8 @@ if __name__ == '__main__':
   cmdargs=readCommands()
   # read data
   data=iceSim(cmdargs.inNamen,cmdargs.epsg)
+  # pad data if needed
+  data.padData(cmd.minLen)
   # write data
   data.writeHDF(cmdargs.outNamen)
 

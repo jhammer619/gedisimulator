@@ -60,8 +60,8 @@ if [ -e voxelate ]; then
 fi
 
 
-hg clone https://StevenHancock@bitbucket.org/StevenHancock/libclidar
-hg clone https://StevenHancock@bitbucket.org/StevenHancock/tools
+git clone https://bitbucket.org/StevenHancock/libclidar.git
+git clone https://bitbucket.org/StevenHancock/tools.git
 
 if [ ! -e $CMPFIT_ROOT ]; then
   mkdir $CMPFIT_ROOT
