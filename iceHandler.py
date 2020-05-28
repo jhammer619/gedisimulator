@@ -9,6 +9,7 @@ Handles ICESat-2 simulations
 
 import numpy as np
 import h5py
+from math import sqrt
 from pyproj import Proj, transform
 if __name__ == '__main__':
   import argparse
@@ -51,6 +52,7 @@ class ice2(object):
       self.x=x[useInds]
       self.y=y[useInds]
       self.z=z[useInds]
+
 
   #################################
 
@@ -189,6 +191,8 @@ class iceSim(object):
     dx=self.x[-1]-self.x[0]
     dy=self.y[-1]-self.y[0]
     trackLen=sqrt(dx**2+dy**2)
+    dx=dx/self.x.shape[0]
+    dy=dy/self.y.shape[0]
 
     # see if 
     if(trackLen<minLen):  # then we need to pad
@@ -196,7 +200,7 @@ class iceSim(object):
       vectY=dy/trackLen
 
       nPer=self.x.shape[0]
-      nExtras=int(int(minLen/step)/nPer+1)
+      nExtras=int(minLen/trackLen+1)
 
       # make copies of originals
       x=np.copy(self.x)
@@ -222,28 +226,45 @@ class iceSim(object):
         # are we reversing?
         isOdd=i%2
 
-        if(isOdd):
-          self.x=
-          self.y=
-          self.z=
+        # make up new coordinates
+        self.x=np.append(self.x,np.linspace(start=self.x[-1],stop=self.x[-1]+dx*nPer,num=nPer))
+        self.y=np.append(self.y,np.linspace(start=self.y[-1],stop=self.y[-1]+dy*nPer,num=nPer))
 
+        # alternately reverse data
+        if(isOdd):
+          self.z=np.append(self.z,z)
           self.minht=np.append(self.minht,minht)
-          self.WFGroundZ=np.append(self.
-          self.RH50=np.append(self.
-          self.RH60=np.append(self.
-          self.RH75=np.append(self.
-          self.RH90=np.append(self.
-          self.RH95=np.append(self.
-          self.CanopyZ=np.append(self.
-          self.canopycover=np.append(self.
-          self.shotN=np.append(self.
-          self.photonN=np.append(self.
-          self.iterationN=np.append(self.
-          self.refdem=np.append(self.
-          self.noiseInt=np.append(self.
-          self.signal=np.append(self.
+          self.WFGroundZ=np.append(self.WFGroundZ,WFGroundZ)
+          self.RH50=np.append(self.RH50,RH50)
+          self.RH60=np.append(self.RH60,RH60)
+          self.RH75=np.append(self.RH75,RH75)
+          self.RH90=np.append(self.RH90,RH90)
+          self.RH95=np.append(self.RH95,RH95)
+          self.CanopyZ=np.append(self.CanopyZ,CanopyZ)
+          self.canopycover=np.append(self.canopycover,canopycover)
+          self.shotN=np.append(self.shotN,shotN)
+          self.photonN=np.append(self.photonN,photonN)
+          self.iterationN=np.append(self.iterationN,iterationN)
+          self.refdem=np.append(self.refdem,refdem)
+          self.noiseInt=np.append(self.noiseInt,noiseInt)
+          self.signal=np.append(self.signal,signal)
         else:
- 
+          self.z=np.append(self.z,np.flip(z,0))
+          self.minht=np.append(self.minht,np.flip(minht,0))
+          self.WFGroundZ=np.append(self.WFGroundZ,np.flip(WFGroundZ,0))
+          self.RH50=np.append(self.RH50,np.flip(RH50,0))
+          self.RH60=np.append(self.RH60,np.flip(RH60,0))
+          self.RH75=np.append(self.RH75,np.flip(RH75,0))
+          self.RH90=np.append(self.RH90,np.flip(RH90,0))
+          self.RH95=np.append(self.RH95,np.flip(RH95,0))
+          self.CanopyZ=np.append(self.CanopyZ,np.flip(CanopyZ,0))
+          self.canopycover=np.append(self.canopycover,np.flip(canopycover,0))
+          self.shotN=np.append(self.shotN,np.flip(shotN,0))
+          self.photonN=np.append(self.photonN,np.flip(photonN,0))
+          self.iterationN=np.append(self.iterationN,np.flip(iterationN,0))
+          self.refdem=np.append(self.refdem,np.flip(refdem,0))
+          self.noiseInt=np.append(self.noiseInt,np.flip(noiseInt,0))
+          self.signal=np.append(self.signal,np.flip(signal,0))
 
     return
 
@@ -256,6 +277,7 @@ def readCommands():
   '''Read the command line'''
   p = argparse.ArgumentParser(description=("Convert ICESat-2 .pts sims to HDF5"))
   p.add_argument("--input",dest="inNamen",type=str,help=("Input filename"))
+  p.add_argument("--inList",dest="inList",default="none",type=str,help=("Input filename list"))
   p.add_argument("--output",dest="outNamen",type=str,default='ice2.h5',help=("Output filename"))
   p.add_argument("--epsg",dest="epsg",type=int,default=32632,help=("Input EPSG"))
   p.add_argument("--minLen",dest="minLen",type=float,default=0,help=("Minimum acceptable length"))
@@ -264,7 +286,19 @@ def readCommands():
 
 
 ########################################
-# pad ICESat-2 data
+# read mulriple ICESat-2 files
+
+def readMultiSim(inList,epsg):
+  '''Read multiple ICEsat-2 files'''
+  # sort data in to order
+
+  # read first file
+  data=iceSim(inList[0],epsg)
+
+  # loop and append rest
+
+  return(data)
+
 
 ########################################
 # Main block
@@ -273,9 +307,12 @@ if __name__ == '__main__':
   # read commands
   cmdargs=readCommands()
   # read data
-  data=iceSim(cmdargs.inNamen,cmdargs.epsg)
+  if(cmdargs.inList=="none"):
+    data=iceSim(cmdargs.inNamen,cmdargs.epsg)
+  else:
+    data=readMultiSim(cmdargs.inList,cmdargs.epsg)
   # pad data if needed
-  data.padData(cmd.minLen)
+  data.padData(cmdargs.minLen)
   # write data
   data.writeHDF(cmdargs.outNamen)
 
