@@ -100,6 +100,31 @@ class iceSim(object):
     self.epsg=epsg
     return
 
+
+  #################################
+
+  def appendFile(self,namen):
+    '''Append a file to the data'''
+    temp=np.loadtxt(namen,unpack=True, dtype=float,comments='#',delimiter=' ')
+    self.x=np.append(self.x,temp[0])
+    self.y=np.append(self.y,temp[1])
+    self.z=np.append(self.z,temp[2])
+    self.minht=np.append(self.minht,temp[3])
+    self.WFGroundZ=np.append(self.WFGroundZ,temp[4])
+    self.RH50=np.append(self.RH50,temp[5])
+    self.RH60=np.append(self.RH60,temp[6])
+    self.RH75=np.append(self.RH75,temp[7])
+    self.RH90=np.append(self.RH90,temp[8])
+    self.RH95=np.append(self.RH95,temp[9])
+    self.CanopyZ=np.append(self.CanopyZ,temp[10])
+    self.canopycover=np.append(self.canopycover,temp[11])
+    self.shotN=np.append(self.shotN,temp[12])
+    self.photonN=np.append(self.photonN,temp[13])
+    self.iterationN=np.append(self.iterationN,temp[14])
+    self.refdem=np.append(self.refdem,temp[15])
+    self.noiseInt=np.append(self.noiseInt,temp[16])
+    self.signal=np.append(self.signal,temp[17])
+
   #################################
 
   def writeHDF(self,outNamen):
@@ -201,6 +226,7 @@ class iceSim(object):
 
       nPer=self.x.shape[0]
       nExtras=int(minLen/trackLen+1)
+      print('Padding',nExtras,'times')
 
       # make copies of originals
       x=np.copy(self.x)
@@ -231,7 +257,7 @@ class iceSim(object):
         self.y=np.append(self.y,np.linspace(start=self.y[-1],stop=self.y[-1]+dy*nPer,num=nPer))
 
         # alternately reverse data
-        if(isOdd):
+        if(isOdd==0):   # even, keep in this order
           self.z=np.append(self.z,z)
           self.minht=np.append(self.minht,minht)
           self.WFGroundZ=np.append(self.WFGroundZ,WFGroundZ)
@@ -248,7 +274,7 @@ class iceSim(object):
           self.refdem=np.append(self.refdem,refdem)
           self.noiseInt=np.append(self.noiseInt,noiseInt)
           self.signal=np.append(self.signal,signal)
-        else:
+        else:          # odd, reverse
           self.z=np.append(self.z,np.flip(z,0))
           self.minht=np.append(self.minht,np.flip(minht,0))
           self.WFGroundZ=np.append(self.WFGroundZ,np.flip(WFGroundZ,0))
@@ -265,7 +291,6 @@ class iceSim(object):
           self.refdem=np.append(self.refdem,np.flip(refdem,0))
           self.noiseInt=np.append(self.noiseInt,np.flip(noiseInt,0))
           self.signal=np.append(self.signal,np.flip(signal,0))
-
     return
 
 
@@ -290,12 +315,23 @@ def readCommands():
 
 def readMultiSim(inList,epsg):
   '''Read multiple ICEsat-2 files'''
-  # sort data in to order
+  # read list of files
+  files=np.genfromtxt(inList,unpack=True,usecols=(0,),dtype=str,comments='#',delimiter=" ")
+
+  # determine file order
+  fileInds=np.empty(files.shape,dtype=int)
+  for i in range(0,files.shape[0]):
+    fileInds[i]=int(files[i].split('.')[-2])
+  
+  # determine index order
+  indOrder=np.argsort(fileInds)
 
   # read first file
-  data=iceSim(inList[0],epsg)
+  data=iceSim(files[indOrder[0]],epsg)
 
   # loop and append rest
+  for i in indOrder[1:]:
+    data.appendFile(files[i])
 
   return(data)
 
