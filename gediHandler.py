@@ -219,7 +219,8 @@ class gediData(object):
 
   def setOneZ(self,i):
     '''Set a single z array'''
-    z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
+    res=(self.Z0[i]-self.ZN[i])/self.nBins
+    z=np.arange(self.Z0[i],self.ZN[i],-1*res)
     return(z)
 
 
