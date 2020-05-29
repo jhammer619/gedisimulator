@@ -37,6 +37,13 @@ class ice2(object):
     lon=np.array(f['gt1l']['heights']['lon_ph'])
     lat=np.array(f['gt1l']['heights']['lat_ph'])
     z=np.array(f['gt1l']['heights']['h_ph'])
+    # truth if this is a simulation
+    if(('gt1l/veg_truth/refDEM' in f)&('gt1l/heights/signal_conf_photon' in f)):
+      self.sim=1
+      s=np.array(f['gt1l']['heights']['signal_conf_photon'])
+      g=np.array(f['gt1l']['veg_truth']['refDEM'])
+    else:
+      self.sim=0
     # reproject
     if(epsg!=4326):
       inProj=Proj(init="epsg:4326")
@@ -52,6 +59,9 @@ class ice2(object):
       self.x=x[useInds]
       self.y=y[useInds]
       self.z=z[useInds]
+      if(self.sim==1):
+        self.s=s[useInds]
+        self.g=g[useInds]
 
 
   #################################
