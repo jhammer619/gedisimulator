@@ -38,10 +38,11 @@ class ice2(object):
     lat=np.array(f['gt1l']['heights']['lat_ph'])
     z=np.array(f['gt1l']['heights']['h_ph'])
     # truth if this is a simulation
-    if(('gt1l/veg_truth/refDEM' in f)&('gt1l/heights/signal_conf_photon' in f)):
+    if(('gt1l/veg_truth/refDEM' in f)&('gt1l/heights/signal_conf_photon' in f)&('gt1l/veg_truth/isground' in f)):
       self.sim=1
       s=np.array(f['gt1l']['heights']['signal_conf_photon'])
       g=np.array(f['gt1l']['veg_truth']['refDEM'])
+      isGr=np.array(f['gt1l']['veg_truth']['isground'])
     else:
       self.sim=0
     # reproject
@@ -62,6 +63,7 @@ class ice2(object):
       if(self.sim==1):
         self.s=s[useInds]
         self.g=g[useInds]
+        self.isGr=isGr[useInds]
 
 
   #################################
@@ -107,6 +109,7 @@ class iceSim(object):
     self.refdem=temp[15]
     self.noiseInt=temp[16]
     self.signal=np.array(temp[17],dtype=np.int16)
+    self.ground=temp[18]
     self.epsg=epsg
     return
 
@@ -134,6 +137,7 @@ class iceSim(object):
     self.refdem=np.append(self.refdem,temp[15])
     self.noiseInt=np.append(self.noiseInt,temp[16])
     self.signal=np.append(self.signal,temp[17])
+    self.ground=np.append(self.signal,temp[18])
 
   #################################
 
@@ -191,6 +195,7 @@ class iceSim(object):
     f['gt1l']['veg_truth'].create_dataset('rh95',data=self.RH95,compression='gzip')
     f['gt1l']['veg_truth'].create_dataset('canopyz',data=self.CanopyZ,compression='gzip')
     f['gt1l']['veg_truth'].create_dataset('canopy_cover',data=self.canopycover,compression='gzip')
+    f['gt1l']['veg_truth'].create_dataset('isground',data=self.ground,compression='gzip')
 
     # close up
     f.close()
@@ -257,6 +262,7 @@ class iceSim(object):
       refdem=np.copy(self.refdem)
       noiseInt=np.copy(self.noiseInt)
       signal=np.copy(self.signal)
+      ground=np.copy(self.ground)
 
       for i in range(1,nExtras):
         # are we reversing?
@@ -284,6 +290,7 @@ class iceSim(object):
           self.refdem=np.append(self.refdem,refdem)
           self.noiseInt=np.append(self.noiseInt,noiseInt)
           self.signal=np.append(self.signal,signal)
+          self.ground=np.append(self.ground,ground)
         else:          # odd, reverse
           self.z=np.append(self.z,np.flip(z,0))
           self.minht=np.append(self.minht,np.flip(minht,0))
@@ -301,6 +308,7 @@ class iceSim(object):
           self.refdem=np.append(self.refdem,np.flip(refdem,0))
           self.noiseInt=np.append(self.noiseInt,np.flip(noiseInt,0))
           self.signal=np.append(self.signal,np.flip(signal,0))
+          self.ground=np.append(self.ground,np.flip(ground,0))
     return
 
 
