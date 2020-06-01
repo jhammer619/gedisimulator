@@ -2085,7 +2085,7 @@ void writeHelp()
 -varScale x;      variable noise threshold scale (multiple of stdev above mean to set threshold)\n\
 -statsLen len;    length to calculate noise stats over for varNoise\n\
 -noiseTrack;      use noise tracking\n\
--sWidth sig;      smoothing width, after densoising\n\
+-sWidth sig;      smoothing width, after denoising\n\
 -psWidth sigma;   smoothing width, before denoising\n\
 -msWidth sig;     smoothing width, after noise stats, before denoising\n\
 -preMatchF;       matched filter before denoising\n\
