@@ -105,6 +105,12 @@ typedef struct{
   uint16_t epsg;   /*EPSG code*/
   int maxPoint;    /*max number of points per pixels*/
   int maxFoot;     /*max number of footprints per pixels*/
+  float **heightStack;  /*if making a height image, a stack of data*/
+  float *minH;          /*bottom of height array*/
+  float hRes;           /*height resolution to use*/
+  float hThresh;        /*threshold to avoid noise in height*/
+  int nHeight;
+  float hRange;
 }imageStruct;
 
 
@@ -164,7 +170,6 @@ int main(int argc,char **argv)
     if(dimage->gapFill)fillGaps(dimage,image);
   }/*image drawing check*/
 
-
   /*write image*/
   if(dimage->drawInt||dimage->drawHeight||dimage->drawCov||dimage->drawVegVol)writeImage(dimage,image);
   if(dimage->writeBounds)fprintf(stdout,"Written to %s\n",dimage->bNamen);
@@ -195,6 +200,8 @@ imageStruct *tidyImage(imageStruct *image)
     TIDY(image->image);
     TIDY(image->nFoot);
     TIDY(image->nCan);
+    TIDY(image->minH);
+    TTIDY((void **)image->heightStack,image->nHeight);
     TIDY(image);
   }
   return(image);
@@ -381,7 +388,7 @@ void writeImage(control *dimage,imageStruct *image)
 
 void collateImage(control *dimage,lasFile *las,imageStruct *image)
 {
-  int place=0;
+  int place=0,hBin=0;
   int xBin=0,yBin=0;
   uint32_t j=0;
   double x=0,y=0,z=0;
@@ -400,14 +407,20 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
     readLasPoint(las,j);
     setCoords(&x,&y,&z,las);
 
-    xBin=(int)((x-image->minX)/(double)dimage->res);
-    yBin=(int)((image->maxY-y)/(double)dimage->res);
+    xBin=(int)((x-image->minX)/(double)dimage->res+0.5);
+    yBin=(int)((image->maxY-y)/(double)dimage->res+0.5);
 
     if((xBin>=0)&&(xBin<image->nX)&&(yBin>=0)&&(yBin<image->nY)){
       place=yBin*image->nX+xBin;
       if(dimage->drawInt)image->jimlad[place]+=(float)las->refl;
       else if(dimage->drawHeight){
-        if((dimage->onlyGround==0)||(las->classif==2))image->jimlad[place]+=(float)z;
+        if((dimage->onlyGround)&&(las->classif==2))image->jimlad[place]+=(float)z;
+        else if(dimage->onlyGround==0){
+          if(image->minH[place]<-999.0)image->minH[place]=(float)z-image->hRange/2.0;
+          hBin=(int)(((float)z-image->minH[place])/image->hRes+0.5);
+          if((hBin>=0)&&(hBin<image->nHeight))image->heightStack[place][hBin]+=1.0;
+          else fprintf(stderr,"Height bounds not quite wide enough\n");
+        }
       }else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
       if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
       if(dimage->drawCov&&(las->classif!=2))image->nCan[place]++;
@@ -417,6 +430,7 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
       }
     }
   }/*point loop*/
+
   return;
 }/*collateImage*/
 
@@ -444,6 +458,7 @@ void finishImage(control *dimage,imageStruct *image)
   int i=0;
   int nContP=0,nContF=0;
   float meanPoint=0,meanFoot=0;
+  float findTop(imageStruct *,int);
   void processHedges(imageStruct *,control *);
 
 
@@ -453,12 +468,20 @@ void finishImage(control *dimage,imageStruct *image)
   if(!dimage->drawVegVol){
     for(i=image->nX*image->nY-1;i>=0;i--){
       if(image->nIn[i]>0){
+        /*normalise elevationsor find top  if needed*/
         if(dimage->drawInt||dimage->drawHeight){
-          image->jimlad[i]/=(float)image->nIn[i];
+          /*normalise or find top*/
+          if(dimage->drawInt||dimage->onlyGround)             image->jimlad[i]/=(float)image->nIn[i];
+          else if(dimage->drawHeight&&(dimage->onlyGround==0))image->jimlad[i]=findTop(image,i);
+          /*bounds for scaling geotiff*/
           if(image->jimlad[i]<image->min)image->min=image->jimlad[i];
           if(image->jimlad[i]>image->max)image->max=image->jimlad[i];
         }
+
+        /*scale to canopy cover percent if needed*/
         if(dimage->drawCov)image->jimlad[i]=((float)image->nCan[i]/(float)image->nIn[i])*100.0;
+
+        /*find density of needed*/
         if(dimage->findDens){
           if(image->nIn[i]>(uint64_t)image->maxPoint)image->maxPoint=image->nIn[i];
           if(image->nFoot[i]>(uint64_t)image->maxFoot)image->maxFoot=image->nFoot[i];
@@ -512,6 +535,50 @@ void finishImage(control *dimage,imageStruct *image)
   }
   return;
 }/*finishImage*/
+
+
+/*##################################################*/
+/*find the tree top*/
+
+float findTop(imageStruct *image,int i)
+{
+  int j=0;
+  float top=0,tot=0;
+  float *cumul=NULL;
+  float x1=0,x2=0;
+  float y1=0,y2=0;
+  float m=0,c=0,thresh=0;
+
+  /*find total and cumulative*/
+  tot=0.0;
+  cumul=falloc(image->nHeight,"cumulative wave",0);
+  for(j=0;j<image->nHeight;j++){
+    tot+=image->heightStack[i][j];
+    cumul[j]=tot;
+  }
+
+  /*find crossing point and interpolate*/
+  thresh=tot*image->hThresh;
+  for(j=image->nHeight-2;j>=0;j--){
+    if(cumul[j]<=thresh){
+      /*points either side of crossing*/
+      x1=(float)(j+1)*image->hRes+image->minH[i];
+      x2=(float)j*image->hRes+image->minH[i];
+      y1=cumul[j+1];
+      y2=cumul[j];
+
+      /*interpolate with a line*/
+      m=(y2-y1)/(x2-x1);
+      c=y1-m*x1;
+      top=(thresh-c)/m;
+
+      break;
+    }
+  }/*height bin loop*/
+
+  TIDY(cumul);
+  return(top);
+}/*findTop*/
 
 
 /*##################################################*/
@@ -581,9 +648,7 @@ void updateBounds(double *bounds,lasFile *las)
 
 imageStruct *allocateImage(control *dimage)
 {
-  int i=0;
-  /*uint32_t j=0;
-  double x=0,y=0,z=0;*/
+  int i=0,j=0;
   imageStruct *image=NULL;
 
   if(!(image=(imageStruct *)calloc(1,sizeof(imageStruct)))){
@@ -617,15 +682,32 @@ imageStruct *allocateImage(control *dimage)
   }
   if(dimage->findDens)image->nFoot=ialloc(image->nX*image->nY,"nFoot",0);
   else                image->nFoot=NULL;
+  /*height image if needed*/
+  if(dimage->drawHeight&&(dimage->onlyGround==0)){
+    image->heightStack=fFalloc(image->nX*image->nY,"height stack",0);
+    image->minH=falloc(image->nX*image->nY,"height array start",0);
+    image->hRes=0.25;
+    image->hThresh=0.99;
+    image->hRange=100.0;
+    image->nHeight=(int)(image->hRange/image->hRes+1.0);
+  }else image->heightStack=NULL;
+
+  /*set all arrays to zero*/
   for(i=image->nX*image->nY-1;i>=0;i--){
     if(dimage->drawInt||dimage->drawHeight)image->jimlad[i]=0.0;
     if(dimage->findDens)image->nFoot[i]=0;
     if(dimage->drawCov)image->nCan[i]=0;
+    if(dimage->drawHeight&&(dimage->onlyGround==0)){
+      image->minH[i]=-9999.0;
+      image->heightStack[i]=falloc(image->nHeight,"height stack",i+1);
+      for(j=0;j<image->nHeight;j++)image->heightStack[i][j]=0.0;
+    }
     image->nIn[i]=0;
   }
   image->min=1000000.0;
   image->max=-1000000.0;
   image->maxFoot=image->maxPoint=0;
+
 
   /*geolocation*/
   image->geoI[0]=image->geoI[1]=0;
