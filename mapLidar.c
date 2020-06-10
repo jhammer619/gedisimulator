@@ -76,7 +76,12 @@ typedef struct{
   float maxDN;
   uint16_t epsg;
 
-  /*heigth bounds for volume*/
+  /*CHM settings*/
+  float hThresh;  /*threshold to avoid noise on CHM*/
+  float hRes;     /*resolution to make psuedo-waveform for CHM*/
+  float hRange;   /*maximum expected extent of points*/
+
+  /*height bounds for volume*/
   float minVolH;      /*minimum height to do volume over*/
   float maxVolH;      /*maximum height to do volume over*/
   uint16_t maxVint; /*maximum vegetatiob intensity*/
@@ -419,7 +424,7 @@ void collateImage(control *dimage,lasFile *las,imageStruct *image)
           if(image->minH[place]<-999.0)image->minH[place]=(float)z-image->hRange/2.0;
           hBin=(int)(((float)z-image->minH[place])/image->hRes+0.5);
           if((hBin>=0)&&(hBin<image->nHeight))image->heightStack[place][hBin]+=1.0;
-          else fprintf(stderr,"Height bounds not quite wide enough\n");
+          else fprintf(stderr,"Height bounds not quite wide enough. Point %f bounds %f %f\n",z,image->minH[place],image->minH[place]+image->hRange);
         }
       }else if(dimage->drawVegVol)testVegVol(&image->jimlad[place],(float)z,las->refl,dimage,&image->nIn[place],las->classif);
       if(dimage->findDens&&(las->retNumb==las->nRet))image->nFoot[place]++;
@@ -686,9 +691,9 @@ imageStruct *allocateImage(control *dimage)
   if(dimage->drawHeight&&(dimage->onlyGround==0)){
     image->heightStack=fFalloc(image->nX*image->nY,"height stack",0);
     image->minH=falloc(image->nX*image->nY,"height array start",0);
-    image->hRes=0.25;
-    image->hThresh=0.99;
-    image->hRange=100.0;
+    image->hRes=dimage->hRes;
+    image->hThresh=dimage->hThresh;
+    image->hRange=dimage->hRange;
     image->nHeight=(int)(image->hRange/image->hRes+1.0);
   }else image->heightStack=NULL;
 
@@ -751,6 +756,10 @@ control *readCommands(int argc,char **argv)
   dimage->charImage=1;
   dimage->onlyGround=0;
   dimage->gapFill=0;
+  /*chm settings*/
+  dimage->hThresh=0.99;  /*threshold to avoid noise on CHM*/
+  dimage->hRes=0.25;     /*resolution to make psuedo-waveform for CHM*/
+  dimage->hRange=100.0;  /*maximum expected extent of points*/
   /*bounds*/
   dimage->findBounds=1;
   dimage->bounds[0]=dimage->bounds[1]=1000000000.0;
@@ -801,6 +810,15 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-cover",6)){
         dimage->drawCov=1;
         dimage->drawInt=dimage->drawHeight=0;
+      }else if(!strncasecmp(argv[i],"-hThresh",8)){
+        checkArguments(1,i,argc,"-hThres");
+        dimage->hThresh=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-hRes",5)){
+        checkArguments(1,i,argc,"-hRes");
+        dimage->hRes=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-hRange",7)){
+        checkArguments(1,i,argc,"-hRange");
+        dimage->hRange=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-writeBound",11)){
         checkArguments(1,i,argc,"-writeBound");
         dimage->writeBounds=1;
@@ -834,7 +852,7 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-maxVint");
         dimage->maxVint=(uint16_t)atoi(argv[++i]);   
       }else if(!strncasecmp(argv[i],"-help",5)){
-        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-DTM;        make a bare Earth DEM\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
+        fprintf(stdout,"\n#####\nProgram to create GEDI waveforms from ALS las files\n#####\n\n-input name;     lasfile input filename\n-output name;    output filename\n-inList list;    input file list for multiple files\n-res res;        image resolution, in metres\n-bounds minX minY maxX maxY;     user defined image bounds\n-float;          output as float\n-height;         draw height image\n-DTM;            make a bare Earth DEM\n-cover;          draw canopy cover map\n-noInt;          no image\n-findDens;       find point and footprint density\n-epsg n;         geolocation code if not read from file\n-hRange x;       range to expect points over for CHM\n-hThresh x;      percentile threshold to use for CHM in presence of noise\n-writeBound n;   write file bounds to a file\n-pBuff s;        point reading buffer size in Gbytes\n-printNpoint;    print number of points in each file\n\n-vegVol;     draw hedge volume\n-minVh h;\n-maxVh h;\n-maxVint dn;\nQuestions to svenhancock@gmail.com\n\n");
         exit(1);
       }else{
         fprintf(stderr,"%s: unknown argument on command line: %s\nTry gediRat -help\n",argv[0],argv[i]);
