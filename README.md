@@ -290,7 +290,7 @@ Note that some metrics are "true" and will not be available to GEDI. They are in
 ##### Metrics unavailable to GEDI
     wave ID - waveform label, relates to plot name and footprint number.
     true ground - ground elevation (m) from ALS. Centre of gravity of ground points within footprint
-    true top - elevation of highest point of waveform (m), without noise. Includes pulse blurring.
+    true top - elevation of highest point of waveform (m), RH99.9, without noise. Includes pulse blurring.
     ground slope - effective ground slope (degrees), from width of ground return. Includes roughness.
     ALS cover - canopy cover (fraction) from ALS data. Uses rho_v=0.57 and rho_g=0.4.
     rhReal 0-100 - RH metrics, 0%-100%, using "true" ground from ALS data (m).
