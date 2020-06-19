@@ -18,7 +18,7 @@ The programs are:
 
 **lasPoints**: outputs .pts files from .las files for selected areas.
 
-**lvisBullseye**: collocates GEDI or LVIS to ALS data, following Blair and Hofton (1999).
+**lvisBullseye**: collocates GEDI or LVIS to ALS data, following [Blair and Hofton (1999)](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/1999GL010484).
 
 **addNoiseHDF**: Reads waveform data from HDF5 files and adds noise of a chosen level.
 
