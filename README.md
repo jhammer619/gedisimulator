@@ -261,6 +261,7 @@ Note that some metrics are "true" and will not be available to GEDI. They are in
 
 ##### Metrics available to GEDI
     gHeight - ground elevation (m) from Gaussian fitting
+    gSlope - ground slope (degrees) from Gaussian fitting
     maxGround - ground elevation (m) from lowest maximum
     inflGround - ground elevation (m) from inflection points.
     signal top - elevation of first point above noise (may include noise tracking).

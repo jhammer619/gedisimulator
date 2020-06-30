@@ -182,6 +182,7 @@ typedef struct{
   //float *LmomMax;   /*L-moments from maximum*/
   float cov;        /*canopy cover for gaussian fitting*/
   double gHeight;   /*ground height from Gaussians*/
+  float gSlope;     /*slope estimate from Gaussian fitting*/
   double maxGround; /*ground height from maximum*/
   double inflGround;/*ground height from inflection*/
   double tElev;     /*top elevation*/
@@ -277,11 +278,6 @@ int main(int argc,char **argv)
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
-/*if(dimage->pclPhoton){
-  for(j=0;j<data->nBins;j++)fprintf(stdout,"wave %d %d %f %f %f\n",i,j,denoised[j],data->wave[0][j],data->noised[j]);
-  fflush(stdout);
-}
-fprintf(stderr,"denoised\n");fflush(stderr);*/
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
@@ -661,6 +657,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
       for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hiLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+3*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
       for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %d hmLAI%gt%g,",14+4*metric->nRH+1+dimage->bayesGround+offset+i+3+4*metric->laiBins,(float)i*dimage->laiRes,(float)(i+1)*dimage->laiRes);
     }
+    fprintf(dimage->opooMet," %d gSlope,",14+4*metric->nRH+1+dimage->bayesGround+offset+3+5*metric->laiBins);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomGauss%d",14+4*metric->nRH+1+dimage->bayesGround+21+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomInfl%d",14+4*metric->nRH+1+dimage->bayesGround+21+metric->nLm+i,i+1);
     //for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet,", %d LmomMax%d",14+4*metric->nRH+1+dimage->bayesGround+21+2*metric->nLm+i,i+1);
@@ -717,6 +714,7 @@ void writeResults(dataStruct *data,control *dimage,metStruct *metric,int numb,fl
     for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hiLAI[i]);
     for(i=0;i<metric->laiBins;i++)fprintf(dimage->opooMet," %f",metric->hmLAI[i]);
   }
+  fprintf(dimage->opooMet," %f",metric->gSlope);
   /*for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomGau[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomInf[i]);
   for(i=0;i<metric->nLm;i++)fprintf(dimage->opooMet," %f",metric->LmomMax[i]);
@@ -787,7 +785,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   float *mu=NULL,*sig=NULL;
   float *energy=NULL,*A=NULL;
   float gaussCover(float *,int,float *,float *,int,int);
-  double gaussianGround(float *,float *,int *,int,float);
+  double gaussianGround(float *,float *,float *,int *,int,float,float *,dataStruct *,denPar *);
   double maxGround(float *,double *,int);
   double inflGround(float *,double *,int);
   double bayesGround(float *,int,control *,metStruct *,double *,dataStruct *);
@@ -840,8 +838,8 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   smoothed=processFloWave(denoised,nBins,&den,1.0);
 
   /*ground by Gaussian fit*/
-  if(dimage->noRHgauss==0)metric->gHeight=gaussianGround(energy,mu,&gInd,nGauss,tot);
-  else                    metric->gHeight=-1.0;
+  if(dimage->noRHgauss==0)metric->gHeight=gaussianGround(energy,mu,sig,&gInd,nGauss,tot,&metric->gSlope,data,dimage->gediIO.den);
+  else                    metric->gHeight=metric->gSlope=-1.0;
 
   /*canopy cover*/
   metric->cov=gaussCover(denoised,nBins,mu,energy,nGauss,gInd);
@@ -1394,10 +1392,11 @@ float gaussCover(float *wave,int nBins,float *mu,float *energy,int nGauss,int gI
 /*####################################################*/
 /*Gaussian ground*/
 
-double gaussianGround(float *energy,float *mu,int *gInd,int nGauss,float tot)
+double gaussianGround(float *energy,float *mu,float *sig,int *gInd,int nGauss,float tot,float *slope,dataStruct *data,denPar *den)
 {
   int i=0;
   float thresh=0;
+  float baseSig=0;
   double gHeight=0;
 
   (*gInd)=nGauss-1;
@@ -1409,6 +1408,11 @@ double gaussianGround(float *energy,float *mu,int *gInd,int nGauss,float tot)
       *gInd=i;
     }
   }
+
+  /*determine slope*/
+  baseSig=sqrt(data->pSigma*data->pSigma+den->sWidth*den->sWidth+den->psWidth*den->psWidth+den->msWidth+den->msWidth);
+  if(sig[*gInd]>baseSig)*slope=atan2(sqrt(sig[*gInd]*sig[*gInd]-baseSig*baseSig),data->fSigma)*180.0/M_PI;
+  else                  *slope=0.0;
 
   return(gHeight);
 }/*gaussianGround*/
