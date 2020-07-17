@@ -397,46 +397,53 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
   float *wave=NULL,*canopy=NULL;
   float *smooGr=NULL,*smooCan=NULL;
 
-  /*is any adjustment needed*/
-  if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
-  else{
-    if(den->varNoise||noise->linkNoise){
-      fprintf(stderr,"Not able to readjust denoised waveforms just yet\n");
-      exit(1);
-    }else{
-      /*find canopy portion*/
-      canopy=falloc((uint64_t)data->nBins,"canopy wave",0);
-      for(i=0;i<data->nBins;i++)canopy[i]=data->wave[numb][i]-data->ground[numb][i];
-      /*smooth ground if needed*/
-      if((den->sWidth>0.001)||(den->psWidth>0.001)||(den->msWidth>0.001)){
-        /*smooth if needed*/
-        smooCan=processFloWave(canopy,data->nBins,den,1.0);
-        smooGr=processFloWave(data->ground[numb],data->nBins,den,1.0);
+  /*do we have a ground*/
+  if(data->ground==NULL){  /*no ground*/
+    wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
+    memcpy(wave,data->wave[numb],(size_t)(data->nBins*4));
+  }else{   /*there us a ground*/
+    /*is any adjustment needed*/
+    if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
+    else{
+      if(den->varNoise||noise->linkNoise){
+        fprintf(stderr,"Not able to readjust denoised waveforms just yet\n");
+        exit(1);
       }else{
-        smooCan=canopy;
-        smooGr=data->ground[numb];
-      }
-      /*add up and normalise*/
-      wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
-      tot=0.0;
-      for(i=0;i<data->nBins;i++){
-        wave[i]=smooCan[i]*phot->rhoVrhoG+smooGr[i]/phot->rhoVrhoG;
-        tot+=wave[i];
-      }
-      if(fabs(1.0-tot)>TOL){
-        for(i=0;i<data->nBins;i++)wave[i]/=tot;
+        /*find canopy portion*/
+        canopy=falloc((uint64_t)data->nBins,"canopy wave",0);
+        for(i=0;i<data->nBins;i++)canopy[i]=data->wave[numb][i]-data->ground[numb][i];
+        /*smooth ground if needed*/
+        if((den->sWidth>0.001)||(den->psWidth>0.001)||(den->msWidth>0.001)){
+          /*smooth if needed*/
+          smooCan=processFloWave(canopy,data->nBins,den,1.0);
+          smooGr=processFloWave(data->ground[numb],data->nBins,den,1.0);
+        }else{
+          smooCan=canopy;
+          smooGr=data->ground[numb];
+        }
+        /*add up and normalise*/
+        wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
+        tot=0.0;
+        for(i=0;i<data->nBins;i++){
+          wave[i]=smooCan[i]*phot->rhoVrhoG+smooGr[i]/phot->rhoVrhoG;
+          tot+=wave[i];
+        }
+        if(fabs(1.0-tot)>TOL){
+          for(i=0;i<data->nBins;i++)wave[i]/=tot;
+        }
       }
     }
-  }
 
-  /*tidy up*/
-  if(smooCan!=canopy){
-    TIDY(smooCan);
-  }
-  TIDY(canopy);
-  if(smooGr!=data->ground[numb]){
+    /*tidy up*/
+    if(smooCan!=canopy){
+      TIDY(smooCan);
+    }
+    TIDY(canopy);
+    if(smooGr!=data->ground[numb]){
     TIDY(smooGr);
-  }
+    }
+  }/*is there a ground check?*/
+
   return(wave);
 }/*adjustPhotonProb*/
 
