@@ -1750,7 +1750,7 @@ control *readCommands(int argc,char **argv)
   dimage->photonCount.designval=2.1;
   dimage->photonCount.prob=NULL;
   dimage->photonCount.pBins=0;
-  dimage->photonCount.H=200.0;
+  dimage->photonCount.H=200.0;   /*this is thew two way distance, so a 100 m window, halved later*/
   dimage->photonCount.nPhotC=dimage->photonCount.designval;
   dimage->photonCount.nPhotG=-1.0;     /*blank number*/
   dimage->photonCount.noise_mult=0.1;
