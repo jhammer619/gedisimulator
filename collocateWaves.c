@@ -1387,8 +1387,6 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   tempBound[3]=dimage->maxY;
   bounds=reprojectWaveBounds(&(tempBound[0]),dimage->aEPSG,dimage->lEPSG);
 
-fprintf(stdout,"Bounds tested %f %f %f %f\n",bounds[0],bounds[1],bounds[2],bounds[3]);
-
   /*loop over lvis files*/
   for(i=0;i<dimage->lvisIO.nFiles;i++){
     if(dimage->useLvisHDF){
@@ -1421,7 +1419,7 @@ fprintf(stdout,"Bounds tested %f %f %f %f\n",bounds[0],bounds[1],bounds[2],bound
   if(dimage->nLvis==0){
     fprintf(stderr,"No large-footprints found\n");
     exit(1);
-  }else fprintf(stdout,"Found %d\n",dimage->nLvis);
+  }
   return(lvis);
 }/*readMultiLVIS*/
 
