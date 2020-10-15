@@ -1327,13 +1327,28 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
 
 
   if(aEPSG!=lEPSG){
+    /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
+    /*this will need updating once we hit version 10*/
+    vers=(char *)GDALVersionInfo("VERSION_NUM");
+    val=vers[0];
+    verMaj=atoi(&val);
+    TIDY(vers);
+
     x=dalloc(nLvis,"x",0);
     y=dalloc(nLvis,"y",0);
     z=dalloc(nLvis,"z",0);
-    for(i=0;i<nLvis;i++){
-      x[i]=lvis[i]->lon;
-      y[i]=lvis[i]->lat;
-      z[i]=0.0;
+    if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
+      for(i=0;i<nLvis;i++){
+        x[i]=lvis[i]->lat;
+        y[i]=lvis[i]->lon;
+        z[i]=0.0;
+      }
+    }else{
+      for(i=0;i<nLvis;i++){
+        x[i]=lvis[i]->lon;
+        y[i]=lvis[i]->lat;
+        z[i]=0.0;
+      }
     }
 
     hSourceSRS=OSRNewSpatialReference(NULL);
@@ -1346,25 +1361,10 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
     OSRDestroySpatialReference(hSourceSRS);
     OSRDestroySpatialReference(hTargetSRS);
 
-    /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
-    /*this will need updating once we hit version 10*/
-    vers=(char *)GDALVersionInfo("VERSION_NUM");
-    val=vers[0];
-    verMaj=atoi(&val);
-    TIDY(vers);
-
-    if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
-      for(i=0;i<nLvis;i++){
-        gediRat->coords[i]=dalloc(2,"coords",i+1);
-        gediRat->coords[i][0]=y[i];
-        gediRat->coords[i][1]=x[i];
-      }
-    }else{
-      for(i=0;i<nLvis;i++){
-        gediRat->coords[i]=dalloc(2,"coords",i+1);
-        gediRat->coords[i][0]=x[i];
-        gediRat->coords[i][1]=y[i];
-      }
+    for(i=0;i<nLvis;i++){
+      gediRat->coords[i]=dalloc(2,"coords",i+1);
+      gediRat->coords[i][0]=x[i];
+      gediRat->coords[i][1]=y[i];
     }
   }else{
     for(i=0;i<nLvis;i++){
