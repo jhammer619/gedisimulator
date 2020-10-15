@@ -1679,7 +1679,7 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   OGRCoordinateTransformationH hTransform;
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
   double *bounds=NULL;
-  char *vers=NULL,val=0;   /*GDAL version number string*/
+  char vers[20],val=0;   /*GDAL version number string*/
   int verMaj=0;
 
   /*allocate space*/
@@ -1709,10 +1709,9 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
 
     /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
     /*this will need updating once we hit version 10*/
-    vers=(char *)GDALVersionInfo("VERSION_NUM");
+    strcpy(&(vers[0]),GDALVersionInfo("VERSION_NUM"));
     val=vers[0];
     verMaj=atoi(&val);
-    TIDY(vers);
 
     if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
       bounds[0]=y[0];
