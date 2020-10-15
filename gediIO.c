@@ -1647,8 +1647,17 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
     bounds[2]=bounds[3]=100000000.0;
   }
 
+  /*if bounds are in degrees, do we need to unwrap?*/
+  if(gediIO->wEPSG==4326){
+    if(bounds[0]<0.0)bounds[0]+=360.0;
+    if(bounds[2]<0.0)bounds[2]+=360.0;
+  }
+
   /*loop over all footprints*/
   for(i=0;i<numb;i++){
+    /*may need to unwrap longitudes here too*/
+    if(gediIO->wEPSG==4326)if(tempLon[i]<0.0)tempLon[i]+=360.0;
+
     if((tempLon[i]>=bounds[0])&&(tempLon[i]<=bounds[2])&&\
        (tempLat[i]>=bounds[1])&&(tempLat[i]<=bounds[3])){
       useInd=markInt(*nUse,useInd,i);
@@ -1670,6 +1679,8 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   OGRCoordinateTransformationH hTransform;
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
   double *bounds=NULL;
+  char *vers=NULL,val=0;   /*GDAL version number string*/
+  int verMaj=0;
 
   /*allocate space*/
   bounds=dalloc(4,"wave bounds",0);
@@ -1681,8 +1692,8 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
     z=dalloc(2,"z trans",9);
 
     x[0]=inBounds[0];
-    x[1]=inBounds[2];
     y[0]=inBounds[1];
+    x[1]=inBounds[2];
     y[1]=inBounds[3];
     z[0]=z[1]=0.0;
 
@@ -1696,10 +1707,24 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
     OSRDestroySpatialReference(hSourceSRS);
     OSRDestroySpatialReference(hTargetSRS);
 
-    bounds[0]=x[0];
-    bounds[1]=y[0];
-    bounds[2]=x[1];
-    bounds[3]=y[1];
+    /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
+    /*this will need updating once we hit version 10*/
+    vers=(char *)GDALVersionInfo("VERSION_NUM");
+    val=vers[0];
+    verMaj=atoi(&val);
+    TIDY(vers);
+
+    if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
+      bounds[0]=y[0];
+      bounds[1]=x[0];
+      bounds[2]=y[1];
+      bounds[3]=x[1];
+    }else{
+      bounds[0]=x[0];
+      bounds[1]=y[0];
+      bounds[2]=x[1];
+      bounds[3]=y[1];
+    }
   }else{  /*copy bounds*/
     bounds[0]=inBounds[0];
     bounds[1]=inBounds[1];
