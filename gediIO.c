@@ -1713,7 +1713,7 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
     val=vers[0];
     verMaj=atoi(&val);
 
-    if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
+    if((verMaj>=3)&&(outEPSG==4326)){  /*if GDAL >=v3, need to swap lat and lon*/
       bounds[0]=y[0];
       bounds[1]=x[0];
       bounds[2]=y[1];
