@@ -18,45 +18,14 @@ class gediData(object):
   Simulated GEDI data handler
   '''
 
-  def __init__(self,filename=None,minX=-100000000,maxX=100000000,minY=-1000000000,maxY=100000000,tocopy=None):
+  def __init__(self,filename=None,minX=-100000000,maxX=100000000,minY=-1000000000,maxY=100000000,outName="teast.h5"):
     '''
     Class initialiser. Calls a function
     to read waveforms between bounds
+    and writes to a new file
     '''
-    if(filename):  # then read a file
-      f=h5py.File(filename,'r')
-      
-      # check file format
-      if(list(f)[0]!='BEAMDENSE'):   # then is a real file
-        readReal=1
-      else:                          # then is a simulated file
-        readReal=0
-      f.close()
-      # read data
-      if(readReal==1):
-        self.readGEDI(filename,minX,maxX,minY,maxY)
-      else:
-        self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=gediData.readSimGEDI(filename,minX,maxX,minY,maxY)
-    else:          # create a blank space
-      self.nWaves=0
-      self.lon=None
-      self.lat=None
-      self.waveID=None
-      self.wave=None
-      self.gWave=None
-      self.ZN=None
-      self.Z0=None
-      self.nBins=None
-      self.nPbins=None
-      self.pSigma=None
-      self.fSigma=None
-      self.nTypes=None
-      self.idLen=None
-      self.slope=None
-      self.ZG=None
-      self.bDense=None
-      self.pDense=None
-      self.zen=None
+
+    self.subset(filename,minX,maxX,minY,maxY,outName)
 
 
   ###########################################
@@ -80,11 +49,6 @@ class gediData(object):
       nWaves=len(f[b]['shot_number'])
       nBins=np.array(f[b]['rx_sample_count'])
       useInd=np.where(nBins>1000)[0]
-
-      # now read each element
-      for d in self.dirList:
-
-        self.
 
       for i in useInd:
         idx=int(f[b]['rx_sample_start_index'][i])-1
