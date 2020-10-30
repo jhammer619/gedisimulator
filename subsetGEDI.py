@@ -52,9 +52,6 @@ class gediData(object):
 
       print(b)
 
-      # create the beam group
-      outFile.create_group(b)
-
       # read the coords and determine output
       allLat=(np.array(f[b]['geolocation']['latitude_bin0'])+np.array(f[b]['geolocation']['latitude_lastbin']))/2.0
       allLon=(np.array(f[b]['geolocation']['longitude_bin0'])+np.array(f[b]['geolocation']['longitude_lastbin']))/2.0
@@ -64,6 +61,9 @@ class gediData(object):
         useInd=useInd[0]
       else:      # none in here
         continue
+
+      # create the beam group
+      outFile.create_group(b)
 
       # loop over all arrays per shot
       for d in self.shotArrList:
