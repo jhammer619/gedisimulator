@@ -25,12 +25,12 @@ class gediData(object):
     and writes to a new file
     '''
 
-    self.subset(filename,minX,maxX,minY,maxY,outName)
+    self.subsetGEDI(filename,minX,maxX,minY,maxY,outName)
 
 
   ###########################################
 
-  def readGEDI(self,filename,minX,maxX,minY,maxY):
+  def subsetGEDI(self,filename,minX,maxX,minY,maxY,outNamen):
     '''
     Read real GEDI data from file
     '''
@@ -39,6 +39,9 @@ class gediData(object):
     self.beamList=['BEAM0000', 'BEAM0001', 'BEAM0010', 'BEAM0011', 'BEAM0101', 'BEAM0110', 'BEAM1000', 'BEAM1011']
     self.nWaves=0
 
+    # open output file
+    outFile=h5py.File(outNamen,'w')
+
     # set directory list
     self.setRealList()
 
@@ -46,196 +49,124 @@ class gediData(object):
     for b in self.beamList:
       if((b in list(f))==False): # does this exist?
         continue                 # if not, skip it
-      nWaves=len(f[b]['shot_number'])
-      nBins=np.array(f[b]['rx_sample_count'])
-      useInd=np.where(nBins>1000)[0]
 
-      for i in useInd:
-        idx=int(f[b]['rx_sample_start_index'][i])-1
-        cnt=nBins[i]
-        rxdn=f[b]['rxwaveform'][idx:int(idx+cnt)]
-        lon=f[b]["geolocation"]["longitude_bin0"][i]
-        lat=f[b]["geolocation"]["latitude_bin0"][i]
-        tot=f[b]['rx_sample_sum'][i]
-        if(np.max(rxdn)>300):
-          #print(b,cnt,idx,'diff',tot-np.sum(rxdn),'stats',np.median(rxdn),np.min(rxdn),np.max(rxdn))
-          plt.plot(rxdn)
-          plt.ylabel('DN')
-          plt.xlabel('Elevation (m)')
-          outNamen=outRoot+"."+b+"."+str(i)+".png"
-          plt.savefig(outNamen)
-          plt.close()
-          plt.clf()
-          print("Written to",outNamen,lon,lat)
-      #self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
-      #self.nWaves=self.nWaves+nWaves
+      print(b)
+
+      # create the beam group
+      outFile.create_group(b)
+
+      # read the coords and determine output
+      allLat=(np.array(f[b]['geolocation']['latitude_bin0'])+np.array(f[b]['geolocation']['latitude_lastbin']))/2.0
+      allLon=(np.array(f[b]['geolocation']['longitude_bin0'])+np.array(f[b]['geolocation']['longitude_lastbin']))/2.0
+      useInd=np.where((allLat>=minY)&(allLat<=maxY)&(allLon>=minX)&(allLon<=maxX))
+
+      if(len(useInd[0])>0):
+        useInd=useInd[0]
+      else:      # none in here
+        continue
+
+      # loop over all arrays per shot
+      for d in self.shotArrList:
+        if((d=='rx_sample_start_index')|(d=='tx_sample_start_index')):  # skip these for noe
+          continue
+        # read array
+        jimlad=np.array(f[b][d])[useInd]
+        # write subset to a new file
+        outFile[b].create_dataset(d,data=jimlad,compression='gzip')
+
+      # for txwaveform and rxwaveform, we must read start/stop indices
+      self.subsetWaves('rxwaveform','rx_sample_start_index','rx_sample_count',useInd,outFile[b],f[b])
+      self.subsetWaves('txwaveform','tx_sample_start_index','tx_sample_count',useInd,outFile[b],f[b])
+
+      # geolocation data
+      g='geolocation'
+      outFile[b].create_group(g)
+      for d in self.geoArrList:
+        if(d!='surface_type'):
+          jimlad=np.array(f[b][g][d])[useInd]
+          outFile[b][g].create_dataset(d,data=jimlad,compression='gzip')
+        else:
+          jimlad=np.array(f[b][g][d])[:,useInd]
+          outFile[b][g].create_dataset(d,data=jimlad,compression='gzip')
+
+      # ancillary data
+      g='ancillary'
+      outFile[b].create_group(g)
+      for d in self.ancArrList:
+        jimlad=np.array(f[b][g][d])
+        outFile[b][g].create_dataset(d,data=jimlad,compression='gzip')
+
+      # geophys_corr
+      g='geophys_corr'
+      outFile[b].create_group(g)
+      for d in self.corArrList:
+        jimlad=np.array(f[b][g][d])[useInd]
+        outFile[b][g].create_dataset(d,data=jimlad,compression='gzip')
+
     f.close()
+    outFile.close()
+    print("Written to",outNamen)
     return
+
+
+  ###########################################
+
+  def subsetWaves(self,waveName,indName,lenName,useInd,outFile,f):
+    '''Subset and write the RX or TX waveforms'''
+
+    # read indices
+    startInds=np.array(f[indName])[useInd]
+    lenInds=np.array(f[lenName])[useInd]
+    totBins=np.sum(lenInds)
+    waveform=np.empty(totBins,dtype=np.float32)
+    newInds=np.zeros(len(useInd),dtype=np.uint64)
+
+    # read raw data and repack
+    jimlad=np.array(f[waveName])
+    lastInd=0
+    for i in range(0,startInds.shape[0]):
+      newInds[i]=lastInd
+      waveform[lastInd:lastInd+lenInds[i]]=jimlad[startInds[i]:startInds[i]+lenInds[i]]
+      lastInd=lastInd+lenInds[i]
+
+    # write data
+    outFile.create_dataset(waveName,data=waveform,compression='gzip')
+    outFile.create_dataset(indName,data=newInds,compression='gzip')
+
+    return
+
 
   ###########################################
 
   def setRealList(self):
     '''Set list of all data within a real GEDI file'''
 
-    self.dirList=[ 'all_samples_sum', 'ancillary', 'beam', 'channel', 'delta_time', 'geolocation', 'geophys_corr', 'master_frac', 'master_int', 'noise_mean_corrected', 'noise_stddev_corrected', 'nsemean_even', 'nsemean_odd', 'rx_energy', 'rx_offset', 'rx_open', 'rx_sample_count', 'rx_sample_start_index', 'rxwaveform', 'selection_stretchers_x', 'selection_stretchers_y', 'shot_number', 'stale_return_flag', 'th_left_used', 'tx_egamplitude', 'tx_egamplitude_error', 'tx_egbias', 'tx_egbias_error', 'tx_egflag', 'tx_eggamma', 'tx_eggamma_error', 'tx_egsigma', 'tx_egsigma_error', 'tx_gloc', 'tx_gloc_error', 'tx_pulseflag', 'tx_sample_count', 'tx_sample_start_index', 'txwaveform']
+    # arrays with one element per shot
+    self.shotArrList=['all_samples_sum', 'beam', 'channel', 'delta_time', 'master_frac', 'master_int',\
+                      'noise_mean_corrected', 'noise_stddev_corrected', 'nsemean_even', 'nsemean_odd',\
+                      'rx_energy', 'rx_offset', 'rx_open', 'rx_sample_count',\
+                      'selection_stretchers_x', 'selection_stretchers_y', 'shot_number', 'stale_return_flag',\
+                      'th_left_used', 'tx_egamplitude', 'tx_egamplitude_error', 'tx_egbias', 'tx_egbias_error',\
+                      'tx_egflag', 'tx_eggamma', 'tx_eggamma_error', 'tx_egsigma', 'tx_egsigma_error', 'tx_gloc',\
+                      'tx_gloc_error', 'tx_pulseflag', 'tx_sample_count',]
+
+    self.geoArrList=['altitude_instrument', 'altitude_instrument_error', 'bounce_time_offset_bin0', 'bounce_time_offset_bin0_error',\
+                     'bounce_time_offset_lastbin', 'bounce_time_offset_lastbin_error', 'degrade', 'delta_time',\
+                     'digital_elevation_model', 'elevation_bin0', 'elevation_bin0_error', 'elevation_lastbin',\
+                     'elevation_lastbin_error', 'latitude_bin0', 'latitude_bin0_error', 'latitude_instrument',\
+                     'latitude_instrument_error', 'latitude_lastbin', 'latitude_lastbin_error', 'local_beam_azimuth',\
+                     'local_beam_azimuth_error', 'local_beam_elevation', 'local_beam_elevation_error', 'longitude_bin0',\
+                     'longitude_bin0_error', 'longitude_instrument', 'longitude_instrument_error', 'longitude_lastbin',\
+                     'longitude_lastbin_error', 'mean_sea_surface', 'neutat_delay_derivative_bin0', 'neutat_delay_derivative_lastbin',\
+                     'neutat_delay_total_bin0', 'neutat_delay_total_lastbin', 'range_bias_correction', 'shot_number',\
+                     'solar_azimuth', 'solar_elevation', 'surface_type']
+
+    self.ancArrList=['master_time_epoch', 'mean_samples', 'smoothing_width']
+
+    self.corArrList=['delta_time', 'dynamic_atmosphere_correction', 'geoid', 'tide_earth', 'tide_load', 'tide_ocean',\
+                     'tide_ocean_pole', 'tide_pole']
+
     return
-
-  ###########################################
-
-  def readSimGEDI(self,filename,minX,maxX,minY,maxY):
-    '''
-    Read simulated GEDI data from file
-    '''
-    # open file for reading
-    f=h5py.File(filename,'r')
-    # extract region of interest
-    lon=np.array(f['LON0'])
-    lat=np.array(f['LAT0'])
-    useInd=np.where((lon>=minX)&(lon<=maxX)&(lat>=minY)&(lat<=maxY))
-    # if there are usable, read
-    if(len(useInd)>0):
-      useInd=np.ndarray.tolist(useInd[0])
-      nWaves=len(useInd)
-      lon=lon[useInd]
-      lat=lat[useInd]
-      # read data
-      temp=np.array(f['WAVEID'])[useInd]
-      # join up waveID characters
-      if(temp.dtype!='int64'):
-        waveID=[]
-        for i in range(0,nWaves):
-          waveID.append(''.join(np.array(temp[i], dtype=np.str)))
-      else:
-        waveID=temp
-      # read all other data
-      wave=np.array(f['RXWAVECOUNT'])[useInd]
-      gWave=np.array(f['GRWAVECOUNT'])[useInd]
-      ZN=np.array(f['ZN'])[useInd]
-      Z0=np.array(f['Z0'])[useInd]
-      nBins=np.array(f['NBINS'])[0]
-      nPbins=np.array(f['NPBINS'])[0]
-      pSigma=np.array(f['PSIGMA'])[0]
-      fSigma=np.array(f['FSIGMA'])[0]
-      nTypes=np.array(f['NTYPEWAVES'])[0]
-      idLen=np.array(f['IDLENGTH'])[0]
-      slope=np.array(f['SLOPE'])
-      ZG=np.array(f['ZG'])
-      bDense=np.array(f['BEAMDENSE'])
-      pDense=np.array(f['POINTDENSE'])
-      zen=np.array(f['INCIDENTANGLE'])
-    else:
-      nWaves=0
-      lon=None
-      lat=None
-      waveID=None
-      wave=None
-      gWave=None
-      ZN=None
-      Z0=None
-      nBins=None
-      nPbins=None
-      pSigma=None
-      fSigma=None
-      nTypes=None
-      idLen=None
-      slope=None
-      ZG=None
-      bDense=None
-      pDense=None
-      zen=None
-    f.close()
-    return(nWaves,lon,lat,waveID,wave,gWave,ZN,Z0,nBins,pSigma,fSigma,nTypes,idLen,slope,ZG,bDense,pDense,nPbins,zen)
-
-
-  ###########################################
-
-  def appendGEDI(self,tocopy,useInd=[]):
-    '''Append another file to this one'''
-
-    if(useInd==[]):  # copy all
-      useInd=range(0,len(tocopy.lon))
-    elif(len(useInd)==0): # none to copy
-      return
-
-    if(self.nWaves>0):  # if appending to existing data
-      self.nWaves=self.nWaves+len(useInd)
-      self.lon=np.append(self.lon,tocopy.lon)
-      self.lat=np.append(self.lat,tocopy.lat)
-      self.waveID=np.append(self.waveID,tocopy.waveID)
-      self.wave=np.append(self.wave,tocopy.wave,axis=0)
-      self.gWave=np.append(self.gWave,tocopy.gWave,axis=0)
-      self.ZN=np.append(self.ZN,tocopy.ZN)
-      self.Z0=np.append(self.Z0,tocopy.Z0)
-      self.slope=np.append(self.slope,tocopy.slope)
-      self.ZG=np.append(self.ZG,tocopy.ZG)
-      self.bDense=np.append(self.bDense,tocopy.bDense)
-      self.pDense=np.append(self.pDense,tocopy.pDense)
-      self.zen=np.append(self.zen,tocopy.zen)
-      # check for bin mismatch
-      if(self.nBins!=tocopy.nBins):
-        print("Bin number mismatch")
-        exit(1)
-    else:                  # if new data
-      self.nWaves=tocopy.nWaves
-      self.lon=tocopy.lon
-      self.lat=tocopy.lat
-      self.waveID=tocopy.waveID
-      self.wave=tocopy.wave
-      self.gWave=tocopy.gWave
-      self.ZN=tocopy.ZN
-      self.Z0=tocopy.Z0
-      self.nBins=tocopy.nBins
-      self.pSigma=tocopy.pSigma
-      self.fSigma=tocopy.fSigma
-      self.nTypes=tocopy.nTypes
-      self.idLen=tocopy.idLen
-      self.slope=tocopy.slope
-      self.ZG=tocopy.ZG
-      self.bDense=tocopy.bDense
-      self.pDense=tocopy.pDense
-      self.nPbins=tocopy.nPbins
-      self.zen=tocopy.zen
-
-
-  ###########################################
-
-  def setOneZ(self,i):
-    '''Set a single z array'''
-    res=(self.Z0[i]-self.ZN[i])/self.nBins
-    z=np.arange(self.Z0[i],self.ZN[i],-1*res)
-    return(z)
-
-
-  ###########################################
-
-  def plotWaves(self,outRoot='teast',useInd=[]):
-    '''Plot waveforms'''
-    if(useInd==[]):
-      useInd=range(0,len(self.lon))
-    # loop over waves
-    for i in useInd:
-      # make z profile
-      self.res=(self.Z0[i]-self.ZN[i])/self.nBins
-      self.z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
-      # determine noise for scaling ground return
-      reflScale,meanN,stdev=self.meanNoise(i)
-      # find bounds
-      minX,maxX=self.findBounds(meanN,stdev,i)
-      # plot it
-      #plt.plot(self.wave[i],self.z,label='Waveform')
-      #plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
-      plt.fill_betweenx(self.z,self.wave[i],meanN)
-      #plt.legend()
-      #plt.xlim(left=0)
-      plt.ylim((minX,maxX))
-      #plt.xlabel('DN')
-      plt.ylabel('Elevation (m)')
-      outNamen=outRoot+"."+str(self.waveID[i])+".x."+str(self.lon[i])+".y."+str(self.lat[i])+".png"
-      plt.savefig(outNamen)
-      plt.close()
-      plt.clf()
-      print("Written to",outNamen)
-
 
   ###########################################
 
@@ -259,18 +190,6 @@ class gediData(object):
         break
 
     return(self.z[botBin]-buff,self.z[topBin]+buff)
-
-  ###########################################
-
-  def meanNoise(self,i):
-    '''Calculate noise statistics'''
-    statsLen=15
-    noiseBins=int(statsLen/self.res)
-    meanN=np.mean(self.wave[i][0:noiseBins])
-    stdev=np.std(self.wave[i][0:noiseBins])
-    totE=np.sum(self.wave[i]-meanN)*self.res
-    return(totE,meanN,stdev)
- 
 
   ###########################################
 
@@ -312,12 +231,4 @@ if __name__ == '__main__':
 
   # read data
   gedi=gediData(filename=inName,minX=bounds[0],maxX=bounds[2],minY=bounds[1],maxY=bounds[3])
-
-  # mode switch
-  if(cmdargs.writeCoords):
-    gedi.writeCoords()
-  else:
-    print("Read",gedi.nWaves,"waveforms")
-    # plot data
-    gedi.plotWaves(outRoot=outRoot)
 
