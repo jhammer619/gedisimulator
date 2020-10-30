@@ -213,8 +213,7 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=("Writes out properties of GEDI waveform files"))
     p.add_argument("--input",dest="inName",type=str,help=("Input GEDI HDF5 filename"))
     p.add_argument("--bounds", dest ="bounds", type=float,nargs=4,default=[-100000000,-100000000,100000000000,10000000000], help=("Bounds to plot between. minX minY maxX maxY"))
-    p.add_argument("--outRoot",dest="outRoot",type=str,default='test',help=("Output graph filename root"))
-    p.add_argument("--writeCoords",dest="writeCoords", action='store_true', default=False, help=("Write out coordinates insteda of plotting waveforms"))
+    p.add_argument("--output",dest="output",type=str,default='teast.h5',help=("Output filename"))
     cmdargs = p.parse_args()
     return cmdargs
 
@@ -227,8 +226,8 @@ if __name__ == '__main__':
   cmdargs=gediCommands()
   inName=cmdargs.inName
   bounds=cmdargs.bounds
-  outRoot=cmdargs.outRoot
+  output=cmdargs.output
 
   # read data
-  gedi=gediData(filename=inName,minX=bounds[0],maxX=bounds[2],minY=bounds[1],maxY=bounds[3])
+  gedi=gediData(filename=inName,minX=bounds[0],maxX=bounds[2],minY=bounds[1],maxY=bounds[3],outName=output)
 
