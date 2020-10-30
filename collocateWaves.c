@@ -1337,7 +1337,7 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
     x=dalloc(nLvis,"x",0);
     y=dalloc(nLvis,"y",0);
     z=dalloc(nLvis,"z",0);
-    if((verMaj>=3)&&(lEPSG==4326)){  /*if GDAL >=v3, need to swap lat and lon*/
+    if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
       for(i=0;i<nLvis;i++){
         x[i]=lvis[i]->lat;
         y[i]=lvis[i]->lon;
