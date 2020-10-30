@@ -1560,6 +1560,8 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
   TTIDY((void **)beamList,nBeams);
 
+fprintf(stdout,"Found %d\n",hdfData->nWaves);
+
   if(hdfData->nWaves==0){
     fprintf(stderr,"No footprints contained\n");
     exit(1);
@@ -1665,6 +1667,7 @@ int *usableGEDIfootprints(double *tempLon,double *tempLat,int numb,int *nUse,ged
     }
   }
 
+
   TIDY(bounds);
   return(useInd);
 }/*usableGEDIfootprints*/
@@ -1679,9 +1682,9 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   OGRCoordinateTransformationH hTransform;
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
   double *bounds=NULL;
-  char vers[20];   /*GDAL version number string*/
   int verMaj=0;
-  float val=0;
+  int findGDAlVerMaj();
+
 
   /*allocate space*/
   bounds=dalloc(4,"wave bounds",0);
@@ -1710,9 +1713,7 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
 
     /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
     /*this will need updating once we hit version 10*/
-    strcpy(&(vers[0]),GDALVersionInfo("VERSION_NUM"));
-    val=atof(vers);
-    verMaj=(int)(val/pow(10,(int)(log(val)/log(10.0))));
+    verMaj=findGDAlVerMaj();
 
     if(verMaj>=3){  /*if GDAL >=v3, need to swap lat and lon*/
       bounds[0]=y[0];
@@ -1737,6 +1738,23 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   TIDY(z);
   return(bounds);
 }/*reprojectWaveBounds*/
+
+
+/*####################################################*/
+/*find GDAL version major*/
+
+int findGDAlVerMaj()
+{
+  int verMaj=0;
+  float val=0;
+  char vers[20];   /*GDAL version number string*/
+
+  strcpy(&(vers[0]),GDALVersionInfo("VERSION_NUM"));
+  val=atof(vers);
+  verMaj=(int)(val/pow(10,(int)(log(val)/log(10.0))));
+
+  return(verMaj);
+}/*findGDAlVerMaj*/
 
 
 /*####################################################*/

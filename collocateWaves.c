@@ -1317,8 +1317,8 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
   OGRCoordinateTransformationH hTransform;
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
   OGRErr err;
-  char *vers=NULL,val=0;   /*GDAL version number string*/
   int verMaj=0;
+  int findGDAlVerMaj();
 
   gediRat->gNx=nLvis;
   gediRat->gNy=1;
@@ -1329,10 +1329,7 @@ void copyLvisCoords(gediRatStruct *gediRat,dataStruct **lvis,int nLvis,int aEPSG
   if(aEPSG!=lEPSG){
     /*GDAL 3.0 and later now returns lat lon rather than lon lat. Find majer version*/
     /*this will need updating once we hit version 10*/
-    vers=(char *)GDALVersionInfo("VERSION_NUM");
-    val=vers[0];
-    verMaj=atoi(&val);
-    TIDY(vers);
+    verMaj=findGDAlVerMaj();
 
     x=dalloc(nLvis,"x",0);
     y=dalloc(nLvis,"y",0);
@@ -1543,6 +1540,12 @@ dataStruct **copyGEDIhdf(gediHDF *hdf,dataStruct **lvis,control *dimage,double *
       fprintf(stderr,"Balls\n");
       exit(1);
     }
+  }
+
+  /*wrap around*/
+  if(dimage->lvisIO.wEPSG==4326){
+    if(bounds[0]<0.0)bounds[0]+=360.0;
+    if(bounds[2]<0.0)bounds[2]+=360.0;
   }
 
   /*copy data*/
