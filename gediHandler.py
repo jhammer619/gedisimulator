@@ -18,7 +18,7 @@ class gediData(object):
   Simulated GEDI data handler
   '''
 
-  def __init__(self,filename=None,minX=-100000000,maxX=100000000,minY=-1000000000,maxY=100000000,tocopy=None):
+  def __init__(self,filename=None,minX=-10000000000,maxX=10000000000,minY=-100000000000,maxY=10000000000,tocopy=None):
     '''
     Class initialiser. Calls a function
     to read waveforms between bounds
@@ -70,12 +70,9 @@ class gediData(object):
     self.beamList=['BEAM0000', 'BEAM0001', 'BEAM0010', 'BEAM0011', 'BEAM0101', 'BEAM0110', 'BEAM1000', 'BEAM1011']
     self.nWaves=0
 
-
-
-
     # loop over beams
-    self.nWaves=0
     for b in self.beamList:
+      print(b)
       if((b in list(f))==False): # does this exist?
         continue                 # if not, skip it
 
@@ -105,10 +102,11 @@ class gediData(object):
       lenInds=np.array(f[b]['rx_sample_count'])[useInd]
       totBins=np.sum(lenInds)
 
-      # read raw data and repack
+      # determine number of bins
       if(self.nWaves==0):
         self.nBins=np.max(lenInds)
 
+      # read raw data and repack
       nWaves=len(useInd)
       jimlad=np.array(f[b]['rxwaveform'])
       wave=np.full((nWaves,self.nBins),np.median(jimlad),dtype=np.float32)
@@ -121,30 +119,40 @@ class gediData(object):
         wave[i][0:minBin]=jimlad[startInds[i]:startInds[i]+minBin]
         lastInd=lastInd+lenInds[i]
 
-
-    # append all the arrays
-    if(nWaves>0):
-      if(self.nWaves==0):
-        self.wave=wave
-        self.lastInd=lastInd
-        self.lat=lat
-        self.lon=lon
-        self.Z0=Z0
-        self.ZN=ZN
-        self.waveID=waveID
-        self.lenInds=lenInds
-      else:
-        self.wave.resize((nWaves+self.nWaves,self.nBins))
-        self.wave[nWaves:,:]=wave
-        np.append(self.lastInd,lastInd)
-        np.append(self.lat,lat)
-        np.append(self.lon,lon)
-        np.append(self.Z0,Z0)
-        np.append(self.ZN,ZN)
-        np.append(self.waveID,waveID)
-        np.append(self.lenInds,lenInds)
+      # append all the arrays
+      if(nWaves>0):
+        if(self.nWaves==0):
+          self.wave=wave
+          self.lastInd=lastInd
+          self.lat=lat
+          self.lon=lon
+          self.Z0=Z0
+          self.ZN=ZN
+          self.waveID=waveID
+          self.lenInds=lenInds
+          self.beamID=np.full(nWaves,b)
+        else:
+          self.wave.resize((nWaves+self.nWaves,self.nBins))
+          if(wave.shape[1]<self.nBins):
+            minBin=wave.shape[1]
+          else:
+            minBin=self.nBins
+          self.wave[self.nWaves:,:minBin]=wave[:,:minBin]
+          self.wave[self.nWaves:,minBin:]=np.median(wave)
+          self.lastInd=np.append(self.lastInd,lastInd)
+          self.lat=np.append(self.lat,lat)
+          self.lon=np.append(self.lon,lon)
+          self.Z0=np.append(self.Z0,Z0)
+          self.ZN=np.append(self.ZN,ZN)
+          self.waveID=np.append(self.waveID,waveID)
+          self.lenInds=np.append(self.lenInds,lenInds)
+          self.beamID=np.append(self.beamID,np.full(nWaves,b))
 
       self.nWaves=self.nWaves+nWaves
+      print('Found',self.nWaves)
+
+    # truncate bin lengths if needed
+    self.lenInds[self.lenInds>self.nBins]=self.nBins
 
     f.close()
     return
@@ -178,8 +186,11 @@ class gediData(object):
         waveID=temp
       # split out the shot number
       self.shotN=np.empty(nWaves,dtype=int)
+      beamID=[]
       for i in range(0,nWaves):
         self.shotN[i]=int(waveID[i].split('.')[2])
+        beamID.append(waveID[i].split('.')[1])
+      self.beamID=np.array(beamID)
       # read all other data
       wave=np.array(f['RXWAVECOUNT'])[useInd]
       gWave=np.array(f['GRWAVECOUNT'])[useInd]

@@ -1560,8 +1560,6 @@ void readRealGediHDF(hid_t file,gediIOstruct *gediIO,char *namen,gediHDF *hdfDat
 
   TTIDY((void **)beamList,nBeams);
 
-fprintf(stdout,"Found %d\n",hdfData->nWaves);
-
   if(hdfData->nWaves==0){
     fprintf(stderr,"No footprints contained\n");
     exit(1);
