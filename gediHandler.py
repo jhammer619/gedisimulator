@@ -36,7 +36,7 @@ class gediData(object):
       if(self.real==1):
         self.readGEDI(filename,minX,maxX,minY,maxY)
       else:
-        self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=gediData.readSimGEDI(filename,minX,maxX,minY,maxY)
+        self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=self.readSimGEDI(filename,minX,maxX,minY,maxY)
     else:          # create a blank space
       self.nWaves=0
       self.lon=None
