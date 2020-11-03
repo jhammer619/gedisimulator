@@ -28,12 +28,12 @@ class gediData(object):
       
       # check file format
       if(list(f)[0]!='BEAMDENSE'):   # then is a real file
-        readReal=1
+        self.real=1
       else:                          # then is a simulated file
-        readReal=0
+        self.real=0
       f.close()
       # read data
-      if(readReal==1):
+      if(self.real==1):
         self.readGEDI(filename,minX,maxX,minY,maxY)
       else:
         self.nWaves,self.lon,self.lat,self.waveID,self.wave,self.gWave,self.ZN,self.Z0,self.nBins,self.pSigma,self.fSigma,self.nTypes,self.idLen,self.slope,self.ZG,self.bDense,self.pDense,self.nPbins,self.zen=gediData.readSimGEDI(filename,minX,maxX,minY,maxY)
@@ -98,17 +98,18 @@ class gediData(object):
 
       # read waveforms
       startInds=np.array(f[b]['rx_sample_start_index'])[useInd]
-      self.startInds=np.zeros(len(useInd),dtype=np.uint64)
       self.lenInds=np.array(f[b]['rx_sample_count'])[useInd]
       totBins=np.sum(self.lenInds)
       self.waveform=np.empty(totBins,dtype=np.float32)
 
       # read raw data and repack
+      self.nBins=np.max(self.lenInds)
+      self.nWaves=len(useInd)
       jimlad=np.array(f[b]['rxwaveform'])
+      self.wave=np.full((self.nWaves,self.nBins),np.median(jimlad),dtype=np.float32)
       lastInd=0
       for i in range(0,startInds.shape[0]):
-        self.startInds[i]=lastInd
-        self.waveform[lastInd:lastInd+self.lenInds[i]]=jimlad[startInds[i]:startInds[i]+self.lenInds[i]]
+        self.wave[i][0:self.lenInds[i]]=jimlad[startInds[i]:startInds[i]+self.lenInds[i]]
         lastInd=lastInd+self.lenInds[i]
 
 
@@ -265,6 +266,52 @@ class gediData(object):
 
   def plotWaves(self,outRoot='teast',useInd=[]):
     '''Plot waveforms'''
+
+    if(self.real==1):
+      self.plotRealWaves(outRoot,useInd)
+    else:
+      self.plotSimWaves(outRoot,useInd)
+    return
+
+
+  ###########################################
+
+  def plotRealWaves(self,outRoot,useInd):
+    '''Plot waveforms from a real GEDI L1B file'''
+    if(useInd==[]):
+      useInd=range(0,len(self.lon))
+    # loop over waves
+    for i in useInd:
+      # make z profile
+      self.nBins=self.lenInds[i]
+      self.res=(self.Z0[i]-self.ZN[i])/self.nBins
+      self.z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
+
+      # determine noise for scaling ground return
+      reflScale,meanN,stdev=self.meanNoise(i)
+      # find bounds
+      minX,maxX=self.findBounds(meanN,stdev,i)
+      # plot it
+      #plt.plot(self.wave[i],self.z,label='Waveform')
+      #plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
+      plt.fill_betweenx(self.z,self.wave[i][0:self.nBins],meanN)
+      #plt.legend()
+      #plt.xlim(left=0)
+      plt.ylim((minX,maxX))
+      #plt.xlabel('DN')
+      plt.ylabel('Elevation (m)')
+      outNamen=outRoot+"."+str(self.waveID[i])+".x."+str(self.lon[i])+".y."+str(self.lat[i])+".png"
+      plt.savefig(outNamen)
+      plt.close()
+      plt.clf()
+      print("Written to",outNamen)
+    return
+
+
+  ###########################################
+
+  def plotSimWaves(self,outRoot,useInd):
+    '''Plot waveforms from a simulated GEDI file'''
     if(useInd==[]):
       useInd=range(0,len(self.lon))
     # loop over waves
