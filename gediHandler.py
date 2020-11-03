@@ -82,10 +82,6 @@ class gediData(object):
       useInd=np.where(nBins>1000)[0]
 
       # now read each element
-      for d in self.dirList:
-
-        self.
-
       for i in useInd:
         idx=int(f[b]['rx_sample_start_index'][i])-1
         cnt=nBins[i]
@@ -106,14 +102,6 @@ class gediData(object):
       #self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
       #self.nWaves=self.nWaves+nWaves
     f.close()
-    return
-
-  ###########################################
-
-  def setRealList(self):
-    '''Set list of all data within a real GEDI file'''
-
-    self.dirList=[ 'all_samples_sum', 'ancillary', 'beam', 'channel', 'delta_time', 'geolocation', 'geophys_corr', 'master_frac', 'master_int', 'noise_mean_corrected', 'noise_stddev_corrected', 'nsemean_even', 'nsemean_odd', 'rx_energy', 'rx_offset', 'rx_open', 'rx_sample_count', 'rx_sample_start_index', 'rxwaveform', 'selection_stretchers_x', 'selection_stretchers_y', 'shot_number', 'stale_return_flag', 'th_left_used', 'tx_egamplitude', 'tx_egamplitude_error', 'tx_egbias', 'tx_egbias_error', 'tx_egflag', 'tx_eggamma', 'tx_eggamma_error', 'tx_egsigma', 'tx_egsigma_error', 'tx_gloc', 'tx_gloc_error', 'tx_pulseflag', 'tx_sample_count', 'tx_sample_start_index', 'txwaveform']
     return
 
   ###########################################
