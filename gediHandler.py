@@ -70,37 +70,68 @@ class gediData(object):
     self.beamList=['BEAM0000', 'BEAM0001', 'BEAM0010', 'BEAM0011', 'BEAM0101', 'BEAM0110', 'BEAM1000', 'BEAM1011']
     self.nWaves=0
 
-    # set directory list
-    self.setRealList()
+
+
 
     # loop over beams
     for b in self.beamList:
       if((b in list(f))==False): # does this exist?
         continue                 # if not, skip it
-      nWaves=len(f[b]['shot_number'])
-      nBins=np.array(f[b]['rx_sample_count'])
-      useInd=np.where(nBins>1000)[0]
 
-      # now read each element
-      for i in useInd:
-        idx=int(f[b]['rx_sample_start_index'][i])-1
-        cnt=nBins[i]
-        rxdn=f[b]['rxwaveform'][idx:int(idx+cnt)]
-        lon=f[b]["geolocation"]["longitude_bin0"][i]
-        lat=f[b]["geolocation"]["latitude_bin0"][i]
-        tot=f[b]['rx_sample_sum'][i]
-        if(np.max(rxdn)>300):
-          #print(b,cnt,idx,'diff',tot-np.sum(rxdn),'stats',np.median(rxdn),np.min(rxdn),np.max(rxdn))
-          plt.plot(rxdn)
-          plt.ylabel('DN')
-          plt.xlabel('Elevation (m)')
-          outNamen=outRoot+"."+b+"."+str(i)+".png"
-          plt.savefig(outNamen)
-          plt.close()
-          plt.clf()
-          print("Written to",outNamen,lon,lat)
-      #self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
-      #self.nWaves=self.nWaves+nWaves
+      # read the coords and determine output
+      allLat=(np.array(f[b]['geolocation']['latitude_bin0'])+np.array(f[b]['geolocation']['latitude_lastbin']))/2.0
+      allLon=(np.array(f[b]['geolocation']['longitude_bin0'])+np.array(f[b]['geolocation']['longitude_lastbin']))/2.0
+      useInd=np.where((allLat>=minY)&(allLat<=maxY)&(allLon>=minX)&(allLon<=maxX))
+
+      if(len(useInd[0])>0):
+        useInd=useInd[0]
+      else:      # none in here
+        continue
+
+      # read lat lon
+      self.lat=allLat[useInd]
+      self.lon=allLon[useInd]
+
+      # read Z
+      self.Z0=np.array(f[b]['geolocation']['elevation_bin0'])[useInd]
+      self.ZN=np.array(f[b]['geolocation']['elevation_lastbin'])[useInd]
+
+      # read waveforms
+      startInds=np.array(f[b]['rx_sample_start_index'])[useInd]
+      self.startInds=np.zeros(len(useInd),dtype=np.uint64)
+      self.lenInds=np.array(f[b]['rx_sample_count'])[useInd]
+      totBins=np.sum(self.lenInds)
+      self.waveform=np.empty(totBins,dtype=np.float32)
+
+      # read raw data and repack
+      jimlad=np.array(f[b]['rxwaveform'])
+      lastInd=0
+      for i in range(0,startInds.shape[0]):
+        self.startInds[i]=lastInd
+        self.waveform[lastInd:lastInd+self.lenInds[i]]=jimlad[startInds[i]:startInds[i]+self.lenInds[i]]
+        lastInd=lastInd+self.lenInds[i]
+
+
+      ## now read each element
+      #for i in useInd:
+      #  idx=int(f[b]['rx_sample_start_index'][i])-1
+      #  cnt=nBins[i]
+      #  rxdn=f[b]['rxwaveform'][idx:int(idx+cnt)]
+      #  lon=f[b]["geolocation"]["longitude_bin0"][i]
+      #  lat=f[b]["geolocation"]["latitude_bin0"][i]
+      #  tot=f[b]['rx_sample_count'][i]
+      #  if(np.max(rxdn)>300):
+      #    #print(b,cnt,idx,'diff',tot-np.sum(rxdn),'stats',np.median(rxdn),np.min(rxdn),np.max(rxdn))
+      #    plt.plot(rxdn)
+      #    plt.ylabel('DN')
+      #    plt.xlabel('Elevation (m)')
+      #    outNamen=outRoot+"."+b+"."+str(i)+".png"
+      #    plt.savefig(outNamen)
+      #    plt.close()
+      #    plt.clf()
+      #    print("Written to",outNamen,lon,lat)
+      ##self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
+      ##self.nWaves=self.nWaves+nWaves
     f.close()
     return
 
