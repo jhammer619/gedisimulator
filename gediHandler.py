@@ -96,6 +96,9 @@ class gediData(object):
       self.Z0=np.array(f[b]['geolocation']['elevation_bin0'])[useInd]
       self.ZN=np.array(f[b]['geolocation']['elevation_lastbin'])[useInd]
 
+      # read ID
+      self.waveID=np.array(f[b]['shot_number'])[useInd]
+
       # read waveforms
       startInds=np.array(f[b]['rx_sample_start_index'])[useInd]
       self.lenInds=np.array(f[b]['rx_sample_count'])[useInd]
@@ -285,7 +288,7 @@ class gediData(object):
       # make z profile
       self.nBins=self.lenInds[i]
       self.res=(self.Z0[i]-self.ZN[i])/self.nBins
-      self.z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
+      self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
 
       # determine noise for scaling ground return
       reflScale,meanN,stdev=self.meanNoise(i)
@@ -295,8 +298,11 @@ class gediData(object):
       #plt.plot(self.wave[i],self.z,label='Waveform')
       #plt.plot(self.gWave[i]*reflScale+meanN,z,label='Ground')
       plt.fill_betweenx(self.z,self.wave[i][0:self.nBins],meanN)
+      # determine the x limit
+      temp=np.sort(np.copy(self.wave[i][0:self.nBins]))
+      minY=temp[int(temp.shape[0]*0.01)]-5  # to avoid artefacts
+      plt.xlim(left=minY)
       #plt.legend()
-      #plt.xlim(left=0)
       plt.ylim((minX,maxX))
       #plt.xlabel('DN')
       plt.ylabel('Elevation (m)')
@@ -318,7 +324,8 @@ class gediData(object):
     for i in useInd:
       # make z profile
       self.res=(self.Z0[i]-self.ZN[i])/self.nBins
-      self.z=np.arange(self.Z0[i],self.ZN[i],-1*self.res)
+      self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
+
       # determine noise for scaling ground return
       reflScale,meanN,stdev=self.meanNoise(i)
       # find bounds
