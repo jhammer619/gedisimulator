@@ -74,6 +74,7 @@ class gediData(object):
 
 
     # loop over beams
+    self.nWaves=0
     for b in self.beamList:
       if((b in list(f))==False): # does this exist?
         continue                 # if not, skip it
@@ -89,53 +90,62 @@ class gediData(object):
         continue
 
       # read lat lon
-      self.lat=allLat[useInd]
-      self.lon=allLon[useInd]
+      lat=allLat[useInd]
+      lon=allLon[useInd]
 
       # read Z
-      self.Z0=np.array(f[b]['geolocation']['elevation_bin0'])[useInd]
-      self.ZN=np.array(f[b]['geolocation']['elevation_lastbin'])[useInd]
+      Z0=np.array(f[b]['geolocation']['elevation_bin0'])[useInd]
+      ZN=np.array(f[b]['geolocation']['elevation_lastbin'])[useInd]
 
       # read ID
-      self.waveID=np.array(f[b]['shot_number'])[useInd]
+      waveID=np.array(f[b]['shot_number'])[useInd]
 
       # read waveforms
       startInds=np.array(f[b]['rx_sample_start_index'])[useInd]
-      self.lenInds=np.array(f[b]['rx_sample_count'])[useInd]
-      totBins=np.sum(self.lenInds)
-      self.waveform=np.empty(totBins,dtype=np.float32)
+      lenInds=np.array(f[b]['rx_sample_count'])[useInd]
+      totBins=np.sum(lenInds)
 
       # read raw data and repack
-      self.nBins=np.max(self.lenInds)
-      self.nWaves=len(useInd)
+      if(self.nWaves==0):
+        self.nBins=np.max(lenInds)
+
+      nWaves=len(useInd)
       jimlad=np.array(f[b]['rxwaveform'])
-      self.wave=np.full((self.nWaves,self.nBins),np.median(jimlad),dtype=np.float32)
+      wave=np.full((nWaves,self.nBins),np.median(jimlad),dtype=np.float32)
       lastInd=0
       for i in range(0,startInds.shape[0]):
-        self.wave[i][0:self.lenInds[i]]=jimlad[startInds[i]:startInds[i]+self.lenInds[i]]
-        lastInd=lastInd+self.lenInds[i]
+        if(self.nBins<lenInds[i]):
+          minBin=self.nBins
+        else:
+          minBin=lenInds[i]
+        wave[i][0:minBin]=jimlad[startInds[i]:startInds[i]+minBin]
+        lastInd=lastInd+lenInds[i]
 
 
-      ## now read each element
-      #for i in useInd:
-      #  idx=int(f[b]['rx_sample_start_index'][i])-1
-      #  cnt=nBins[i]
-      #  rxdn=f[b]['rxwaveform'][idx:int(idx+cnt)]
-      #  lon=f[b]["geolocation"]["longitude_bin0"][i]
-      #  lat=f[b]["geolocation"]["latitude_bin0"][i]
-      #  tot=f[b]['rx_sample_count'][i]
-      #  if(np.max(rxdn)>300):
-      #    #print(b,cnt,idx,'diff',tot-np.sum(rxdn),'stats',np.median(rxdn),np.min(rxdn),np.max(rxdn))
-      #    plt.plot(rxdn)
-      #    plt.ylabel('DN')
-      #    plt.xlabel('Elevation (m)')
-      #    outNamen=outRoot+"."+b+"."+str(i)+".png"
-      #    plt.savefig(outNamen)
-      #    plt.close()
-      #    plt.clf()
-      #    print("Written to",outNamen,lon,lat)
-      ##self.nBins=int(len(f[b]['rxwaveform'])/nWaves)
-      ##self.nWaves=self.nWaves+nWaves
+    # append all the arrays
+    if(nWaves>0):
+      if(self.nWaves==0):
+        self.wave=wave
+        self.lastInd=lastInd
+        self.lat=lat
+        self.lon=lon
+        self.Z0=Z0
+        self.ZN=ZN
+        self.waveID=waveID
+        self.lenInds=lenInds
+      else:
+        self.wave.resize((nWaves+self.nWaves,self.nBins))
+        self.wave[nWaves:,:]=wave
+        np.append(self.lastInd,lastInd)
+        np.append(self.lat,lat)
+        np.append(self.lon,lon)
+        np.append(self.Z0,Z0)
+        np.append(self.ZN,ZN)
+        np.append(self.waveID,waveID)
+        np.append(self.lenInds,lenInds)
+
+      self.nWaves=self.nWaves+nWaves
+
     f.close()
     return
 
@@ -166,6 +176,10 @@ class gediData(object):
           waveID.append(''.join(np.array(temp[i], dtype=np.str)))
       else:
         waveID=temp
+      # split out the shot number
+      self.shotN=np.empty(nWaves,dtype=int)
+      for i in range(0,nWaves):
+        self.shotN[i]=int(waveID[i].split('.')[2])
       # read all other data
       wave=np.array(f['RXWAVECOUNT'])[useInd]
       gWave=np.array(f['GRWAVECOUNT'])[useInd]
@@ -261,8 +275,8 @@ class gediData(object):
   def setOneZ(self,i):
     '''Set a single z array'''
     res=(self.Z0[i]-self.ZN[i])/self.nBins
-    z=np.arange(self.Z0[i],self.ZN[i],-1*res)
-    return(z)
+    self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
+    return
 
 
   ###########################################
