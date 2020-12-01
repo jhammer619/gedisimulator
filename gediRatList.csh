@@ -56,7 +56,16 @@ while ($#argv>0)
   breaksw
 
   case -coordList
-    set coordList="$argv[2]"
+    set coords="-coordList $argv[2]"
+    set gediCoords="-listCoord $argv[2]"
+    @ nCoords=`wc -l` < $argv[2]
+  shift argv;shift argv
+  breaksw
+
+  case -coord
+    set coords="-coord $argv[2] $argv[3]"
+    set gediCoords="-coord $argv[2] $argv[3]"
+    @ nCoords=1
   shift argv;shift argv
   breaksw
 
@@ -202,6 +211,7 @@ while ($#argv>0)
     echo "-inList name;      name of list with las file names"
     echo "-outRoot root;     output filename root"
     echo "-coordList name;   file containing list of coordinates and waveIDs (x y waveID)"
+    echo "-coord x y;        coordinate of a single footprint to simulate"
     echo "-pBuff size;       RAM buffer size"
     echo "-LVIS;             use LVIS pulse size"
     echo "-pSigma sigma;     pulse width, sigma in m"
@@ -245,7 +255,6 @@ end
 set grabDir="butabe"
 if( ! -e $grabDir )mkdir $grabDir
 
-@ nCoords=`wc -l` < $coordList
 
 # split into sub files
 set tempRoot="/tmp/gediRatList.$$"
@@ -266,8 +275,8 @@ while( $j <= $nReps )
 
   if( ! -e $grab )then
     touch $grab
-    overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
-    gediRat -inList $temp -output $output -listCoord $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $l1b $aEPSG $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed 
+    overlapLasFiles.csh -input $inList $coords -rad 100 -output $temp
+    gediRat -inList $temp -output $output $gediCoords -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $l1b $aEPSG $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed 
 
   endif
 
