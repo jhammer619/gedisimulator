@@ -56,15 +56,13 @@ while ($#argv>0)
   breaksw
 
   case -coordList
-    set coords="-coordList $argv[2]"
-    set gediCoords="-listCoord $argv[2]"
-    @ nCoords=`wc -l` < $argv[2]
+    set coordList="$argv[2]"
+    @ nCoords=`wc -l < $coordList`
   shift argv;shift argv
   breaksw
 
   case -coord
-    set coords="-coord $argv[2] $argv[3]"
-    set gediCoords="-coord $argv[2] $argv[3]"
+    set coords="$argv[2] $argv[3]"
     @ nCoords=1
   shift argv;shift argv;shift argv
   breaksw
@@ -259,7 +257,13 @@ if( ! -e $grabDir )mkdir $grabDir
 # split into sub files
 set tempRoot="/tmp/gediRatList.$$"
 @ nReps=`echo "$nCoords $maxPer"|gawk '{print int($1/$2+1)}'`
-gawk -v maxPer=$maxPer -f $GEDIRAT_ROOT/awk/splitCoords.awk root="$tempRoot" < $coordList
+
+# if in single footprint or group of footprint mode
+if( $nCoords > 1 )then
+  gawk -v maxPer=$maxPer -f $GEDIRAT_ROOT/awk/splitCoords.awk root="$tempRoot" < $coordList
+else
+  echo "$coords" > $tempRoot.0.coords
+endif
 
 @ j=0
 while( $j <= $nReps )
@@ -275,8 +279,8 @@ while( $j <= $nReps )
 
   if( ! -e $grab )then
     touch $grab
-    overlapLasFiles.csh -input $inList $coords -rad 100 -output $temp
-    gediRat -inList $temp -output $output $gediCoords -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $l1b $aEPSG $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed 
+    overlapLasFiles.csh -input $inList -coordList $input -rad 100 -output $temp
+    gediRat -inList $temp -output $output -listCoords $input $input -pBuff $pBuff $LVIS $pSigma $pFWHM $fSigma $ground $sideLobe $lobeAng $topHat $noNorm $checkCove $maxScanAng $pFile $res $polyGround $hdf $l1b $aEPSG $wavefront $octree $octLevels $nOctPix $countOnly $pulseAfter $decimate $seed 
 
   endif
 
