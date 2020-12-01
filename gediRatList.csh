@@ -66,7 +66,7 @@ while ($#argv>0)
     set coords="-coord $argv[2] $argv[3]"
     set gediCoords="-coord $argv[2] $argv[3]"
     @ nCoords=1
-  shift argv;shift argv
+  shift argv;shift argv;shift argv
   breaksw
 
   case -pBuff
