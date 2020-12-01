@@ -18,7 +18,7 @@ The programs are:
 
 **lasPoints**: outputs .pts files from .las files for selected areas.
 
-**lvisBullseye**: collocates GEDI or LVIS to ALS data, following [Blair and Hofton (1999)](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/1999GL010484).
+**collocateWaves**: collocates GEDI or LVIS to ALS data, following [Blair and Hofton (1999)](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/1999GL010484).
 
 **addNoiseHDF**: Reads waveform data from HDF5 files and adds noise of a chosen level.
 
@@ -340,7 +340,7 @@ Lefsky, Michael A., Michael Keller, Yong Pang, Plinio B. De Camargo, and Maria O
 
 
 
-## lvisBullseye ##
+## collocateWaves ##
 
 Uses the correlation method in Blair and Hofton (1999) to colocate a large-footprint lidar dataset with a small-footprint, discrete-return dataset. It uses the Pearson correlation to find the best affine transformation (x and y only, or x, y and z) and footprint size needed to align a large-footprint dataset with a small-footprint dataset. It has three potential modes of operation.
 
