@@ -1,7 +1,7 @@
 # Makefile for GEDI simulator tools
 
-LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff -lhdf5 -L${GSL_ROOT} -lgdal -L${HDF5_LIB}/lib -L/anaconda3/lib
-INCLS = -I/anaconda3/include -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${LIBCLIDAR_ROOT} -I. -I/usr/include/libgeotiff -I/usr/include/gdal -I${GSL_ROOT}  #-I${HDF5_LIB}/include
+LIBS = -lm -lgsl -lgslcblas -ltiff -lgeotiff -lhdf5 -L${GSL_ROOT} -lgdal -L${HDF5_LIB}/lib #-L/anaconda3/lib
+INCLS = -I/usr/local/include -I$(HANCOCKTOOLS_ROOT) -I$(CMPFIT_ROOT) -I${LIBCLIDAR_ROOT} -I. -I/usr/include/libgeotiff -I/usr/include/gdal -I${GSL_ROOT}  #-I${HDF5_LIB}/include -I/anaconda3/include
 CFLAGS += -Wall 
 #CFLAGS += -Wl,--verbose
 CFLAGS += -O3
