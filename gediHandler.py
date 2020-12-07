@@ -188,12 +188,16 @@ class gediData(object):
       self.shotN=np.empty(nWaves,dtype=int)
       beamID=[]
       for i in range(0,nWaves):
-        self.shotN[i]=int(waveID[i].split('.')[2])
-        beamID.append(waveID[i].split('.')[1])
+        bits=waveID[i].split('.')
+        if(len(bits)>=3):
+          self.shotN[i]=int(waveID[i].split('.')[2])
+          beamID.append(waveID[i].split('.')[1])
+        else:
+          self.shotN[i]=int(waveID[i])
+          beamID.append(waveID[i])
       self.beamID=np.array(beamID)
       # read all other data
       wave=np.array(f['RXWAVECOUNT'])[useInd]
-      gWave=np.array(f['GRWAVECOUNT'])[useInd]
       ZN=np.array(f['ZN'])[useInd]
       Z0=np.array(f['Z0'])[useInd]
       nBins=np.array(f['NBINS'])[0]
@@ -202,11 +206,18 @@ class gediData(object):
       fSigma=np.array(f['FSIGMA'])[0]
       nTypes=np.array(f['NTYPEWAVES'])[0]
       idLen=np.array(f['IDLENGTH'])[0]
-      slope=np.array(f['SLOPE'])
-      ZG=np.array(f['ZG'])
       bDense=np.array(f['BEAMDENSE'])
       pDense=np.array(f['POINTDENSE'])
       zen=np.array(f['INCIDENTANGLE'])
+      # is the ground there?
+      if('ZG'in list(f)):
+        ZG=np.array(f['ZG'])
+        slope=np.array(f['SLOPE'])
+        gWave=np.array(f['GRWAVECOUNT'])[useInd]
+      else:
+        ZG=np.zeros(len(useInd))
+        gWave=np.zeros((len(useInd),nBins))
+        slope=np.zeros(len(useInd))
     else:
       nWaves=0
       lon=None
