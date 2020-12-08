@@ -154,7 +154,6 @@ typedef struct{
   char pulseFile[200];
   pulseStruct *pulse;
   float pRes;
-  char pcl;            /*use PCL (do not pad return)*/
 
   /*number of waves to simulate*/
   int nTypeWaves;    /*number of waves simulated*/
@@ -166,6 +165,10 @@ typedef struct{
   double bounds[4]; /*minX minY, maxX maxY*/
   int bEPSG;        /*epsg of bounds*/
   int wEPSG;        /*epsg of waveform data*/
+
+  /*pcl*/
+  char pcl;          /*use PCL full-waveform*/
+  char pclPhoton;    /*use PCL photon counting*/
 
   /*others*/
   int nMessages;  /*number of progress messages*/

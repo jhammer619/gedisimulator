@@ -140,7 +140,6 @@ typedef struct{
   /*photon counting*/
   char ice2;         /*ICESat-2 mode. GEDI by default*/
   photonStruct photonCount;  /*photon counting structure*/
-  char pclPhoton;    /*use PCL photon counting*/
 
   /*others*/
   float rhoRatio; /*ration of canopy to ground reflectance*/
@@ -229,7 +228,7 @@ int main(int argc,char **argv)
   void modifyTruth(dataStruct *,noisePar *);
   void checkWaveformBounds(dataStruct *,control *);
   void photonCountCloud(float *,dataStruct *,photonStruct *,char *,int,denPar *,noisePar *);
-  float *processed=NULL,*denoised=NULL;;
+  float *processed=NULL,*denoised=NULL,*pclWave=NULL;
 
   /*read command Line*/
   dimage=readCommands(argc,argv);
@@ -239,7 +238,7 @@ int main(int argc,char **argv)
  
   /*set photon rates if needed*/
   #ifdef USEPHOTON
-  if(dimage->ice2||dimage->pclPhoton)setPhotonRates(&dimage->photonCount);
+  if(dimage->ice2||dimage->gediIO.pclPhoton)setPhotonRates(&dimage->photonCount);
   #endif
 
 
@@ -272,8 +271,14 @@ int main(int argc,char **argv)
       determineTruth(data,dimage);
 
       /*add noise if needed*/
-      if(!dimage->pclPhoton)addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
-      else                  data->noised=uncompressPhotons(data->wave[data->useType],data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
+      if(!dimage->gediIO.pclPhoton){
+        addNoise(data,&dimage->noise,dimage->gediIO.fSigma,dimage->gediIO.pSigma,dimage->gediIO.res,rhoC,rhoG);
+        if(dimage->gediIO.pcl)pclWave=data->noised;
+      }else if(dimage->gediIO.pclPhoton)pclWave=data->wave[data->useType];
+
+      /*do pcl if needed*/
+      if(dimage->gediIO.pclPhoton||dimage->gediIO.pcl)data->noised=uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
+      pclWave=NULL;
 
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
@@ -1745,7 +1750,6 @@ control *readCommands(int argc,char **argv)
   dimage->readL2=0;   /*do not read L2*/
   /*photon counting*/
   dimage->ice2=0;             /*GEDI mode, rather than ICESat-2*/
-  dimage->pclPhoton=0;        /*full waveform rather thsn PCL*/
   #ifdef USEPHOTON
   dimage->photonCount.designval=2.1;
   dimage->photonCount.prob=NULL;
@@ -1758,6 +1762,9 @@ control *readCommands(int argc,char **argv)
   dimage->photonCount.writeHDF=0;  /*write ASCII by default*/
   dimage->photonCount.hdf=NULL;
   #endif
+  /*PCL*/
+  dimage->gediIO.pcl=0; /*full waveform rather thsn PCL*/
+  dimage->gediIO.pclPhoton=0;  
   /*others*/
   rhoG=0.4;
   rhoC=0.57;
@@ -1775,8 +1782,8 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.inList=NULL;
         dimage->gediIO.nFiles=1;
         dimage->gediIO.inList=chChalloc(dimage->gediIO.nFiles,"input name list",0);
-        dimage->gediIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+1,"input name list",0);
-        strcpy(dimage->gediIO.inList[0],argv[i]);
+        dimage->gediIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+10,"input name list",0);
+        strcpy(&(dimage->gediIO.inList[0][0]),argv[i]);
       }else if(!strncasecmp(argv[i],"-inList",7)){
         checkArguments(1,i,argc,"-inList");
         TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
@@ -1974,8 +1981,10 @@ control *readCommands(int argc,char **argv)
       #ifdef USEPHOTON
       }else if(!strncasecmp(argv[i],"-photonCount",12)){
         dimage->ice2=1;
+      }else if(!strncasecmp(argv[i],"-photonPCL",10)){
+        dimage->gediIO.pclPhoton=1;        /*Pulse compression lidar with photon counting*/
       }else if(!strncasecmp(argv[i],"-pcl",4)){
-        dimage->pclPhoton=1;        /*Pulse compression lidar*/
+        dimage->gediIO.pcl=1;              /*Pulse compression lidar*/
       }else if(!strncasecmp(argv[i],"-nPhotons",9)){
         checkArguments(1,i,argc,"-nPhotons");
         dimage->photonCount.designval=atof(argv[++i]);
@@ -2073,7 +2082,6 @@ void writeHelp()
   #ifdef USEPHOTON
   fprintf(stdout,"\nPhoton counting\n\
 -photonCount;     output point cloud from photon counting\n\
--pcl;             convert to photon counting pulse-compressed before processing\n\
 -nPhotons n;      mean number of photons\n\
 -photonWind x;    window length for photon counting search, metres\n\
 -noiseMult x;     noise multiplier for photon-counting\n\
@@ -2082,6 +2090,10 @@ void writeHelp()
 -nPhotG n;        mean number of ground photons (replaces nPhotons and rhoVrhoG)\n\
 -photHDF;         write photon-counting output in HDF5\n");
   #endif
+  fprintf(stdout,"\nUnfinished\n\
+-photonPCL        convert to photon counting pulse-compressed before processing\n\
+-pcl;             pulse-compressed processing\n\
+");
   fprintf(stdout,"\nDenoising:\n\
 -meanN n;         mean noise level, if using a predefined mean level\n\
 -thresh n;        noise threshold, if using a predefined noise threshold\n\

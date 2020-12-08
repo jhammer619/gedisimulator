@@ -65,7 +65,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
     exit(1);
   }
 
-  /*first perform photon counting*/
+  /*first perform photon counting, if needed*/
   photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
 
   /*perform cross-correlation*/
