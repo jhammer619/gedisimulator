@@ -346,6 +346,8 @@ class gediData(object):
       # open output file
       outName='outRoot.'+self.waveID[i]+'.csv'
       f=open(outName,'w')
+      line='z,wave,ground,cumulWave\n'
+      f.write(line)
 
       # cumulative wave for RH metrics
       cumWave=np.flip(np.cumsum(np.flip(self.wave[i,:],0)),0)/np.sum(self.wave[i,:])
