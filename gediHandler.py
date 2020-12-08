@@ -315,6 +315,51 @@ class gediData(object):
       self.plotSimWaves(outRoot,useInd)
     return
 
+  ###########################################
+
+  def writeWaves(self,outRoot='teast',useInd=[]):
+    '''Write out waveforms'''
+
+    if(self.real==1):
+      #self.writeRealWaves(outRoot,useInd)
+      print('Writing real waveforms option not ready yet')
+      exit()
+    else:
+      self.writeSimWaves(outRoot,useInd)
+    return
+
+
+  ###########################################
+
+  def writeSimWaves(self,outRoot,useInd):
+    '''Write out simulated waveforms'''
+
+    if(useInd==[]):
+      useInd=range(0,len(self.lon))
+
+    # loop over waves
+    for i in useInd:
+      # make z profile
+      self.res=(self.Z0[i]-self.ZN[i])/self.nBins
+      self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
+
+      # open output file
+      outName='outRoot.'+self.waveID[i]+'.csv'
+      f=open(outName,'w')
+
+      # cumulative wave for RH metrics
+      cumWave=np.flip(np.cumsum(np.flip(self.wave[i,:],0)),0)/np.sum(self.wave[i,:])
+
+      # loop over bins
+      for j in range(0,self.nBins):
+        line=str(self.z[j])+','+str(self.wave[i,j])+','+str(self.gWave[i,j])+','+str(cumWave[j])+'\n'
+        f.write(line)
+
+      f.close()
+      print('Written to',outName)
+
+    return
+
 
   ###########################################
 
@@ -456,6 +501,7 @@ if __name__ == '__main__':
     p.add_argument("--bounds", dest ="bounds", type=float,nargs=4,default=[-100000000,-100000000,100000000000,10000000000], help=("Bounds to plot between. minX minY maxX maxY"))
     p.add_argument("--outRoot",dest="outRoot",type=str,default='test',help=("Output graph filename root"))
     p.add_argument("--writeCoords",dest="writeCoords", action='store_true', default=False, help=("Write out coordinates insteda of plotting waveforms"))
+    p.add_argument("--writeWaves",dest="writeWaves", action='store_true', default=False, help=("Write out csv files of the waveforms"))
     cmdargs = p.parse_args()
     return cmdargs
 
@@ -476,6 +522,9 @@ if __name__ == '__main__':
   # mode switch
   if(cmdargs.writeCoords):
     gedi.writeCoords()
+  elif(cmdargs.writeWaves):
+    # write the waveforms
+    gedi.writeWaves(outRoot=outRoot)
   else:
     print("Read",gedi.nWaves,"waveforms")
     # plot data
