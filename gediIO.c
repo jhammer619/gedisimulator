@@ -3189,7 +3189,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
         gediIO->pulse->centBin=i;
       }
     }
-  }else gediIO->pulse->centBin=gediIO->pulse->nBins/2;  /*if we are using pulse compressed lidar*/
+  }else gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);  /*if we are using pulse compressed lidar*/
 
   /*pulse width*/
   gediIO->pSigma=0.0;
@@ -3951,7 +3951,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
   float **temp=NULL;
   float **tempGr=NULL;
   float **tempC=NULL;
-  int contN=0;
+  float contN=0;
 
   /*allocate temporary space*/
   temp=fFalloc(waves->nWaves,"temp waves",0);
@@ -3982,7 +3982,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
 
     /*loop over waveform bins*/
     for(i=0;i<waves->nBins;i++){
-      contN=0;    /*reset counter*/
+      contN=0.0;    /*reset counter*/
 
       /*loop over pulse bins*/
       for(j=0;j<=gediIO->pulse->nBins;j++){
@@ -3997,17 +3997,17 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
             tempGr[k][i]+=waves->ground[k][bin]*gediIO->pulse->y[j];
             tempC[k][i]+=waves->canopy[k][bin]*gediIO->pulse->y[j];
           }
-          contN++;
+          contN+=gediIO->pulse->y[j];
         }/*bin bound check*/
 
       }/*pulse bin loop*/
 
       /*normalise*/
-      if(contN>0){
-        temp[k][i]/=(float)contN;
+      if(contN>0.0){
+        temp[k][i]/=contN;
         if(gediIO->ground){
-          tempGr[k][i]/=(float)contN;
-          tempC[k][i]/=(float)contN;
+          tempGr[k][i]/=contN;
+          tempC[k][i]/=contN;
         }
       }/*normalisation step*/
 

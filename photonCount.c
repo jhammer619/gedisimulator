@@ -88,7 +88,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 
 float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
 {
-  int i=0,j=0,bin=0;
+  int i=0,j=0,bin=0,centBin=0;
   int *contN=NULL,thisCont=0;
   float *compCorr=NULL,*resampP=NULL;
   float meanP=0,meanW=0;
@@ -130,12 +130,13 @@ static int count=0;
 
   /*resample pulse*/
   for(i=0;i<pulse->nBins;i++){
-    bin=(int)((float)i*pRes/res+0.5);
+    bin=(int)((float)i*pRes/res);
     if((bin>=0)&&(bin<nBins)){
       resampP[bin]+=pulse->y[i];
       contN[bin]++;
     }
   }
+  centBin=0; //(int)((float)pulse->centBin*pRes/res);
 
   /*normalise resampled*/
   for(i=0;i<nBins;i++){
@@ -149,14 +150,14 @@ static int count=0;
     thisCont=0;
 
     for(j=0;j<nBins;j++){
-      bin=(i-(int)(nBins/2))+j;
+      bin=i+j-centBin;
 
       if((bin>=0)&&(bin<nBins)){
         compCorr[i]+=(photWave[j]-meanW)*(resampP[bin]-meanP)/(stdevP*stdevW);
         thisCont++;
       }
     }
-    compCorr[i]/=(float)thisCont;
+    if(thisCont>0)compCorr[i]/=(float)thisCont;
     fprintf(stdout,"%d %d %.10f %f %f\n",count,i,compCorr[i],photWave[i],resampP[i]);
   }
   TIDY(resampP);
