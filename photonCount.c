@@ -93,8 +93,6 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   float *compCorr=NULL,*resampP=NULL;
   float meanP=0,meanW=0;
   float stdevP=0,stdevW=0;
-  float minW=0,maxW=0,scaleW=0;
-  float minP=0,maxP=0,scaleP=0;
 static int count=0;
 
   /*allocate space*/
@@ -102,13 +100,7 @@ static int count=0;
 
   /*find the mean of the pulse and min/max*/
   meanP=0.0;
-  minP=1000000.0;
-  maxP=-1000000.0;
-  for(i=0;i<pulse->nBins;i++){
-    meanP+=pulse->y[i];
-    if(pulse->y[i]>maxP)maxP=pulse->y[i];
-    if(pulse->y[i]<minP)minP=pulse->y[i];
-  }
+  for(i=0;i<pulse->nBins;i++)meanP+=pulse->y[i];
   meanP/=(float)pulse->nBins;
 
   /*find the stdev of the pulse*/
@@ -118,13 +110,7 @@ static int count=0;
 
   /*find the mean of the wave*/
   meanW=0.0;
-  minW=1000000.0;
-  maxW=-1000000.0;
-  for(i=0;i<nBins;i++){
-    meanW+=photWave[i];
-    if(photWave[i]>maxW)maxW=photWave[i];
-    if(photWave[i]<minW)minW=photWave[i];
-  }
+  for(i=0;i<nBins;i++)meanW+=photWave[i];
   meanW/=(float)nBins;
 
   /*find the stdev of the wave*/
