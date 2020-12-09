@@ -3948,12 +3948,10 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
 {
   int i=0,j=0,k=0;
   int bin=0;
-  int binsAbove=0;
-  int binsBelow=0;
   float **temp=NULL;
   float **tempGr=NULL;
   float **tempC=NULL;
-  int *contN=NULL;
+  int contN=0;
 
   /*allocate temporary space*/
   temp=fFalloc(waves->nWaves,"temp waves",0);
@@ -3961,7 +3959,6 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
     tempGr=fFalloc(waves->nWaves,"temp ground waves",0);
     tempC=fFalloc(waves->nWaves,"temp canopy waves",0);
   }
-  contN=ialloc((uint64_t)waves->nBins,"contribution counter",0);
 
   for(k=0;k<waves->nWaves;k++){
     temp[k]=falloc((uint64_t)waves->nBins,"temp waves",i+1);
@@ -3979,54 +3976,48 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
     }
   }/*allocate temporary space*/
 
-  /*maximum distance to loop*/
-  binsBelow=(int)((float)gediIO->pulse->centBin*gediIO->pRes/gediIO->res);
-  binsAbove=(int)((float)(gediIO->pulse->nBins-gediIO->pulse->centBin)*gediIO->pRes/gediIO->res);
-
   /*smooth by pulse shape*/
   /*loop over methods*/
   for(k=0;k<waves->nWaves;k++){
 
-    /*reset counter*/
-    for(i=0;i<waves->nBins;i++)contN[i]=0;
-
     /*loop over waveform bins*/
     for(i=0;i<waves->nBins;i++){
-      /*loop over pulse*/
-      for(j=i-binsBelow;j<=(i+binsAbove);j++){
-        /*are we within the waveform?*/
-        if((j<0)||(j>=waves->nBins))continue;
-        /*pulse array bin*/
-        bin=(int)((float)(j-i)*gediIO->res/gediIO->pRes)+gediIO->pulse->centBin;
-        /*are we within the pulse array?*/
-        if((bin>=0)&&(bin<gediIO->pulse->nBins)){
-          temp[k][j]+=waves->wave[k][i]*gediIO->pulse->y[bin];
-          if(gediIO->ground){
-            tempGr[k][j]+=waves->ground[k][i]*gediIO->pulse->y[bin];
-            tempC[k][j]+=waves->canopy[k][i]*gediIO->pulse->y[bin];
-          }
-          contN[j]++;
-        }/*bin bound check*/
-      }/*pulse bin loop*/
-    }/*bin loop*/
+      contN=0;    /*reset counter*/
 
-    /*normalise if needed*/
-    /*for(i=0;i<waves->nBins;i++){
-      if(contN[i]>0){
-        temp[k][i]/=(float)contN[i];
+      /*loop over pulse bins*/
+      for(j=0;j<=gediIO->pulse->nBins;j++){
+        /*waveform array bin*/
+        bin=i+(int)((float)(j-gediIO->pulse->centBin)*gediIO->pRes/gediIO->res);
+
+        /*are we within the pulse array?*/
+        if((bin>=0)&&(bin<waves->nBins)){
+          /*add up contributions*/
+          temp[k][i]+=waves->wave[k][bin]*gediIO->pulse->y[j];
+          if(gediIO->ground){
+            tempGr[k][i]+=waves->ground[k][bin]*gediIO->pulse->y[j];
+            tempC[k][i]+=waves->canopy[k][bin]*gediIO->pulse->y[j];
+          }
+          contN++;
+        }/*bin bound check*/
+
+      }/*pulse bin loop*/
+
+      /*normalise*/
+      if(contN>0){
+        temp[k][i]/=(float)contN;
         if(gediIO->ground){
-          tempGr[k][i]/=(float)contN[i];
-          tempC[k][i]/=(float)contN[i];
+          tempGr[k][i]/=(float)contN;
+          tempC[k][i]/=(float)contN;
         }
-      }
-    }*//*normalisation step*/
+      }/*normalisation step*/
+
+    }/*bin loop*/
   }/*type loop*/
 
   /*transfer arrays*/
   TTIDY((void **)waves->wave,waves->nWaves);
   TTIDY((void **)waves->ground,waves->nWaves);
   TTIDY((void **)waves->canopy,waves->nWaves);
-  TIDY(contN);
   waves->wave=temp;
   waves->ground=tempGr;
   waves->canopy=tempC;

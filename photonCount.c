@@ -116,9 +116,6 @@ static int count=0;
   for(i=0;i<pulse->nBins;i++)stdevP+=(pulse->y[i]-meanP)*(pulse->y[i]-meanP);
   stdevP=sqrt(stdevP/(float)pulse->nBins);
 
-  /*remove assymmetry*/
-  //removeAsymmetryPCL(photWave,nBins);
-
   /*find the mean of the wave*/
   meanW=0.0;
   minW=1000000.0;
@@ -129,13 +126,6 @@ static int count=0;
     if(photWave[i]<minW)minW=photWave[i];
   }
   meanW/=(float)nBins;
-
-  /*rescale it all to be -0.5 to 0.5*/
-  /*for(i=0;i<nBins;i++){
-    photWave[i]=(photWave[i]-meanW)/(maxW-minW)
-    resamp[i]=(photWave[i]-meanW)/(maxW-minW)
-  }
-  meanW=meanP=0.0;*/
 
   /*find the stdev of the wave*/
   stdevW=0.0;
