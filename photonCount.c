@@ -58,6 +58,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   float *photWave=NULL;
   float *corrWave=NULL;
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
+  float *crossCorrelateTime(float *,float,int,pulseStruct *,float);
 
   /*do we have a usable pulse?*/
   if(gediIO->pulse==NULL){
@@ -70,7 +71,8 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   else                 photWave=wave;
 
   /*perform cross-correlation*/
-  corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+  corrWave=crossCorrelateTime(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+  //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
 
   /*tidy up*/
   if(photWave!=wave){
@@ -82,7 +84,89 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 
 
 /*####################################################*/
-/*perform a cross-correlation*/
+/*perform a cross-correlation in the time domain*/
+
+float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
+{
+  int i=0,j=0,bin=0;
+  int *contN=NULL,thisCont=0;
+  float *compCorr=NULL,*resampP=NULL;
+  float meanP=0,meanW=0;
+  float stdevP=0,stdevW=0;
+static int count=0;
+
+  /*allocate space*/
+  compCorr=falloc(nBins,"",0);
+
+  /*find the mean of the pulse*/
+  meanP=0.0;
+  for(i=0;i<pulse->nBins;i++)meanP+=pulse->y[i];
+  meanP/=(float)pulse->nBins;
+
+  /*find the stdev of the pulse*/
+  stdevP=0.0;
+  for(i=0;i<pulse->nBins;i++)stdevP+=(pulse->y[i]-meanP)*(pulse->y[i]-meanP);
+  stdevP=sqrt(stdevP/(float)pulse->nBins);
+
+  /*find the mean of the wave*/
+  meanW=0.0;
+  for(i=0;i<nBins;i++)meanW+=photWave[i];
+  meanW/=(float)nBins;
+
+  /*find the stdev of the wave*/
+  stdevW=0.0;
+  for(i=0;i<nBins;i++)stdevW+=(photWave[i]-meanW)*(photWave[i]-meanW);
+  stdevW=sqrt(stdevW/(float)nBins);
+
+  /*allocate resampled pulse*/
+  resampP=falloc(nBins,"",0);
+  contN=ialloc(nBins,"",0);
+  for(i=0;i<nBins;i++){
+    resampP[i]=0.0;
+    contN[i]=0;
+  }
+
+  /*resample pulse*/
+  for(i=0;i<pulse->nBins;i++){
+    bin=(int)((float)i*pRes/res+0.5);
+    if((bin>=0)&&(bin<nBins)){
+      resampP[bin]+=pulse->y[i];
+      contN[bin]++;
+    }
+  }
+
+  /*normalise resampled*/
+  for(i=0;i<nBins;i++){
+    if(contN[i]>0)resampP[i]/=(float)contN[i];
+  }
+  TIDY(contN);
+
+  /*time domain*/
+  for(i=0;i<nBins;i++){
+    compCorr[i]=0.0;
+    thisCont=0;
+
+    for(j=0;j<nBins;j++){
+      bin=(i-(int)(nBins/2))+j;
+
+      if((bin>=0)&&(bin<nBins)){
+        compCorr[i]+=(photWave[j]-meanW)*(resampP[bin]-meanP)/(stdevP*stdevW);
+        thisCont++;
+      }
+    }
+    compCorr[i]/=(float)thisCont;
+    fprintf(stdout,"%d %d %.10f %f %f\n",count,i,compCorr[i],photWave[i],resampP[i]);
+  }
+  TIDY(resampP);
+  TIDY(photWave);
+  count++;
+
+  return(compCorr);
+}/*crossCorrelateTime*/
+
+
+/*####################################################*/
+/*perform a cross-correlation using Fourier*/
 
 float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
 {
@@ -97,12 +181,13 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
   int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
   void removeAsymmetryPCL(double *,int);
+static int count=0;
 
 
   /*FFT requires that array is a power of 2 long*/
   numb=pow(2.0,(float)(int)(log((double)nBins)/log(2.0)+1.0));
 
-  /*resample pulse to match waveform*/
+  /*allocate space for resampled complex pulse*/
   compPulse=dalloc(2*numb,"complex pulse",0);
   contN=ialloc(numb,"contribution counter",0);
   for(i=0;i<numb;i++){
@@ -130,6 +215,8 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
     contN[bin]++;
   }*/
 
+
+  /*resample pulse to match waveform*/
   for(i=0;i<pulse->nBins;i++){
     bin=(int)((float)i*pRes/res+0.5);
     if((bin<0)||(bin>=numb))continue;
@@ -137,17 +224,14 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
     contN[bin]++;
   }
 
-
   /*normalise*/
   for(i=0;i<numb;i++){
-    if(contN[i]>0){
-      compPulse[2*i]/=(float)contN[i];
-    }
+    if(contN[i]>0)compPulse[2*i]/=(float)contN[i];
   }
   TIDY(contN);
 
   /*median of pulse*/
-  meanP=singleMedian(pulse->y,pulse->nBins);
+  //meanP=singleMedian(pulse->y,pulse->nBins);
 
   /*make waveform complex*/
   compWave=dalloc(2*numb,"complex wave",0);
@@ -155,17 +239,17 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
     compWave[2*i]=(double)photWave[i];
     compWave[2*i+1]=0.0;  /*imaginary part*/
   }
-  meanW=singleMedian(photWave,nBins);
+  //meanW=singleMedian(photWave,nBins);
   for(i=2*nBins;i<2*numb;i++)compWave[i]=0.0;
 
   /*subtract means*/
-  for(i=numb-1;i>=0;i--){
+  /*for(i=numb-1;i>=0;i--){
     compWave[2*i]-=meanW;
     compPulse[2*i]-=meanP;
-  }
+  }*/
 
   /*remove assymmetry of signal*/
-  removeAsymmetryPCL(compWave,numb);
+  //removeAsymmetryPCL(compWave,numb);
 
   /*fourier transform both*/
   gsl_fft_complex_radix2_forward((gsl_complex_packed_array)compPulse,1,numb);
@@ -175,7 +259,7 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   compCorr=dalloc(2*numb,"complex correlation",0);
   for(i=0;i<numb;i++){
     compCorr[2*i]=compPulse[2*i]*compWave[2*i]+compPulse[2*i+1]*compWave[2*i+1];
-    compCorr[2*i+1]=compPulse[2*i]*compWave[2*i+1]-compPulse[2*i+1]*compWave[2*i];
+    compCorr[2*i+1]=compPulse[2*i+1]*compWave[2*i]-compPulse[2*i]*compWave[2*i+1];
   }
 
   /*inverse fourier*/
@@ -184,8 +268,10 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   /*make real*/
   corrWave=falloc(nBins,"correlated wave",0);
   for(i=0;i<nBins;i++){
-    corrWave[i]=(float)compCorr[2*i];  /*(float)sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);*/
+    corrWave[i]=(float)compCorr[2*i]; //sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
+    fprintf(stdout,"%d %d %f %f\n",count,i,corrWave[i],photWave[i]);
   }
+count++;
 
   /*tidy up*/
   TIDY(compPulse);
@@ -205,7 +291,7 @@ void removeAsymmetryPCL(double *compWave,int numb)
 
   /*find start point*/
   for(i=0;i<numb;i++){
-    /*if less then mean, set to mean*/
+    /*if less than mean, set to mean*/
     if(compWave[2*i]>=0.0){
       for(;i>=0;i--)compWave[2*i]=0.0;
       break;
