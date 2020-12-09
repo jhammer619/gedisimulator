@@ -2075,7 +2075,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 {
   int i=0;
   float zTop=0;
-  float *setPulseRange(float,pulseStruct *);
+  float *setPulseRange(gediIOstruct *);
   dataStruct *data=NULL;
 
   /*read data from file if needed*/
@@ -2133,7 +2133,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
     gediIO->pulse->y=hdfGedi[0]->pulse;
     gediIO->pulse->nBins=hdfGedi[0]->nPbins;
     gediIO->pRes=hdfGedi[0]->pRes;
-    gediIO->pulse->x=setPulseRange(gediIO->pRes,gediIO->pulse);
+    gediIO->pulse->x=setPulseRange(gediIO);
   }else{
     gediIO->pulse=NULL;
   }/*pulse reading*/
@@ -2163,29 +2163,27 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 /*####################################################*/
 /*set range from pulse file*/
 
-float *setPulseRange(float pRes,pulseStruct *pulse)
+float *setPulseRange(gediIOstruct *gediIO)
 {
-  int i=0,nMax=0;
+  int i=0;
   float *x=NULL;
   float max=0;
 
   /*allocate space*/
-  x=falloc(pulse->nBins,"pulse range",0);
+  x=falloc(gediIO->pulse->nBins,"pulse range",0);
 
   /*assign values and check for max*/
   max=-10000.0;
-  nMax=0;
-  for(i=0;i<pulse->nBins;i++){
-    x[i]=(float)i*pRes;
-    if(pulse->y[i]>max){
-      max=pulse->y[i];
-      pulse->centBin=i;
-      nMax++;
+  for(i=0;i<gediIO->pulse->nBins;i++){
+    x[i]=(float)i*gediIO->pRes;
+    if(gediIO->pulse->y[i]>max){
+      max=gediIO->pulse->y[i];
+      gediIO->pulse->centBin=i;
     }
   }
 
   /*to allow for chirps*/
-  if(nMax>2)pulse->centBin=pulse->nBins/2;
+  if(gediIO->pcl)gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);
 
   return(x);
 }/*setPulseRange*/
@@ -3125,7 +3123,7 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 
 void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
-  int i=0,nMax=0;
+  int i=0;
   float CofG=0,tot=0,centre=0;
   float minSep=0,max=0;
   char line[400];
@@ -3168,13 +3166,11 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   tot=0.0;
   CofG=0.0;
   max=-1000.0;
-  nMax=0;
   for(i=0;i<gediIO->pulse->nBins;i++){
     CofG+=gediIO->pulse->x[i]*gediIO->pulse->y[i];
     if(gediIO->pulse->y[i]>=max){
       max=gediIO->pulse->y[i];
       centre=gediIO->pulse->x[i];
-      nMax++;
     }
     tot+=gediIO->pulse->y[i];
   }
@@ -3182,7 +3178,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   CofG-=centre;
 
   /*align pulse*/
-  if(nMax<=2){
+  if(!gediIO->pcl){
     minSep=1000.0;
     gediIO->pSigma=0.0;
     for(i=0;i<gediIO->pulse->nBins;i++){
@@ -3848,7 +3844,7 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
           if(sep<=gediRat->lobe[n].maxSepSq)rScale=1.0;
           else                             rScale=0.0;
         }
-      }else{     /*read assymmetric pulse*/
+      }else{     /*read assymmetric footprint*/
         xInd=(int)((dX*cos(gediRat->lobeAng)+dY*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->x0;
         yInd=(int)((dY*cos(gediRat->lobeAng)-dX*sin(gediRat->lobeAng))/(double)gediRat->wavefront->res)+gediRat->wavefront->y0;
         if((xInd>=0)&&(xInd<gediRat->wavefront->nX)&&(yInd>=0)&&(yInd<gediRat->wavefront->nY)){
@@ -3957,6 +3953,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
   float **temp=NULL;
   float **tempGr=NULL;
   float **tempC=NULL;
+  int *contN=NULL;
 
   /*allocate temporary space*/
   temp=fFalloc(waves->nWaves,"temp waves",0);
@@ -3964,6 +3961,8 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
     tempGr=fFalloc(waves->nWaves,"temp ground waves",0);
     tempC=fFalloc(waves->nWaves,"temp canopy waves",0);
   }
+  contN=ialloc((uint64_t)waves->nBins,"contribution counter",0);
+
   for(k=0;k<waves->nWaves;k++){
     temp[k]=falloc((uint64_t)waves->nBins,"temp waves",i+1);
     if(gediIO->ground){
@@ -3987,7 +3986,11 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
   /*smooth by pulse shape*/
   /*loop over methods*/
   for(k=0;k<waves->nWaves;k++){
-    /*loop over waveform*/
+
+    /*reset counter*/
+    for(i=0;i<waves->nBins;i++)contN[i]=0;
+
+    /*loop over waveform bins*/
     for(i=0;i<waves->nBins;i++){
       /*loop over pulse*/
       for(j=i-binsBelow;j<=(i+binsAbove);j++){
@@ -4002,15 +4005,28 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
             tempGr[k][j]+=waves->ground[k][i]*gediIO->pulse->y[bin];
             tempC[k][j]+=waves->canopy[k][i]*gediIO->pulse->y[bin];
           }
+          contN[j]++;
         }/*bin bound check*/
       }/*pulse bin loop*/
-    }/*type loop*/
-  }/*bin loop*/
+    }/*bin loop*/
+
+    /*normalise if needed*/
+    /*for(i=0;i<waves->nBins;i++){
+      if(contN[i]>0){
+        temp[k][i]/=(float)contN[i];
+        if(gediIO->ground){
+          tempGr[k][i]/=(float)contN[i];
+          tempC[k][i]/=(float)contN[i];
+        }
+      }
+    }*//*normalisation step*/
+  }/*type loop*/
 
   /*transfer arrays*/
   TTIDY((void **)waves->wave,waves->nWaves);
   TTIDY((void **)waves->ground,waves->nWaves);
   TTIDY((void **)waves->canopy,waves->nWaves);
+  TIDY(contN);
   waves->wave=temp;
   waves->ground=tempGr;
   waves->canopy=tempC;

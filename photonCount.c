@@ -108,6 +108,9 @@ static int count=0;
   for(i=0;i<pulse->nBins;i++)stdevP+=(pulse->y[i]-meanP)*(pulse->y[i]-meanP);
   stdevP=sqrt(stdevP/(float)pulse->nBins);
 
+  /*remove assymmetry*/
+  //removeAsymmetryPCL(photWave,nBins);
+
   /*find the mean of the wave*/
   meanW=0.0;
   for(i=0;i<nBins;i++)meanW+=photWave[i];
@@ -117,6 +120,8 @@ static int count=0;
   stdevW=0.0;
   for(i=0;i<nBins;i++)stdevW+=(photWave[i]-meanW)*(photWave[i]-meanW);
   stdevW=sqrt(stdevW/(float)nBins);
+
+  //meanW=singleMedian(photWave,nBins);
 
   /*allocate resampled pulse*/
   resampP=falloc(nBins,"",0);
@@ -180,7 +185,6 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   double *compCorr=NULL;
   int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
   int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
-  void removeAsymmetryPCL(double *,int);
 static int count=0;
 
 
@@ -285,15 +289,19 @@ count++;
 /*####################################################*/
 /*truncate the assymmetry of a waveform for PCL*/
 
-void removeAsymmetryPCL(double *compWave,int numb)
+void removeAsymmetryPCL(float *wave,int numb)
 {
   int i=0;
+  float medianW=0;
+
+  /*find the median*/
+  medianW=singleMedian(wave,numb);
 
   /*find start point*/
   for(i=0;i<numb;i++){
     /*if less than mean, set to mean*/
-    if(compWave[2*i]>=0.0){
-      for(;i>=0;i--)compWave[2*i]=0.0;
+    if(wave[i]>=medianW){
+      for(;i>=0;i--)wave[i]=medianW;
       break;
     }
   }
@@ -301,8 +309,8 @@ void removeAsymmetryPCL(double *compWave,int numb)
   /*find end point*/
   for(i=numb-1;i>=0;i--){
     /*if less then mean, set to mean*/
-    if(compWave[2*i]>=0.0){
-      for(;i<numb;i++)compWave[2*i]=0.0;
+    if(wave[i]>=medianW){
+      for(;i<numb;i++)wave[i]=medianW;
       break;
     }
   }

@@ -73,6 +73,7 @@ void setPhotonRates(photonStruct *);
 float *uncompressPhotons(float *,dataStruct *,photonStruct *,noisePar *,gediIOstruct *);
 float **countPhotons(float *,dataStruct *,photonStruct *,int *,denPar *,noisePar *);
 float *countWaveform(float *,dataStruct *,photonStruct *,denPar *,noisePar *);
+void removeAsymmetryPCL(float *,int);
 
 /*###########################################################*/
 
