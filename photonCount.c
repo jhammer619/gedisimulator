@@ -66,15 +66,16 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   }
 
   /*first perform photon counting, if needed*/
-  photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
+  if(gediIO->pclPhoton)photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
+  else                 photWave=wave;
 
   /*perform cross-correlation*/
-  //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
-  corrWave=crossCorrelateWaves(wave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
-  //corrWave=crossCorrelateWaves(gediIO->pulse->y,gediIO->pRes,gediIO->pulse->nBins,gediIO->pulse,gediIO->pRes);
+  corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
 
   /*tidy up*/
-  TIDY(photWave);
+  if(photWave!=wave){
+    TIDY(photWave);
+  }else photWave=NULL;
 
   return(corrWave);
 }/*uncompressPhotons*/
@@ -131,7 +132,7 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
 
   for(i=0;i<pulse->nBins;i++){
     bin=(int)((float)i*pRes/res+0.5);
-    if((bin<0)||(bin>numb))continue;
+    if((bin<0)||(bin>=numb))continue;
     compPulse[2*bin]+=(double)pulse->y[i];
     contN[bin]++;
   }
