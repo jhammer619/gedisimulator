@@ -161,7 +161,6 @@ static int count=0;
     fprintf(stdout,"%d %d %.10f %f %f\n",count,i,compCorr[i],photWave[i],resampP[i]);
   }
   TIDY(resampP);
-  TIDY(photWave);
   count++;
 
   return(compCorr);
