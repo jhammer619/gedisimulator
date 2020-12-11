@@ -192,7 +192,7 @@ class gediData(object):
         if(len(bits)>=3):
           self.shotN[i]=int(waveID[i].split('.')[2])
           beamID.append(waveID[i].split('.')[1])
-        if(len(bits)>1):
+        elif(len(bits)>1):
           self.shotN[i]=int(waveID[i].split('.')[0])
           beamID.append(waveID[i].split('.')[0])
         else:
