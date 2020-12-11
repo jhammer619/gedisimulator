@@ -3380,38 +3380,42 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
 
   numb=*hdfCount;
 
+
   /*trim waveform*/
-  if(gediIO->pcl==0)buff=30.0;
-  else              buff=0.0;
-
-  /*find energies*/
-  tot=falloc((uint64_t)hdfData->nTypeWaves,"tot",0);
-  cumul=falloc((uint64_t)hdfData->nTypeWaves,"cumul",0);
-  for(j=0;j<hdfData->nTypeWaves;j++){
-    tot[j]=cumul[j]=0.0;
-    for(i=0;i<waves->nBins;i++)tot[j]+=waves->wave[j][i];
-  }
-  /*set threshols*/
-  thresh=falloc((uint64_t)hdfData->nTypeWaves,"thresh",0);
-  for(j=0;j<hdfData->nTypeWaves;j++)thresh[j]=0.01*tot[j];
-  TIDY(tot);
-  /*find waveform start*/
-  start=-1;
-  for(i=0;i<waves->nBins;i++){
+  if(gediIO->pcl==0){
+    buff=30.0;
+    /*find energies*/
+    tot=falloc((uint64_t)hdfData->nTypeWaves,"tot",0);
+    cumul=falloc((uint64_t)hdfData->nTypeWaves,"cumul",0);
     for(j=0;j<hdfData->nTypeWaves;j++){
-      cumul[j]+=waves->wave[j][i];
-      if(cumul[j]>thresh[j]){
-        start=i;
-        break;
-      }
+      tot[j]=cumul[j]=0.0;
+      for(i=0;i<waves->nBins;i++)tot[j]+=waves->wave[j][i];
     }
-    if(start>=0)break;
-  }/*waveform trimming*/
-  TIDY(cumul);
-  TIDY(thresh);
+    /*set threshols*/
+    thresh=falloc((uint64_t)hdfData->nTypeWaves,"thresh",0);
+    for(j=0;j<hdfData->nTypeWaves;j++)thresh[j]=0.01*tot[j];
+    TIDY(tot);
+    /*find waveform start*/
+    start=-1;
+    for(i=0;i<waves->nBins;i++){
+      for(j=0;j<hdfData->nTypeWaves;j++){
+        cumul[j]+=waves->wave[j][i];
+        if(cumul[j]>thresh[j]){
+          start=i;
+          break;
+        }
+      }
+      if(start>=0)break;
+    }/*waveform trimming*/
+    TIDY(cumul);
+    TIDY(thresh);
 
-  start-=buff/gediIO->res;
-  if(start<0)start=0;
+    start-=buff/gediIO->res;
+    if(start<0)start=0;
+  }else{
+    start=0;
+    buff=0.0;
+  }
 
   /*copy data*/
   hdfData->z0[numb]=waves->maxZ-(float)start*gediIO->res;
@@ -3933,7 +3937,6 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
               }
             }
           }/*bin check*/
-//fprintf(stdout,"bin %d %f %d\n",bin,waves->wave[0][bin],waves->nBins);
         }/*apply pulse before or after*/
         if(gediIO->ground){
           if(data[numb]->class[i]==2){
