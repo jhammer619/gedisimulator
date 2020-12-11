@@ -215,6 +215,7 @@ typedef struct{
 int main(int argc,char **argv)
 {
   int i=0;
+int count=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
@@ -250,6 +251,7 @@ int main(int argc,char **argv)
 
   /*loop over files*/
   for(i=0;i<dimage->gediIO.nFiles;i++){
+count=0;
     if((i%dimage->gediIO.nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
 
     /*read waveform*/
@@ -259,13 +261,16 @@ int main(int argc,char **argv)
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);
 
+
     /*check bounds if needed*/
     if(dimage->useBounds)checkWaveformBounds(data,dimage);
+
 
     /*is the data usable*/
     if(data->usable){
       /*denoise and change pulse if needed*/
       if(dimage->renoiseWave)modifyTruth(data,&dimage->noise);
+
 
       /*determine truths before noising*/
       determineTruth(data,dimage);
@@ -276,13 +281,16 @@ int main(int argc,char **argv)
         if(dimage->gediIO.pcl)pclWave=data->noised;
       }else if(dimage->gediIO.pclPhoton)pclWave=data->wave[data->useType];
 
+
       /*do pcl if needed*/
       if(dimage->gediIO.pclPhoton||dimage->gediIO.pcl)data->noised=uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO);
       pclWave=NULL;
 
+
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
       denoised=processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0);
+
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
@@ -292,23 +300,26 @@ int main(int argc,char **argv)
           /*Gaussian fit*/
           if(dimage->noRHgauss==0)processed=processFloWave(denoised,data->nBins,dimage->gediIO.gFit,1.0);
 
+
           /*shift Gaussian centres to align to absolute elevation*/
           alignElevation(data->z[0],data->z[data->nBins-1],dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss);
+
 
           /*determine metrics*/
           findMetrics(metric,dimage->gediIO.gFit->gPar,dimage->gediIO.gFit->nGauss,denoised,data->noised,data->nBins,data->z,dimage,data);
 
+
           /*write results*/
           if(dimage->readBinLVIS||dimage->readHDFlvis||dimage->readHDFgedi)writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[0]);
           else                                                             writeResults(data,dimage,metric,i,denoised,processed,dimage->gediIO.inList[i]);
+
         }else{  /*ICESat-2 mode*/
           photonCountCloud(denoised,data,&dimage->photonCount,dimage->outRoot,i,dimage->gediIO.den,&dimage->noise);
         }/*operation mode switch*/
       }else{/*still usable after denoising?*/
-fprintf(stderr,"No longer usable\n");
+        fprintf(stderr,"No longer usable\n");
       }
     }/*is the data usable*/
-
 
     /*tidy as we go along*/
     TIDY(processed);
@@ -327,13 +338,6 @@ fprintf(stderr,"No longer usable\n");
     }
     TIDY(dimage->gediIO.gFit->gPar);
     TIDY(dimage->gediIO.den->gPar);
-    if(dimage->gediIO.pulse){
-      TIDY(dimage->gediIO.pulse->x);
-      TIDY(dimage->gediIO.pulse->y);
-      TIDY(dimage->gediIO.pulse->resamp);
-      TIDY(dimage->gediIO.pulse);
-    }
-    dimage->gediIO.den->nGauss=0;
     dimage->gediIO.gFit->nGauss=0;
     TIDY(metric->rhMax);
     TIDY(metric->rhInfl);
@@ -388,6 +392,13 @@ fprintf(stderr,"No longer usable\n");
       fclose(dimage->opooGauss);
       dimage->opooGauss=NULL;
     }
+    if(dimage->gediIO.pulse){
+      TIDY(dimage->gediIO.pulse->x);
+      TIDY(dimage->gediIO.pulse->y);
+      TIDY(dimage->gediIO.pulse->resamp);
+      TIDY(dimage->gediIO.pulse);
+    }
+    dimage->gediIO.den->nGauss=0;
     #ifdef USEPHOTON
     if(dimage->photonCount.opoo){
       fclose(dimage->photonCount.opoo);
@@ -1673,6 +1684,7 @@ control *readCommands(int argc,char **argv)
   dimage->hdfGedi=NULL;
   dimage->gediIO.useBeam[0]=dimage->gediIO.useBeam[1]=dimage->gediIO.useBeam[2]=dimage->gediIO.useBeam[3]=\
     dimage->gediIO.useBeam[4]=dimage->gediIO.useBeam[5]=dimage->gediIO.useBeam[6]=dimage->gediIO.useBeam[7]=1;    /*read all waves*/
+  dimage->gediIO.pulse=NULL;
 
   /*scan settings*/
   dimage->gediIO.pSigma=0.764331; /*pulse length*/

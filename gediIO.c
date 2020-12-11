@@ -2126,7 +2126,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   }else data->ground=NULL;
 
   /*read pulse*/
-  if(hdfGedi[0]->nPbins>0){
+  if((hdfGedi[0]->nPbins>0)&&(gediIO->pulse==NULL)){
     if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
       fprintf(stderr,"error pulse allocation.\n");
       exit(1);
@@ -2135,7 +2135,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
     gediIO->pulse->nBins=hdfGedi[0]->nPbins;
     gediIO->pRes=hdfGedi[0]->pRes;
     gediIO->pulse->x=setPulseRange(gediIO);
-  }else{
+  }else if(hdfGedi[0]->nPbins==0){
     gediIO->pulse=NULL;
   }/*pulse reading*/
 
@@ -2177,9 +2177,12 @@ float *setPulseRange(gediIOstruct *gediIO)
   max=-10000.0;
   for(i=0;i<gediIO->pulse->nBins;i++){
     x[i]=(float)i*gediIO->pRes;
-    if(gediIO->pulse->y[i]>max){
-      max=gediIO->pulse->y[i];
-      gediIO->pulse->centBin=i;
+
+    if(gediIO->pcl==0){
+      if(gediIO->pulse->y[i]>max){
+        max=gediIO->pulse->y[i];
+        gediIO->pulse->centBin=i;
+      }
     }
   }
 
