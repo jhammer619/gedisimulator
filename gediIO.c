@@ -341,10 +341,11 @@ void trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
   }
 
   /*if we are doing PCL, do not zero pad and just save the pulse*/
-  if(gediIO->pcl)maxBins=(int)((float)hdfData->nPbins*gediIO->res/hdfData->pRes);
+  if(gediIO->pcl)maxBins=(int)((float)hdfData->nPbins*hdfData->pRes/gediIO->res);
 
   hdfData->nBins=ialloc(1,"bins",0);
   hdfData->nBins[0]=maxBins;
+
   if(maxID>0)hdfData->idLength=maxID;
   else       hdfData->idLength=7;
 
@@ -3382,7 +3383,6 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
   /*trim waveform*/
   if(gediIO->pcl==0)buff=30.0;
   else              buff=0.0;
-  //if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes;
 
   /*find energies*/
   tot=falloc((uint64_t)hdfData->nTypeWaves,"tot",0);
@@ -3437,7 +3437,8 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
   memcpy(&hdfData->waveID[numb*hdfData->idLength],thisWaveID,idLength);
 
   /*waveform*/
-  nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
+  if(gediIO->pcl==0)nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
+  else              nBins=hdfData->nBins[0];
   for(j=0;j<hdfData->nTypeWaves;j++){
     memcpy(&hdfData->wave[j][numb*hdfData->nBins[0]],&waves->wave[j][start],nBins*sizeof(float));
   }
@@ -3456,6 +3457,7 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
 
   return;
 }/*packGEDIhdf*/
+
 
 /*##############################################*/
 /*set up HDF structure and write header*/
@@ -3477,7 +3479,8 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
   /*header*/
   hdfData->nWaves=gediRat->gNx*gediRat->gNy;
   hdfData->nBins=ialloc(1,"nBins",0);
-  hdfData->nBins[0]=(int)((float)maxBins*0.15/gediIO->res);
+  if(gediIO->pcl==0)hdfData->nBins[0]=(int)((float)maxBins*0.15/gediIO->res);
+  else              hdfData->nBins[0]=(int)((gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0])/gediIO->res);
   hdfData->nTypeWaves=gediIO->nTypeWaves;
   hdfData->pSigma=gediIO->pSigma;
   hdfData->fSigma=gediIO->fSigma;
@@ -3494,6 +3497,7 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
     }else hdfData->idLength=(int)strlen(waveID)+1;
   }else hdfData->idLength=7;
 
+  /*do we need to record the pulse*/
   if(gediIO->readPulse){
     hdfData->pRes=gediIO->pRes;
     hdfData->nPbins=gediIO->pulse->nBins;
@@ -3552,6 +3556,7 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
 {
   int j=0,numb=0,k=0;
   uint32_t i=0,n=0;
+  float dxPulse=0;
   double maxZ=0,minZ=0;
   double buff=0;
   waveStruct *waves=NULL;
@@ -3563,9 +3568,10 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }
 
   /*determine wave bounds*/
-  if(gediIO->pcl==0)buff=35.0;
-  else              buff=0.0;
-  if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes/2.0;
+  if(gediIO->pcl==0){
+    buff=35.0;
+    if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes/2.0;
+  }/*otherwise the buffer is variable, to allow the wve to fit in the pulse array*/
   minZ=100000000000.0;
   maxZ=-100000000000.0;
   hasPoints=0;
@@ -3583,10 +3589,28 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
     exit(1);
   }
 
-  waves->minZ=minZ-buff;
-  waves->maxZ=maxZ+buff;
+  /*determine number of waveform bins*/
+  if(gediIO->pcl==0){
+    waves->minZ=minZ-buff;
+    waves->maxZ=maxZ+buff;
+    waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
+  }else{  /*PCL*/
+    dxPulse=gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0];
+    waves->nBins=(int)(dxPulse/gediIO->res);
 
-  waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
+    /*check that the pulse is long enough*/
+    if(dxPulse>(maxZ-minZ)){
+      buff=(dxPulse-(maxZ-minZ))*3.0/4.0;
+      if(buff<10.0)buff=10.0;
+    }else{
+      buff=10.0;
+      fprintf(stderr,"The chirped pulse is not long enough for this shot. May be errors\n");
+    }
+
+    waves->minZ=minZ-buff;
+    waves->maxZ=waves->minZ+(double)dxPulse;
+  }/*bin calculation step*/
+ 
   waves->nWaves=(int)(gediIO->useCount+gediIO->useInt+gediIO->useFrac);
   if(gediRat->readWave)waves->nWaves*=3;  /*if we are using full waveform*/
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
@@ -3909,6 +3933,7 @@ void waveFromPointCloud(gediRatStruct *gediRat, gediIOstruct *gediIO,pCloudStruc
               }
             }
           }/*bin check*/
+//fprintf(stdout,"bin %d %f %d\n",bin,waves->wave[0][bin],waves->nBins);
         }/*apply pulse before or after*/
         if(gediIO->ground){
           if(data[numb]->class[i]==2){
@@ -3988,7 +4013,6 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
       for(j=0;j<gediIO->pulse->nBins;j++){
         /*waveform array bin*/
         bin=i+(int)((float)(j-gediIO->pulse->centBin)*gediIO->pRes/gediIO->res);
-//fprintf(stderr,"bin %d of %d %d\n",(int)((float)gediIO->pulse->centBin*gediIO->pRes/gediIO->res),waves->nBins,(int)((float)gediIO->pulse->nBins*gediIO->pRes/gediIO->res));
 
         /*are we within the pulse array?*/
         if((bin>=0)&&(bin<waves->nBins)){
@@ -3998,9 +4022,8 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
             tempGr[k][i]+=waves->ground[k][bin]*gediIO->pulse->y[j];
             tempC[k][i]+=waves->canopy[k][bin]*gediIO->pulse->y[j];
           }
-          contN+=1.0; //gediIO->pulse->y[j];
+          contN+=1.0;
         }/*bin bound check*/
-
       }/*pulse bin loop*/
 
       /*normalise*/
@@ -4011,7 +4034,6 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
           tempC[k][i]/=contN;
         }
       }/*normalisation step*/
-
     }/*bin loop*/
   }/*type loop*/
 
@@ -4252,7 +4274,7 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   pointMapStruct *pointmap=NULL;
 
 
-  /*determine list of opints to use*/
+  /*determine list of points to use*/
   pointmap=findIntersectingMap(gediRat,gediIO,data);
 
   /*determine ALS coverage*/
