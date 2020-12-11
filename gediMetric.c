@@ -327,6 +327,12 @@ fprintf(stderr,"No longer usable\n");
     }
     TIDY(dimage->gediIO.gFit->gPar);
     TIDY(dimage->gediIO.den->gPar);
+    if(dimage->gediIO.pulse){
+      TIDY(dimage->gediIO.pulse->x);
+      TIDY(dimage->gediIO.pulse->y);
+      TIDY(dimage->gediIO.pulse->resamp);
+      TIDY(dimage->gediIO.pulse);
+    }
     dimage->gediIO.den->nGauss=0;
     dimage->gediIO.gFit->nGauss=0;
     TIDY(metric->rhMax);

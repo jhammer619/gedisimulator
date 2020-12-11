@@ -90,10 +90,11 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
 {
   int i=0,j=0,bin=0,centBin=0;
   int *contN=NULL,thisCont=0;
-  float *compCorr=NULL,*resampP=NULL;
+  float *compCorr=NULL;
   float meanP=0,meanW=0;
   float stdevP=0,stdevW=0;
-static int count=0;
+
+  compCorr=falloc(nBins,"compCorr",0);
 
   /*allocate space*/
   compCorr=falloc(nBins,"",0);
@@ -118,50 +119,51 @@ static int count=0;
   for(i=0;i<nBins;i++)stdevW+=(photWave[i]-meanW)*(photWave[i]-meanW);
   stdevW=sqrt(stdevW/(float)nBins);
 
-  meanW=singleMedian(photWave,nBins);
-
   /*allocate resampled pulse*/
-  resampP=falloc(nBins,"",0);
-  contN=ialloc(nBins,"",0);
-  for(i=0;i<nBins;i++){
-    resampP[i]=0.0;
-    contN[i]=0;
-  }
+  if(pulse->resamp==NULL){
+    pulse->resamp=falloc(nBins,"",0);
+    contN=ialloc(nBins,"",0);
+    for(i=0;i<nBins;i++){
+      pulse->resamp[i]=0.0;
+      contN[i]=0;
+    }
 
-  /*resample pulse*/
-  for(i=0;i<pulse->nBins;i++){
-    bin=(int)((float)i*pRes/res);
-    if((bin>=0)&&(bin<nBins)){
-      resampP[bin]+=pulse->y[i];
-      contN[bin]++;
+    /*resample pulse*/
+    for(i=0;i<pulse->nBins;i++){
+      bin=(int)((float)i*pRes/res);
+      if((bin>=0)&&(bin<nBins)){
+        pulse->resamp[bin]+=pulse->y[i];
+        contN[bin]++;
+      }
+    }
+    /*normalise resampled*/
+    for(i=0;i<nBins;i++){
+      if(contN[i]>0)pulse->resamp[i]/=(float)contN[i];
     }
   }
-  centBin=0; //(int)((float)pulse->centBin*pRes/res);
 
-  /*normalise resampled*/
-  for(i=0;i<nBins;i++){
-    if(contN[i]>0)resampP[i]/=(float)contN[i];
-  }
   TIDY(contN);
+  centBin=(int)((float)pulse->centBin*pRes/res);
 
-  /*time domain*/
+  /*loop over bins in time domain*/
   for(i=0;i<nBins;i++){
     compCorr[i]=0.0;
     thisCont=0;
 
+    /*loop over pulse tp convolve*/
     for(j=0;j<nBins;j++){
-      bin=i+j-centBin;
+      bin=i+j-centBin;  /*bin on the pulse*/
 
+      /*are we within the pulse array?*/
       if((bin>=0)&&(bin<nBins)){
-        compCorr[i]+=(photWave[j]-meanW)*(resampP[bin]-meanP)/(stdevP*stdevW);
+        compCorr[i]+=(photWave[nBins-(j+1)]-meanW)*(pulse->resamp[bin]-meanP)/(stdevP*stdevW);
         thisCont++;
       }
-    }
+    }/*pulse bin loop*/
+
+    /*normalise*/
     if(thisCont>0)compCorr[i]/=(float)thisCont;
-    fprintf(stdout,"%d %d %.10f %f %f\n",count,i,compCorr[i],photWave[i],resampP[i]);
-  }
-  TIDY(resampP);
-  count++;
+  }/*wave bin loop*/
 
   return(compCorr);
 }/*crossCorrelateTime*/
@@ -176,14 +178,11 @@ float *crossCorrelateWaves(float *photWave,float res,int nBins,pulseStruct *puls
   int numb=0;
   int *contN=NULL;
   float *corrWave=NULL;
-  double meanW=0,meanP=0;
   double *compPulse=NULL;
   double *compWave=NULL;
   double *compCorr=NULL;
   int gsl_fft_complex_radix2_forward(gsl_complex_packed_array,size_t,size_t);
   int gsl_fft_complex_radix2_backward(gsl_complex_packed_array, size_t,size_t);
-static int count=0;
-
 
   /*FFT requires that array is a power of 2 long*/
   numb=pow(2.0,(float)(int)(log((double)nBins)/log(2.0)+1.0));
@@ -270,9 +269,7 @@ static int count=0;
   corrWave=falloc(nBins,"correlated wave",0);
   for(i=0;i<nBins;i++){
     corrWave[i]=(float)compCorr[2*i]; //sqrt(compCorr[2*i]*compCorr[2*i]+compCorr[2*i+1]*compCorr[2*i+1]);
-    fprintf(stdout,"%d %d %f %f\n",count,i,corrWave[i],photWave[i]);
   }
-count++;
 
   /*tidy up*/
   TIDY(compPulse);

@@ -3179,7 +3179,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   CofG-=centre;
 
   /*align pulse*/
-  if(!gediIO->pcl){
+  if(gediIO->pcl==0){
     minSep=1000.0;
     gediIO->pSigma=0.0;
     for(i=0;i<gediIO->pulse->nBins;i++){
@@ -3980,6 +3980,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
   float **tempGr=NULL;
   float **tempC=NULL;
   float contN=0;
+static int count=0;
 
   /*allocate temporary space*/
   temp=fFalloc(waves->nWaves,"temp waves",0);
@@ -3992,15 +3993,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
     temp[k]=falloc((uint64_t)waves->nBins,"temp waves",i+1);
     if(gediIO->ground){
       tempGr[k]=falloc((uint64_t)waves->nBins,"temp ground waves",i+1);
-      tempC[k]=falloc((uint64_t)waves->nBins,"temp camopy waves",i+1);
-    }
-    /*set to zero*/
-    for(i=0;i<waves->nBins;i++){
-      temp[k][i]=0.0;
-      if(gediIO->ground){
-        tempGr[k][i]=0.0;
-        tempC[k][i]=0.0;
-      }
+      tempC[k]=falloc((uint64_t)waves->nBins,"temp canopy waves",i+1);
     }
   }/*allocate temporary space*/
 
@@ -4010,10 +4003,17 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
 
     /*loop over waveform bins*/
     for(i=0;i<waves->nBins;i++){
-      contN=0.0;    /*reset counter*/
+
+      contN=0.0;    /*reset counters*/
+      temp[k][i]=0.0;
+      if(gediIO->ground){
+        tempGr[k][i]=0.0;
+        tempC[k][i]=0.0;
+      }
 
       /*loop over pulse bins*/
       for(j=0;j<gediIO->pulse->nBins;j++){
+
         /*waveform array bin*/
         bin=i+(int)((float)(j-gediIO->pulse->centBin)*gediIO->pRes/gediIO->res);
 
@@ -4039,6 +4039,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
       }/*normalisation step*/
     }/*bin loop*/
   }/*type loop*/
+count++;
 
   /*transfer arrays*/
   TTIDY((void **)waves->wave,waves->nWaves);

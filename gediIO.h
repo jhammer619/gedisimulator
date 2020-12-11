@@ -40,6 +40,8 @@ typedef struct{
   int centBin;  /*peak bin*/
   float *y;
   float *x;
+
+  float *resamp;  /*resampled pulse for speed*/
 }pulseStruct;
 
 
