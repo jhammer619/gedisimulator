@@ -860,7 +860,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   smoothed=processFloWave(denoised,nBins,&den,1.0);
 
   /*ground by Gaussian fit*/
-  if(dimage->noRHgauss==0)metric->gHeight=gaussianGround(energy,mu,sig,&gInd,nGauss,tot,&metric->gSlope,data,dimage->gediIO.den);
+  if((dimage->noRHgauss==0)&&(nGauss>0))metric->gHeight=gaussianGround(energy,mu,sig,&gInd,nGauss,tot,&metric->gSlope,data,dimage->gediIO.den);
   else                    metric->gHeight=metric->gSlope=-1.0;
 
   /*canopy cover*/
@@ -873,7 +873,7 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
   metric->inflGround=inflGround(smoothed,z,nBins);
 
   /*rh metrics with Gaussian ground*/
-  if(dimage->noRHgauss==0)metric->rh=findRH(denoised,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
+  if((dimage->noRHgauss==0)&&(nGauss>0))metric->rh=findRH(denoised,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH);
   else                    metric->rh=blankRH(dimage->rhRes,&metric->nRH);
 
   /*rh metrics with maximum ground*/
@@ -921,7 +921,6 @@ void findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float 
     metric->hiLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->inflGround,dimage->maxLAIh,&metric->laiBins);
     metric->hmLAI=halfEnergyLAIprofile(denoised,z,nBins,dimage->laiRes,dimage->rhoRatio,metric->maxGround,dimage->maxLAIh,&metric->laiBins);
   }
-
 
   /*signal start and end*/
   findSignalBounds(denoised,z,nBins,&metric->tElev,&metric->bElev,dimage);
@@ -1429,6 +1428,10 @@ double gaussianGround(float *energy,float *mu,float *sig,int *gInd,int nGauss,fl
       gHeight=mu[i];
       *gInd=i;
     }
+  }
+
+  if(sig==NULL){
+    fprintf(stderr,"No signal\n");
   }
 
   /*determine slope*/
