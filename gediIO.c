@@ -2048,7 +2048,7 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
     TTIDY((void **)hdfData->wave,hdfData->nTypeWaves);
     TTIDY((void **)hdfData->ground,hdfData->nTypeWaves);
     TIDY(hdfData->waveID);
-    TIDY(hdfData->pulse);
+    hdfData->pulse=NULL;     /*as this is repeated in gediIO*/
     TIDY(hdfData->z0);       /*wave top elevations*/
     TIDY(hdfData->zN);       /*wave bottom elevations*/
     TIDY(hdfData->lon);     /*longitudes*/
