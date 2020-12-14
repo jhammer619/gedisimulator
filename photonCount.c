@@ -514,7 +514,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
         wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
         tot=0.0;
         for(i=0;i<data->nBins;i++){
-          wave[i]=smooCan[i]*phot->rhoVrhoG+smooGr[i]/phot->rhoVrhoG;
+          wave[i]=smooCan[i]+smooGr[i]/phot->rhoVrhoG;
           tot+=wave[i];
         }
         if(fabs(1.0-tot)>TOL){
