@@ -215,7 +215,6 @@ typedef struct{
 int main(int argc,char **argv)
 {
   int i=0;
-int count=0;
   control *dimage=NULL;
   control *readCommands(int,char **);
   dataStruct *data=NULL;
@@ -251,7 +250,6 @@ int count=0;
 
   /*loop over files*/
   for(i=0;i<dimage->gediIO.nFiles;i++){
-count=0;
     if((i%dimage->gediIO.nMessages)==0)fprintf(stdout,"Wave %d of %d\n",i+1,dimage->gediIO.nFiles);
 
     /*read waveform*/
