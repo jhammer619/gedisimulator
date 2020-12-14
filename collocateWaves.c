@@ -1520,6 +1520,11 @@ dataStruct **copyGEDIhdf(gediHDF *hdf,dataStruct **lvis,control *dimage,double *
   int i=0,nNew=0;
   double x=0,y=0;
 
+  /*wrap around*/
+  if(dimage->lvisIO.wEPSG==4326){
+    if(bounds[0]<0.0)bounds[0]+=360.0;
+    if(bounds[2]<0.0)bounds[2]+=360.0;
+  }
 
   /*count number within*/
   nNew=0;
@@ -1542,11 +1547,6 @@ dataStruct **copyGEDIhdf(gediHDF *hdf,dataStruct **lvis,control *dimage,double *
     }
   }
 
-  /*wrap around*/
-  if(dimage->lvisIO.wEPSG==4326){
-    if(bounds[0]<0.0)bounds[0]+=360.0;
-    if(bounds[2]<0.0)bounds[2]+=360.0;
-  }
 
   /*copy data*/
   nNew=0;
