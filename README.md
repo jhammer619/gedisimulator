@@ -425,6 +425,10 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
     -nOctPix n;      number of octree pixels along a side for the top level
 
 
+## plotWaveComparison.py ##
+
+Plots waveforms to compare ALS derived simulations to real GEDI data. It is meant to take the output from collocateWaves' -writeWaves option and compare to the original GEDI data. If the collocation has been successful, the two will match.
+
 ## mapLidar ##
 Generates a geotiff from las file properties, combining multiple files. Can also print a list of file bounds or calculate beam and point density.
 
