@@ -68,6 +68,7 @@ typedef struct{
   char solveCofG;      /*use deltaCofG as offset switch*/
   uint64_t pBuffSize;  /*point buffer rading size in bytes*/
   char filtOutli;      /*filter outliers to avoid falling trees*/
+  float outStdev;      /*threshold to use for outlier stdevs*/
   float maxZen;        /*maximum LVIS zenith angle to use*/
   float minDense;      /*minimum ALS beam density*/
   float minSense;      /*minimum waveform beam sensitivity to use*/
@@ -943,7 +944,9 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
 {
   int k=0;
   float **correl=NULL;
+  float ** filterOutliers(float **,int *,float,int);
   waveStruct *waves=NULL;
+
 
   /*progress report*/
   if(globAnneal.dimage==NULL)fprintf(stdout,"Testing x %.2f y %.2f z %.2f fSig %.2f\n",xOff,yOff,zOff,dimage->simIO.fSigma);
@@ -987,8 +990,69 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
     correl=NULL;
     if(leaveEmpty)exit(1);
   }
+
+  /*filter outliers if needed*/
+  if(dimage->filtOutli)correl=filterOutliers(correl,contN,dimage->outStdev,nTypeWaves);
+
   return(correl);
 }/*getCorrelStats*/
+
+
+/*####################################################*/
+/*filter outliers from correlation*/
+
+float **filterOutliers(float **correl,int *contN,float outStdev,int nTypeWaves)
+{
+  int k=0,i=0;
+  int usedNew=0,nUsed=0;
+  float mean=0,stdev=0,thresh=0;
+  float **newCorrel=NULL;
+
+  newCorrel=fFalloc(*contN,"filtered correlation",0);
+
+  /*loop over types*/
+  for(k=0;k<nTypeWaves;k++){
+
+    /*find the mean*/
+    mean=stdev=0.0;
+    nUsed=0;
+    for(i=0;i<*contN;i++){
+      if(correl[i]){
+        mean+=correl[i][2*k];
+        nUsed++;
+      }
+      mean/=(float)nUsed;
+    } 
+
+    /*find standard deviation*/
+    for(i=0;i<*contN;i++){
+      if(correl[i]){
+        stdev+=pow(correl[i][2*k]-mean,2.0);
+      }
+    }
+    stdev=sqrt(stdev/(float)nUsed);
+
+    /*apply a threshold*/
+    thresh=outStdev*stdev+mean;
+    usedNew=0;
+    for(i=0;i<*contN;i++){
+      if(correl[i]){
+        if(correl[i][2*k]<thresh){
+          newCorrel[usedNew]=falloc(2,"filtered correlation",usedNew+1);
+          newCorrel[usedNew][2*k]=correl[i][2*k];
+          newCorrel[usedNew][2*k+1]=correl[i][2*k+1];
+          usedNew++;
+        }
+      }
+    }
+
+  }/*type loop*/
+
+  TTIDY((void **)correl,*contN);
+  *contN=usedNew;
+
+  return(newCorrel);
+}/*filterOutliers*/
 
 
 /*####################################################*/
@@ -996,42 +1060,22 @@ float **getCorrelStats(control *dimage,dataStruct **lvis,pCloudStruct **als,int 
 
 void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,double yOff,double zOff,control *dimage)
 {
-  int i=0,k=0,nUsed=0;
+  int i=0,k=0;
   int usedNew=0;
   float mean=0,stdev=0;
-  float newMean=0,meanCofG=0;
+  float meanCofG=0;
   float thresh=0;
   char writtenCoords=0;
 
   /*loop over types*/
   for(k=0;k<nTypes;k++){
-    mean=stdev=0.0;
-    nUsed=0;
-    for(i=0;i<numb;i++){
-      if(correl[i]){
-        mean+=correl[i][2*k];
-        nUsed++;
-      }
-    }
-    mean/=(float)nUsed;
-    meanCofG/=(float)nUsed;
-    for(i=0;i<numb;i++){
-      if(correl[i]){
-        stdev+=pow(correl[i][2*k]-mean,2.0);
-      }
-    }
-    stdev=sqrt(stdev/(float)nUsed);
-
-    /*check for outliers*/
-    if(dimage->filtOutli)thresh=2.5*stdev;
-    else                 thresh=1000000000.0;
 
     usedNew=0;
-    newMean=meanCofG=0.0;
+    mean=meanCofG=0.0;
     for(i=0;i<numb;i++){
       if(correl[i]){
         if((mean-correl[i][2*k])<thresh){
-          newMean+=correl[i][2*k];
+          mean+=correl[i][2*k];
           meanCofG+=correl[i][2*k+1];
           usedNew++;
         }
@@ -1047,20 +1091,20 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
       writtenCoords=1;
     }
 
-    newMean/=(float)usedNew;
+    mean/=(float)usedNew;
     meanCofG/=(float)usedNew;
     stdev=0.0;
     for(i=0;i<numb;i++){
       if(correl[i]){
         if((mean-=correl[i][2*k])<thresh){
-          stdev+=pow(correl[i][2*k]-newMean,2.0);
+          stdev+=pow(correl[i][2*k]-mean,2.0);
         }
       }
     }
     stdev=sqrt(stdev/(float)usedNew);
-    fprintf(opoo," %f %f %f %d",newMean,stdev,meanCofG,usedNew);
+    fprintf(opoo," %f %f %f %d",mean,stdev,meanCofG,usedNew);
   }
-  fprintf(opoo," %d\n",nUsed);
+  fprintf(opoo," %d\n",usedNew);
 
   return;
 }/*writeCorrelStats*/
@@ -1694,6 +1738,7 @@ control *readCommands(int argc,char **argv)
   dimage->lEPSG=dimage->lvisIO.wEPSG=4326;
   dimage->pBuffSize=(uint64_t)200000000;
   dimage->filtOutli=0;    /* do not filter outliers*/
+  dimage->outStdev=2.5;
   dimage->maxZen=100000.0;
   dimage->minDense=0.0;
   dimage->minSense=0.00000001;  /*a very small number*/
@@ -1912,6 +1957,7 @@ control *readCommands(int argc,char **argv)
         dimage->filtOutli=0;
       }else if(!strncasecmp(argv[i],"-filtOut",8)){
         dimage->filtOutli=1;
+        if(strncasecmp(argv[i+1],"-",1))dimage->outStdev=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-noOctree",9)){
         dimage->gediRat.useOctree=0;
       }else if(!strncasecmp(argv[i],"-octLevels",9)){
@@ -2053,7 +2099,7 @@ control *readCommands(int argc,char **argv)
 -minDense x;      minimum ALS beam density to accept\n\
 -decimate f;      decimate ALS point cloud by a factor, to save RAM\n\
 -noFilt;          don't filter outliers from correlation (default)\n\
--filtOut;         filter outliers from correlation stats\n\
+-filtOut s;       filter outliers from correlation stats, along with the number of standard deviations to use as a threshold\n\
 -smooth sig;      smooth both waves before comparing\n\
 \n# Simulator settings. For simulator validation only\n\
 -noNorm;          don't correct sims for ALS densiy variations\n\
