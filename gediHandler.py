@@ -299,7 +299,6 @@ class gediData(object):
 
   def setOneZ(self,i):
     '''Set a single z array'''
-    res=(self.Z0[i]-self.ZN[i])/self.nBins
     self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
     return
 
@@ -392,7 +391,7 @@ class gediData(object):
       plt.ylim((minX,maxX))
       #plt.xlabel('DN')
       plt.ylabel('Elevation (m)')
-      outNamen=outRoot+"."+str(self.waveID[i])+".x."+str(self.lon[i])+".y."+str(self.lat[i])+".png"
+      outNamen=outRoot+"."+self.beamID[i]+"."+str(self.waveID[i])+".x."+str(self.lon[i])+".y."+str(self.lat[i])+".png"
       plt.savefig(outNamen)
       plt.close()
       plt.clf()
