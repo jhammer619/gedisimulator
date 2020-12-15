@@ -1064,7 +1064,6 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
   int usedNew=0;
   float mean=0,stdev=0;
   float meanCofG=0;
-  float thresh=0;
   char writtenCoords=0;
 
   /*loop over types*/
@@ -1074,13 +1073,20 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
     mean=meanCofG=0.0;
     for(i=0;i<numb;i++){
       if(correl[i]){
-        if((mean-correl[i][2*k])<thresh){
-          mean+=correl[i][2*k];
-          meanCofG+=correl[i][2*k+1];
-          usedNew++;
-        }
+        mean+=correl[i][2*k];
+        meanCofG+=correl[i][2*k+1];
+        usedNew++;
       }
     }
+    mean/=(float)usedNew;
+    meanCofG/=(float)usedNew;
+    stdev=0.0;
+    for(i=0;i<numb;i++){
+      if(correl[i]){
+        stdev+=pow(correl[i][2*k]-mean,2.0);
+      }
+    }
+    stdev=sqrt(stdev/(float)usedNew);
 
     /*check that there is data*/
     if(usedNew==0)return;
@@ -1091,17 +1097,6 @@ void writeCorrelStats(float **correl,int numb,int nTypes,FILE *opoo,double xOff,
       writtenCoords=1;
     }
 
-    mean/=(float)usedNew;
-    meanCofG/=(float)usedNew;
-    stdev=0.0;
-    for(i=0;i<numb;i++){
-      if(correl[i]){
-        if((mean-=correl[i][2*k])<thresh){
-          stdev+=pow(correl[i][2*k]-mean,2.0);
-        }
-      }
-    }
-    stdev=sqrt(stdev/(float)usedNew);
     fprintf(opoo," %f %f %f %d",mean,stdev,meanCofG,usedNew);
   }
   fprintf(opoo," %d\n",usedNew);
