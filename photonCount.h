@@ -54,6 +54,7 @@ typedef struct{
   float rhoVrhoG;      /*ratio of canopy to ground reflectance for weighting*/
   float nPhotC;        /*mean number of canopy photons per footprint*/
   float nPhotG;        /*mean number of ground photons per footprint*/
+  char reflDiff;       /*are we accounting for a difference in reflectance?*/
   /*noise*/
   float noise_mult;    /*noise scaling factor*/
   float H;             /*search window length, metres*/

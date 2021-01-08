@@ -357,6 +357,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   float *wave=NULL;
   float *adjustPhotonProb(float *,dataStruct *,denPar *,noisePar *,int,photonStruct *);
   void setPhotonProb(photonStruct *);
+  void adjustTotalPhotRate(photonStruct *,float);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
   char testPhotonGround(dataStruct *,float);
 
@@ -365,7 +366,10 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   wave=adjustPhotonProb(denoised,data,den,noise,data->useType,photonCount);
 
   /*do we need to set up the probability array?*/
-  if(photonCount->prob==NULL)setPhotonProb(photonCount);
+  if(photonCount->prob==NULL){
+    if(photonCount->reflDiff)adjustTotalPhotRate(photonCount,data->cov);
+    setPhotonProb(photonCount);
+  }
 
   /*choose a number of signal photons to use*/
   photThresh=(float)rand()/(float)RAND_MAX;
@@ -405,6 +409,9 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
     phots[1][i+nPhotons]=0.0;     /*is signal*/
     phots[2][i+nPhotons]=0.0;     /*is this ground or canopy?*/
   }/*noise loop*/
+
+  /*clear out prob if needed*/
+  if(photonCount->reflDiff)TIDY(photonCount->prob);
 
   /*tidy up*/
   if(wave!=denoised){
@@ -490,7 +497,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
   if(data->ground==NULL){  /*no ground*/
     wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
     memcpy(wave,data->wave[numb],(size_t)(data->nBins*4));
-  }else{   /*there us a ground*/
+  }else{   /*there is a ground*/
     /*is any adjustment needed*/
     if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
     else{
@@ -501,6 +508,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
         /*find canopy portion*/
         canopy=falloc((uint64_t)data->nBins,"canopy wave",0);
         for(i=0;i<data->nBins;i++)canopy[i]=data->wave[numb][i]-data->ground[numb][i];
+
         /*smooth ground if needed*/
         if((den->sWidth>0.001)||(den->psWidth>0.001)||(den->msWidth>0.001)){
           /*smooth if needed*/
@@ -510,11 +518,12 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
           smooCan=canopy;
           smooGr=data->ground[numb];
         }
+
         /*add up and normalise*/
         wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
         tot=0.0;
         for(i=0;i<data->nBins;i++){
-          wave[i]=smooCan[i]+smooGr[i]/phot->rhoVrhoG;
+          wave[i]=smooCan[i]*phot->nPhotC+smooGr[i]*phot->nPhotG;
           tot+=wave[i];
         }
         if(fabs(1.0-tot)>TOL){
@@ -610,6 +619,17 @@ float photonNoiseIntensity(float cov)
 
 
 /*####################################################*/
+/*adjust photon rate for changing reflectance*/
+
+void adjustTotalPhotRate(photonStruct *photonCount,float cov)
+{
+  if(cov>=0.0)photonCount->designval=cov*photonCount->nPhotC+(1.0-cov)*photonCount->nPhotG;
+
+  return;
+}/*adjustTotalPhotRate*/
+
+
+/*####################################################*/
 /*set photon probability*/
 
 void setPhotonProb(photonStruct *photonCount)
@@ -686,11 +706,33 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
 
 void setPhotonRates(photonStruct *photonCount)
 {
-  /*do we need to?*/
-  if(photonCount->nPhotG>0.0){
+
+  /*what mode has been used to define photon rates?*/
+  if(fabs(photonCount->rhoVrhoG-1.0)>TOL){                   /*adjusted rhoV/rhoG*/
+    photonCount->nPhotG=2.0*photonCount->designval/photonCount->rhoVrhoG-1.0;
+    photonCount->nPhotC=photonCount->nPhotG*photonCount->rhoVrhoG;
+    photonCount->reflDiff=1;
+    /*prevent negative rates. only needed for black soil etc.*/
+    if(photonCount->nPhotC<0.0)photonCount->nPhotC=0.0;
+    if(photonCount->nPhotG<0.0)photonCount->nPhotG=0.0;
+
+  }else if((photonCount->nPhotG+photonCount->nPhotC)>0.0){   /*separately defined photon rates*/
     photonCount->designval=(photonCount->nPhotC+photonCount->nPhotG)/2.0;
     photonCount->rhoVrhoG=photonCount->nPhotC/photonCount->nPhotG;
+    photonCount->reflDiff=1;
+
+  }else if(fabs(photonCount->designval)<TOL){                /*no reflectance correction. seperate rates*/
+    photonCount->designval=(photonCount->nPhotC+photonCount->nPhotG)/2.0;
+    photonCount->rhoVrhoG=1.0;
+    photonCount->reflDiff=0;
+
+  }else{                                                     /*no reflectance correction. total rate*/
+    photonCount->nPhotG=photonCount->nPhotC=photonCount->designval;
+    photonCount->rhoVrhoG=1.0;
+    photonCount->reflDiff=0;
+
   }
+
   return;
 }/*setPhotonRates*/
 
