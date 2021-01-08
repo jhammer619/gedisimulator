@@ -3178,7 +3178,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
     }
     tot+=gediIO->pulse->y[i];
   }
-  if(gediIO->pcl==0)centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
+  if(gediIO->pcl==1)centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
   CofG/=tot;
   CofG-=centre;
 
