@@ -1705,6 +1705,7 @@ control *readCommands(int argc,char **argv)
   dimage->bayesGround=0;
   dimage->noise.missGround=0;
   dimage->noise.linkNoise=0;
+  dimage->noise.shotNoise=0;
   dimage->noise.driftFact=0.0;
   dimage->gediIO.linkPsig=dimage->gediIO.pSigma; /*pulse length*/
   dimage->gediIO.linkFsig=5.5;      /*footprint width*/
@@ -2004,6 +2005,8 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.pclPhoton=1;        /*Pulse compression lidar with photon counting*/
       }else if(!strncasecmp(argv[i],"-pcl",4)){
         dimage->gediIO.pcl=1;              /*Pulse compression lidar*/
+      }else if(!strncasecmp(argv[i],"-shotNoise",4)){
+        dimage->noise.shotNoise=1;
       }else if(!strncasecmp(argv[i],"-nPhotons",9)){
         checkArguments(1,i,argc,"-nPhotons");
         dimage->photonCount.designval=atof(argv[++i]);
@@ -2112,6 +2115,7 @@ void writeHelp()
   fprintf(stdout,"\nUnfinished\n\
 -photonPCL;       convert to photon counting pulse-compressed before processing\n\
 -pcl;             pulse-compressed processing\n\
+-shotNoise;       apply shot noise\n\
 ");
   fprintf(stdout,"\nDenoising:\n\
 -meanN n;         mean noise level, if using a predefined mean level\n\

@@ -193,6 +193,7 @@ control *readCommands(int argc,char **argv)
   /*defaults*/
   dimage->readHDFgedi=1;
   dimage->noise.linkNoise=1;
+  dimage->noise.shotNoise=0;
   dimage->noise.missGround=0;
   dimage->noise.trueSig=5.0;
   dimage->noise.maxDN=4096.0;

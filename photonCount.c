@@ -320,6 +320,8 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 {
   int i=0,nPhot=0;
   int bin=0;
+  float shotSig=0;
+  float shotNoise=0;
   float *temp=NULL;
   float **phots=NULL;
 
@@ -335,6 +337,25 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
     temp[bin]+=1.0;
   }
   TTIDY((void **)phots,3);
+
+  /*apply shot noise if neeed*/
+  if(noise->shotNoise){
+    /*loop over bins*/
+    for(i=0;i<data->nBins;i++){
+      /*only if there are photons*/
+      if(temp[i]>0.0){
+        /*set sigma*/
+        shotSig=sqrt(temp[i]);
+  
+        /*draw Gaussian random number*/
+        shotNoise=GaussNoise()*shotSig;
+
+        /*add noise and truncate negative*/
+        temp[i]+=round(shotNoise);
+        if(temp[i]<0.0)temp[i]=0.0;
+      }/*return check*/
+    }/*bin loop*/
+  }/*apply shot noise check*/
 
   return(temp);
 }/*countWaveform*/

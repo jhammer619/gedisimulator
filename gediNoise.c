@@ -56,7 +56,6 @@ void addNoise(dataStruct *data,noisePar *gNoise,float fSigma,float pSigma,float 
   float tot=0.0,thresh=0;
   float minE=0;
   float *tempNoise=NULL;
-  float GaussNoise();
   float *smooNoise=NULL,*tempWave=NULL;
   float *digitiseWave(float *,int,char,float,float);
   float reflScale=0;
