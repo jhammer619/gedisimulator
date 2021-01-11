@@ -320,16 +320,25 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 {
   int i=0,nPhot=0;
   int bin=0;
+  float minI=0;
   float shotSig=0;
   float shotNoise=0;
   float *temp=NULL;
   float **phots=NULL;
 
-  /*allocate space*/
-  temp=falloc(data->nBins,"temp pcl photon",0);
+  /*set minimum to zero*/
+  minI=10000.0;
+  for(i=0;i<data->nBins;i++){
+    if(denoised[i]<minI)minI=denoised[i];
+  }
+  temp=falloc(data->nBins,"temp pcl waveform",0);
+  for(i=0;i<data->nBins;i++)temp[i]=denoised[i]+minI;
 
   /*extract photon coords along with their flags*/
-  phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
+  phots=countPhotons(temp,data,photonCount,&nPhot,den,noise);
+
+  /*reset temp array*/
+  for(i=0;i<data->nBins;i++)temp[i]=0.0;
 
   /*bin up in to new wave*/
   for(i=0;i<nPhot;i++){
