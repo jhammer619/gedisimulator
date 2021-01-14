@@ -91,6 +91,7 @@ typedef struct{
   int nUsed;           /*number of footprints used in optimum*/
   char writeSimProg;   /*write simplex progress switch*/
   char writeFinWave;   /*write out final waveforms switch*/
+  char useMean;        /*use mead, rather than median*/
   /*simulated annealing*/
   int annealNtries;
   int anealItersfixed_T;
@@ -497,6 +498,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   float **denoised=NULL;
   float **correl=NULL,meanCorrel=0;
   float meanCofG=0;
+  float *temp1=NULL,*temp2=NULL;
   double xOff=0,yOff=0,zOff=0;
   double **coords=NULL;
   control *dimage=NULL;
@@ -526,15 +528,40 @@ double findMeanCorr(const gsl_vector *v, void *params)
   correl=getCorrelStats(dimage,lvis,als,&contN,xOff,yOff,zOff,coords,denoised,nTypeWaves,dimage->leaveEmpty);
 
   /*get mean correlation*/
-  meanCorrel=meanCofG=0.0;
-  for(i=0;i<contN;i++){
-    meanCorrel+=correl[i][0];
-    meanCofG+=correl[i][1];
-  }
-  if(contN>0){
-    meanCorrel/=(float)contN;
-    meanCofG/=(float)contN;
-  }
+  if(dimage->useMean){  /*calculate means*/
+
+    /*set to zero*/
+    meanCorrel=meanCofG=0.0;
+
+    /*add up*/
+    for(i=0;i<contN;i++){
+      meanCorrel+=correl[i][0];
+      meanCofG+=correl[i][1];
+    }
+
+    /*normalise*/
+    if(contN>0){
+      meanCorrel/=(float)contN;
+      meanCofG/=(float)contN;
+    }
+  }else{  /*calculate medians*/
+
+    /*rearrange arrays to pass to median*/
+    temp1=falloc(contN,"temp correlation",0);
+    temp2=falloc(contN,"temp CofG",0);
+    for(i=0;i<contN;i++){
+      temp1[i]=correl[i][0];
+      temp2[i]=correl[i][1];
+    }
+
+    /*find medians*/
+    meanCorrel=singleMedian(temp1,contN);
+    meanCofG=singleMedian(temp2,contN);
+
+    /*tidy up*/
+    TIDY(temp1);
+    TIDY(temp2);
+  }/*average correlation*/
 
   /*record number used*/
   dimage->nUsed=contN;
@@ -549,6 +576,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
   lvis=NULL;
   als=NULL;
   optBits=NULL; 
+
   return(1.0-(double)meanCorrel);
 }/*findMeanCorr*/
 
@@ -1799,6 +1827,7 @@ control *readCommands(int argc,char **argv)
   dimage->annealTinitial=0.01;
   dimage->annealMu=1.2;
   dimage->annealTmin=0.00002;
+  dimage->useMean=1;    /*use mean, not median*/
 
   /*all data*/
   dimage->minX=-100000000.0;
@@ -1953,6 +1982,8 @@ control *readCommands(int argc,char **argv)
       }else if(!strncasecmp(argv[i],"-filtOut",8)){
         dimage->filtOutli=1;
         if(strncasecmp(argv[i+1],"-",1))dimage->outStdev=atof(argv[++i]);
+      }else if(!strncasecmp(argv[i],"-median",7)){
+        dimage->useMean=0;
       }else if(!strncasecmp(argv[i],"-noOctree",9)){
         dimage->gediRat.useOctree=0;
       }else if(!strncasecmp(argv[i],"-octLevels",9)){
@@ -2099,6 +2130,7 @@ control *readCommands(int argc,char **argv)
 -filtOut s;       filter outliers from correlation stats, along with the number of standard deviations to use as a threshold\n\
 -smooth sig;      smooth both waves before comparing\n\
 -checkCover;      only include footprints that are at least 2/3 covered with ALS data\n\
+-median;          use median correlation rather than mean\n\
 \n# Simulator settings. For simulator validation only\n\
 -noNorm;          don't correct sims for ALS densiy variations\n\
 -norm;            correct sims for ALS densiy variations\n\
