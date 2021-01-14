@@ -2026,6 +2026,8 @@ control *readCommands(int argc,char **argv)
         dimage->writeSimProg=1;
       }else if(!strncasecmp(argv[i],"-solveCofG",10)){
         dimage->solveCofG=1;     /*use deltsCofG to estimate vertical offset*/
+      }else if(!strncasecmp(argv[i],"-checkCover",11)){
+        dimage->gediRat.checkCover=1;
       }else if(!strncasecmp(argv[i],"-writeWaves",11)){
         checkArguments(1,i,argc,"-writeWaves");
         strcpy(dimage->waveNamen,argv[++i]);
@@ -2096,6 +2098,7 @@ control *readCommands(int argc,char **argv)
 -noFilt;          don't filter outliers from correlation (default)\n\
 -filtOut s;       filter outliers from correlation stats, along with the number of standard deviations to use as a threshold\n\
 -smooth sig;      smooth both waves before comparing\n\
+-checkCover;      only include footprints that are at least 2/3 covered with ALS data\n\
 \n# Simulator settings. For simulator validation only\n\
 -noNorm;          don't correct sims for ALS densiy variations\n\
 -norm;            correct sims for ALS densiy variations\n\
