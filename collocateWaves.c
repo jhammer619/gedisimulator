@@ -1496,7 +1496,7 @@ dataStruct **readMultiLVIS(control *dimage,float *res)
   *res/=(float)dimage->nLvis;
 
 
-  fprintf(stdout,"Found %d LVIS\n",dimage->nLvis);
+  fprintf(stdout,"Found %d waveforms\n",dimage->nLvis);
   if(dimage->nLvis==0){
     fprintf(stderr,"No large-footprints found\n");
     exit(1);
