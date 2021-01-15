@@ -343,7 +343,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   /*bin up in to new wave*/
   for(i=0;i<nPhot;i++){
     bin=(int)(((float)data->z[0]-phots[0][i])/data->res);
-    temp[bin]+=1.0;
+    if((bin>=0)&&(bin<data->nBins))temp[bin]+=1.0;
   }
   TTIDY((void **)phots,3);
 
@@ -386,11 +386,15 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   float *thisGr=NULL;
   float *wave=NULL;
   float *adjustPhotonProb(float *,dataStruct *,denPar *,noisePar *,int,photonStruct *);
+  void knockOffNegativeWaves(float *,dataStruct *);
   void setPhotonProb(photonStruct *);
   void adjustTotalPhotRate(photonStruct *,float);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
   char testPhotonGround(dataStruct *,float);
 
+
+  /*remove negagives if needed*/
+  knockOffNegativeWaves(denoised,data);
 
   /*rescale waveform for reflectance*/
   wave=adjustPhotonProb(denoised,data,den,noise,data->useType,photonCount);
@@ -511,6 +515,32 @@ char testPhotonGround(dataStruct *data,float d)
 
   return(isGround);
 }/*testPhotonGround*/
+
+
+/*########################################################*/
+/*remove negative values for photon counting*/
+
+void knockOffNegativeWaves(float *denoised,dataStruct *data)
+{
+  int i=0;
+  float min=0;
+
+  /*find the minimum*/
+  min=100000.0;
+  for(i=0;i<data->nBins;i++){
+    if(denoised[i]<min)min=denoised[i];
+  }
+
+  /*translate waves if needed*/
+  if(min<0.0){
+    for(i=0;i<data->nBins;i++){
+      denoised[i]-=min;
+      if(data->ground)data->ground[data->useType][i]-=min;
+    }
+  }
+
+  return;
+}/*knockOffNegativeWaves*/
 
 
 /*########################################################*/
