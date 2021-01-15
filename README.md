@@ -405,8 +405,10 @@ If the full grid is used, it outputs an ASCII file with the correlation for each
     -minDense x;      minimum ALS beam density to accept
     -decimate f;      decimate ALS point cloud by a factor, to save RAM
     -noFilt;          don't filter outliers from correlation (default)
-    -filtOut;         filter outliers from correlation stats
+    -filtOut s;       filter outliers from correlation stats along with an optional sigma
     -smooth sig;      smooth both waves before comparing
+    -checkCov;        check ALS coverage and remove any with footprints with less than 2/3 coverage
+    -median;          use the median correlation when optimising, rather than the mean (default)
 
 #### GEDI beam selection
     -beamList 11111111; 0/1 for whether or not to use beams 1-8 on GEDI
