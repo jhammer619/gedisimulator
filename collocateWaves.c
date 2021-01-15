@@ -1697,6 +1697,11 @@ void setALSbounds(control *dimage)
   dimage->minX=dimage->minY=10000000000.0;
   dimage->maxX=dimage->maxY=-10000000000.0;
 
+  if(!dimage->simIO.nFiles){
+    fprintf(stderr,"No ALS data provided?\n");
+    exit(1);
+  }
+
   /*loop over ALS files and read bounds from header*/
   for(i=0;i<dimage->simIO.nFiles;i++){
     las=readLasHead(dimage->simIO.inList[i],dimage->pBuffSize);
