@@ -83,8 +83,6 @@ make THIS=gediMetric
 mv gediMetric /usr/bin/
 make THIS=mapLidar
 mv mapLidar /usr/bin/
-make THIS=lvisBullseye
-mv lvisBullseye /usr/bin/
 make THIS=collocateWaves
 mv collocateWaves /usr/bin/
 make THIS=lasPoints
