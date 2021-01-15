@@ -1817,7 +1817,7 @@ control *readCommands(int argc,char **argv)
   dimage->largeErr=0;        /*don't do a large error search*/
   dimage->findFsig=1;
   dimage->maxIter=300;
-  dimage->optTol=0.01;
+  dimage->optTol=0.2;
   dimage->writeSimProg=0;
   /*simulated annealing*/
   dimage->anneal=0;
