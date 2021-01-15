@@ -60,6 +60,11 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
   float *crossCorrelateTime(float *,float,int,pulseStruct *,float);
 
+  #ifdef DEBUG
+  int i=0;
+  static int c=0;
+  #endif
+
   /*do we have a usable pulse?*/
   if(gediIO->pulse==NULL){
     fprintf(stderr,"No pulse. Cannot use PCL\n");
@@ -69,6 +74,11 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   /*first perform photon counting, if needed*/
   if(gediIO->pclPhoton)photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
   else                 photWave=wave;
+
+  #ifdef DEBUG
+  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %d %f %f\n",c,i,wave[i],photWave[i]);
+  c++;
+  #endif
 
   /*perform cross-correlation*/
   corrWave=crossCorrelateTime(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
@@ -451,6 +461,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   if(wave!=denoised){
     TIDY(wave);
   }else wave=NULL;
+
   return(phots);
 }/*countPhotons*/
 
