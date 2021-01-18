@@ -3984,7 +3984,6 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
   float **tempGr=NULL;
   float **tempC=NULL;
   float contN=0;
-static int count=0;
 
   /*allocate temporary space*/
   temp=fFalloc(waves->nWaves,"temp waves",0);
@@ -4043,7 +4042,6 @@ static int count=0;
       }/*normalisation step*/
     }/*bin loop*/
   }/*type loop*/
-count++;
 
   /*transfer arrays*/
   TTIDY((void **)waves->wave,waves->nWaves);
