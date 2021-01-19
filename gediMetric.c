@@ -2106,7 +2106,7 @@ void writeHelp()
 -photonCount;     output point cloud from photon counting\n\
 -nPhotons n;      mean number of photons\n\
 -photonWind x;    window length for photon counting search, metres\n\
--noiseMult x;     noise multiplier for photon-counting\n\
+-noiseMult x;     noise multiplier for photon-counting. Noise photon rate in micro Hz\n\
 -rhoVrhoG x;      ratio of canopy to ground reflectance at this wavelength. Not different from rhoV and rhoG\n\
 -nPhotC n;        mean number of canopy photons (replaces nPhotons and rhoVrhoG)\n\
 -nPhotG n;        mean number of ground photons (replaces nPhotons and rhoVrhoG)\n\
