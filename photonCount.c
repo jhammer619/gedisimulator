@@ -390,14 +390,12 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   int setNumberNoise(float,float,float);
   float **phots=NULL;  /*arrray with z, isSignal and isGround*/
   float photThresh=0,d=0,thisZ=0;
-  float pickArrayElement(float,float *,int,char);
   float photonNoiseIntensity(float);
   float minZ=0,maxZ=0;
   float *thisGr=NULL;
   float *wave=NULL;
   float *adjustPhotonProb(float *,dataStruct *,denPar *,noisePar *,int,photonStruct *);
   void knockOffNegativeWaves(float *,dataStruct *);
-  void setPhotonProb(photonStruct *);
   void adjustTotalPhotRate(photonStruct *,float);
   void setPhotonGround(float *,float *,float,double,float *,float *,double *,int);
   char testPhotonGround(dataStruct *,float);
@@ -656,15 +654,28 @@ void setPhotonGround(float *minZ,float *maxZ,float H,double gElev,float *wave,fl
 int setNumberNoise(float cov,float noise_mult,float H)
 {
   int nNoise=0;
-  float refl=0;
+  float refl=0,photThresh=0;
   float noiseRate=0;
   float c=299792458.0;
+  photonStruct tempPhot;
 
-  /*surface reflectance*/
-  if((cov<0.0)||(cov>1.0))cov=0.5;
-  refl=cov*0.15+(1.0-cov)*0.22;  /*assuming ground and canopy reflectance values*/
-  noiseRate=noise_mult*refl*pow(10.0,6.0);
-  nNoise=(int)(50.0*(H/c)*noiseRate+0.5);
+  /*is any noise being added?*/
+  if(noise_mult>TOL){
+    /*surface reflectance*/
+    if((cov<0.0)||(cov>1.0))cov=0.5;
+    refl=cov*0.15+(1.0-cov)*0.22;  /*assuming ground and canopy reflectance values*/
+
+    /*noise rate in photons per window*/
+    noiseRate=noise_mult*refl*pow(10.0,6.0);
+    /*nNoise=(int)(50.0*(H/c)*noiseRate+0.5);  This is to match Kaitlin's matlab code, but unsure where the 50 came from*/
+    tempPhot.designval=(H/c)*noiseRate;
+
+    /*pick from a Poisson*/
+    setPhotonProb(&tempPhot);
+    photThresh=(float)rand()/(float)RAND_MAX;
+    nNoise=(int)pickArrayElement(photThresh,tempPhot.prob,tempPhot.pBins,0);
+    TIDY(tempPhot.prob);
+  }else nNoise=0;
 
   return(nNoise);
 }/*setNumberNoise*/

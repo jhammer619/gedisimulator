@@ -74,7 +74,9 @@ void setPhotonRates(photonStruct *);
 float *uncompressPhotons(float *,dataStruct *,photonStruct *,noisePar *,gediIOstruct *);
 float **countPhotons(float *,dataStruct *,photonStruct *,int *,denPar *,noisePar *);
 float *countWaveform(float *,dataStruct *,photonStruct *,denPar *,noisePar *);
+float pickArrayElement(float,float *,int,char);
 void removeAsymmetryPCL(float *,int);
+void setPhotonProb(photonStruct *);
 
 /*###########################################################*/
 
