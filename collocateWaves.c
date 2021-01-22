@@ -946,7 +946,7 @@ void fullBullseyePlot(control *dimage,float **denoised,int nTypeWaves,dataStruct
 
         /*tidy up*/
         TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
-        TTIDY((void **)correl,dimage->gediRat.gNx);
+        TTIDY((void **)correl,contN);
       }/*z loop*/
     }/*y loop*/
   }/*x loop*/
