@@ -1986,7 +1986,9 @@ control *readCommands(int argc,char **argv)
         dimage->filtOutli=0;
       }else if(!strncasecmp(argv[i],"-filtOut",8)){
         dimage->filtOutli=1;
-        if(strncasecmp(argv[i+1],"-",1))dimage->outStdev=atof(argv[++i]);
+        if((i+1)<argc){
+          if(strncasecmp(argv[i+1],"-",1))dimage->outStdev=atof(argv[++i]);
+        }
       }else if(!strncasecmp(argv[i],"-median",7)){
         dimage->useMean=0;
       }else if(!strncasecmp(argv[i],"-noOctree",9)){
