@@ -569,7 +569,7 @@ double findMeanCorr(const gsl_vector *v, void *params)
 
   /*tidy up*/
   TTIDY((void **)dimage->gediRat.coords,dimage->gediRat.gNx);
-  TTIDY((void **)correl,dimage->gediRat.gNx);
+  TTIDY((void **)correl,contN);
   dimage=NULL;
   coords=NULL;
   denoised=NULL;
