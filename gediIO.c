@@ -4269,7 +4269,7 @@ void processAggragate(gediRatStruct *gediRat,gediIOstruct *gediIO,waveStruct *wa
 waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStruct **data)
 {
   int j=0,k=0;
-  float tot=0;
+  float tot=0,minInt=0;
   waveStruct *waves=NULL;
   waveStruct *allocateGEDIwaves(gediIOstruct *,gediRatStruct *,pCloudStruct **,pointMapStruct *);
   void processAggragate(gediRatStruct *,gediIOstruct *,waveStruct *);
@@ -4334,13 +4334,17 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
       gediRat->decon->pulse=NULL;
       TIDY(gediRat->decon);
     }
+
+    /*find total integral to check that there is signal*/
+    minInt=10000.0;
+    for(j=0;j<waves->nBins;j++)if(waves->wave[0][j]<minInt)minInt=waves->wave[0][j];
     tot=0.0;
-    for(j=0;j<waves->nBins;j++)tot+=waves->wave[0][j]*gediIO->res;
+    for(j=0;j<waves->nBins;j++)tot+=(waves->wave[0][j]-minInt)*gediIO->res;
   }/*contains data*/
 
   /*check whether empty*/
   if(gediRat->useFootprint){
-    if(((tot<TOL)&&(gediIO->pcl==0))||(waves->nBins==0))gediRat->useFootprint=0;
+    if((tot<TOL)||(waves->nBins==0))gediRat->useFootprint=0;
   }
   if(pointmap){
     TIDY(pointmap->fList);
