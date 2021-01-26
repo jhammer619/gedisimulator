@@ -3232,7 +3232,7 @@ void setGediFootprint(gediRatStruct *gediRat,gediIOstruct *gediIO)
 
   /*number of lobes and allocate*/
   if(gediRat->sideLobe==0)gediRat->nLobes=1;
-  else                   gediRat->nLobes=7;
+  else                    gediRat->nLobes=7;
   if(!(gediRat->lobe=(lobeStruct *)calloc(gediRat->nLobes,sizeof(lobeStruct)))){
     fprintf(stderr,"error lobeStruct allocation.\n");
     exit(1);
@@ -3395,10 +3395,12 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
       tot[j]=cumul[j]=0.0;
       for(i=0;i<waves->nBins;i++)tot[j]+=waves->wave[j][i];
     }
-    /*set threshols*/
+
+    /*set threshold*/
     thresh=falloc((uint64_t)hdfData->nTypeWaves,"thresh",0);
     for(j=0;j<hdfData->nTypeWaves;j++)thresh[j]=0.01*tot[j];
     TIDY(tot);
+
     /*find waveform start*/
     start=-1;
     for(i=0;i<waves->nBins;i++){
@@ -3445,8 +3447,9 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
   memcpy(&hdfData->waveID[numb*hdfData->idLength],thisWaveID,idLength);
 
   /*waveform*/
-  if(gediIO->pcl==0)nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
-  else              nBins=hdfData->nBins[0];
+  //if(gediIO->pcl==0)
+  nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
+  //else              nBins=hdfData->nBins[0];
   for(j=0;j<hdfData->nTypeWaves;j++){
     memcpy(&hdfData->wave[j][numb*hdfData->nBins[0]],&waves->wave[j][start],nBins*sizeof(float));
   }
@@ -3488,7 +3491,7 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
   hdfData->nWaves=gediRat->gNx*gediRat->gNy;
   hdfData->nBins=ialloc(1,"nBins",0);
   if(gediIO->pcl==0)hdfData->nBins[0]=(int)((float)maxBins*0.15/gediIO->res);
-  else              hdfData->nBins[0]=(int)((gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0])/gediIO->res);
+  else              hdfData->nBins[0]=(int)((gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0])/gediIO->res)*2;
   hdfData->nTypeWaves=gediIO->nTypeWaves;
   hdfData->pSigma=gediIO->pSigma;
   hdfData->fSigma=gediIO->fSigma;
@@ -3576,10 +3579,9 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }
 
   /*determine wave bounds*/
-  if(gediIO->pcl==0){
-    buff=35.0;
-    if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes/2.0;
-  }/*otherwise the buffer is variable, to allow the wve to fit in the pulse array*/
+  if(gediIO->pcl==0)buff=35.0;
+  else              buff=0.0;
+  if(gediIO->pulse)buff+=(double)gediIO->pulse->nBins*(double)gediIO->pRes/2.0;
   minZ=100000000000.0;
   maxZ=-100000000000.0;
   hasPoints=0;
@@ -3598,26 +3600,27 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }
 
   /*determine number of waveform bins*/
-  if(gediIO->pcl==0){
-    waves->minZ=minZ-buff;
-    waves->maxZ=maxZ+buff;
-    waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
-  }else{  /*PCL*/
-    dxPulse=gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0];
-    waves->nBins=(int)(dxPulse/gediIO->res);
+  //if(gediIO->pcl==0){
+  waves->minZ=minZ-buff;
+  waves->maxZ=maxZ+buff;
+  waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
 
-    /*check that the pulse is long enough*/
-    if(dxPulse>(maxZ-minZ)){
-      buff=(dxPulse-(maxZ-minZ))*3.0/4.0;
-      if(buff<10.0)buff=10.0;
-    }else{
-      buff=10.0;
-      fprintf(stderr,"The chirped pulse is not long enough for this shot. May be errors\n");
-    }
+  //}else{  /*PCL*/
+  //  dxPulse=gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0];
+  //  waves->nBins=(int)(dxPulse/gediIO->res);
+  //
+  //  /*check that the pulse is long enough*/
+  //  if(dxPulse>(maxZ-minZ)){
+  //    buff=(dxPulse-(maxZ-minZ))*3.0/4.0;
+  //    if(buff<10.0)buff=10.0;
+  //  }else{
+  //    buff=10.0;
+  //    fprintf(stderr,"The chirped pulse is not long enough for this shot. May be errors\n");
+  //  }
 
-    waves->minZ=minZ-buff;
-    waves->maxZ=waves->minZ+(double)dxPulse;
-  }/*bin calculation step*/
+  //  waves->minZ=minZ-buff;
+  //  waves->maxZ=waves->minZ+(double)dxPulse;
+  //}/*bin calculation step*/
  
   waves->nWaves=(int)(gediIO->useCount+gediIO->useInt+gediIO->useFrac);
   if(gediRat->readWave)waves->nWaves*=3;  /*if we are using full waveform*/
@@ -4336,7 +4339,9 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
   }/*contains data*/
 
   /*check whether empty*/
-  if((tot<TOL)||(waves->nBins==0))gediRat->useFootprint=0;
+  if(gediRat->useFootprint){
+    if(((tot<TOL)&&(gediIO->pcl==0))||(waves->nBins==0))gediRat->useFootprint=0;
+  }
   if(pointmap){
     TIDY(pointmap->fList);
     TIDY(pointmap->pList);
