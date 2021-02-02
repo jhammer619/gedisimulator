@@ -151,6 +151,8 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   meanP=0.0;
   for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
   meanP/=(float)pulse->rBins;
+fprintf(stdout,"meanP %f ",meanP);
+meanP=0.0;
 
   /*find the stdev of the pulse*/
   stdevP=0.0;
@@ -161,6 +163,8 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   meanW=0.0;
   for(i=0;i<nBins;i++)meanW+=photWave[i];
   meanW/=(float)nBins;
+fprintf(stdout,"meanW %f\n",meanW);
+meanW=0.0;
 
   /*find the stdev of the wave*/
   stdevW=0.0;
@@ -169,6 +173,7 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
 
 
   /*loop over bins in time domain*/
+  //for(i=pulse->rCent;i<(nBins-pulse->rCent);i++){ /*step in by the cent bins of the pulse*/
   for(i=0;i<nBins;i++){
     compCorr[i]=0.0;
     thisCont=0;
