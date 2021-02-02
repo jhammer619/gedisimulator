@@ -3438,7 +3438,7 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
     if(start<0)start=0;
     buff=0.0;
     TIDY(thresh);
-    fprintf(stdout,"Start %d\n",start);
+    //fprintf(stdout,"Start %d\n",start);
   }
 
   /*copy data*/
