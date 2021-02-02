@@ -94,30 +94,68 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 
 
 /*####################################################*/
+/*resample a pulse for PCL*/
+
+void resamplePclPulse(pulseStruct *pulse,float res,float pRes)
+{
+  int i=0,*contN=NULL;
+  int bin=0;
+
+  /*allocate space and zero*/
+  pulse->rBins=(int)((float)pulse->nBins*res/pRes);
+  pulse->resamp=falloc(pulse->rBins,"",0);
+  contN=ialloc(pulse->rBins,"",0);
+  for(i=0;i<pulse->rBins;i++){
+    pulse->resamp[i]=0.0;
+    contN[i]=0;
+  }
+
+  /*resample pulse*/
+  for(i=0;i<pulse->nBins;i++){
+    bin=(int)((float)i*pRes/res);
+    if((bin>=0)&&(bin<pulse->rBins)){
+      pulse->resamp[bin]+=pulse->y[i];
+      contN[bin]++;
+    }
+  }
+  /*normalise resampled*/
+  for(i=0;i<pulse->rBins;i++){
+    if(contN[i]>0)pulse->resamp[i]/=(float)contN[i];
+  }
+  TIDY(contN);
+  pulse->rCent=(int)((float)pulse->centBin*pRes/res);
+
+  return;
+}/*resamplePclPulse*/
+
+
+/*####################################################*/
 /*perform a cross-correlation in the time domain*/
 
 float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse,float pRes)
 {
-  int i=0,j=0,bin=0,centBin=0;
-  int *contN=NULL,thisCont=0;
+  int i=0,j=0,bin=0;
+  int thisCont=0;
   float *compCorr=NULL;
   float meanP=0,meanW=0;
   float stdevP=0,stdevW=0;
-
-  compCorr=falloc(nBins,"compCorr",0);
+  void resamplePclPulse(pulseStruct *,float,float);
 
   /*allocate space*/
-  compCorr=falloc(nBins,"",0);
+  compCorr=falloc(nBins,"compCorr",0);
+
+  /*allocate resampled pulse if needed*/
+  if(pulse->resamp==NULL)resamplePclPulse(pulse,res,pRes);
 
   /*find the mean of the pulse and min/max*/
   meanP=0.0;
-  for(i=0;i<pulse->nBins;i++)meanP+=pulse->y[i];
-  meanP/=(float)pulse->nBins;
+  for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
+  meanP/=(float)pulse->rBins;
 
   /*find the stdev of the pulse*/
   stdevP=0.0;
-  for(i=0;i<pulse->nBins;i++)stdevP+=(pulse->y[i]-meanP)*(pulse->y[i]-meanP);
-  stdevP=sqrt(stdevP/(float)pulse->nBins);
+  for(i=0;i<pulse->rBins;i++)stdevP+=(pulse->resamp[i]-meanP)*(pulse->resamp[i]-meanP);
+  stdevP=sqrt(stdevP/(float)pulse->rBins);
 
   /*find the mean of the wave*/
   meanW=0.0;
@@ -129,50 +167,26 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   for(i=0;i<nBins;i++)stdevW+=(photWave[i]-meanW)*(photWave[i]-meanW);
   stdevW=sqrt(stdevW/(float)nBins);
 
-  /*allocate resampled pulse*/
-  if(pulse->resamp==NULL){
-    pulse->resamp=falloc(nBins,"",0);
-    contN=ialloc(nBins,"",0);
-    for(i=0;i<nBins;i++){
-      pulse->resamp[i]=0.0;
-      contN[i]=0;
-    }
-
-    /*resample pulse*/
-    for(i=0;i<pulse->nBins;i++){
-      bin=(int)((float)i*pRes/res);
-      if((bin>=0)&&(bin<nBins)){
-        pulse->resamp[bin]+=pulse->y[i];
-        contN[bin]++;
-      }
-    }
-    /*normalise resampled*/
-    for(i=0;i<nBins;i++){
-      if(contN[i]>0)pulse->resamp[i]/=(float)contN[i];
-    }
-  }
-
-  TIDY(contN);
-  centBin=(int)((float)pulse->centBin*pRes/res);
 
   /*loop over bins in time domain*/
   for(i=0;i<nBins;i++){
     compCorr[i]=0.0;
     thisCont=0;
 
-    /*loop over pulse tp convolve*/
-    for(j=0;j<nBins;j++){
-      bin=i+j-centBin;  /*bin on the pulse*/
+    /*loop over pulse to convolve*/
+    for(j=0;j<pulse->rBins;j++){
+      bin=i+j-pulse->rCent;  /*bin on the pulse*/
 
       /*are we within the pulse array?*/
       if((bin>=0)&&(bin<nBins)){
-        compCorr[i]+=(photWave[nBins-(j+1)]-meanW)*(pulse->resamp[bin]-meanP)/(stdevP*stdevW);
+        compCorr[i]+=(photWave[bin]-meanW)*(pulse->resamp[pulse->rBins-(j+1)]-meanP)/(stdevP*stdevW);
         thisCont++;
       }
     }/*pulse bin loop*/
 
     /*normalise*/
     if(thisCont>0)compCorr[i]/=(float)thisCont;
+    //compCorr[i]/=(float)pulse->rBins;
   }/*wave bin loop*/
 
   return(compCorr);

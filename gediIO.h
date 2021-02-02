@@ -41,7 +41,10 @@ typedef struct{
   float *y;
   float *x;
 
+  /*resampled pulse, for PCL*/
   float *resamp;  /*resampled pulse for speed*/
+  int rBins;      /*number of resampled bins*/
+  int rCent;      /*resampled centre*/
 }pulseStruct;
 
 
