@@ -3419,8 +3419,26 @@ void packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *g
     start-=buff/gediIO->res;
     if(start<0)start=0;
   }else{
+    /*find maximum*/
+    tot=falloc(1,"tot",0);
+    tot[0]=-10000.0;
+    for(i=0;i<waves->nBins;i++){
+      if(fabs(waves->wave[0][i])>tot[0])tot[0]=fabs(waves->wave[0][i]);
+    }
     start=0;
+    thresh=falloc(1,"thresh",0);
+    thresh[0]=tot[0]*0.000001;
+    TIDY(tot);
+    for(i=0;i<waves->nBins;i++){
+      if(fabs(waves->wave[0][i])>thresh[0]){
+        start=i-1;
+        break;
+      }
+    }
+    if(start<0)start=0;
     buff=0.0;
+    TIDY(thresh);
+    fprintf(stdout,"Start %d\n",start);
   }
 
   /*copy data*/
