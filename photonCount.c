@@ -151,8 +151,6 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   meanP=0.0;
   for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
   meanP/=(float)pulse->rBins;
-fprintf(stdout,"meanP %f ",meanP);
-meanP=0.0;
 
   /*find the stdev of the pulse*/
   stdevP=0.0;
@@ -163,8 +161,6 @@ meanP=0.0;
   meanW=0.0;
   for(i=0;i<nBins;i++)meanW+=photWave[i];
   meanW/=(float)nBins;
-fprintf(stdout,"meanW %f\n",meanW);
-meanW=0.0;
 
   /*find the stdev of the wave*/
   stdevW=0.0;
@@ -184,14 +180,15 @@ meanW=0.0;
 
       /*are we within the pulse array?*/
       if((bin>=0)&&(bin<nBins)){
-        compCorr[i]+=(photWave[bin]-meanW)*(pulse->resamp[pulse->rBins-(j+1)]-meanP)/(stdevP*stdevW);
+        //compCorr[i]+=(photWave[bin]-meanW)*(pulse->resamp[pulse->rBins-(j+1)]-meanP)/(stdevP*stdevW);
+        compCorr[i]+=photWave[bin]*pulse->resamp[pulse->rBins-(j+1)]/(stdevP*stdevW);
         thisCont++;
       }
     }/*pulse bin loop*/
 
     /*normalise*/
-    if(thisCont>0)compCorr[i]/=(float)thisCont;
-    //compCorr[i]/=(float)pulse->rBins;
+    //if(thisCont>0)compCorr[i]/=(float)thisCont;
+    compCorr[i]/=(float)pulse->rBins;
   }/*wave bin loop*/
 
   return(compCorr);
