@@ -14,7 +14,7 @@
 #include "photonCount.h"
 #include "gsl/gsl_fft_complex.h"
 
-#define DEBUG
+//#define DEBUG
 
 
 /*##############################*/
