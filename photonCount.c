@@ -14,6 +14,8 @@
 #include "photonCount.h"
 #include "gsl/gsl_fft_complex.h"
 
+#define DEBUG
+
 
 /*##############################*/
 /*# Generates photon count from#*/
@@ -75,14 +77,15 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   if(gediIO->pclPhoton)photWave=countWaveform(wave,data,photonCount,gediIO->den,noise);
   else                 photWave=wave;
 
-  #ifdef DEBUG
-  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %d %f %f\n",c,i,wave[i],photWave[i]);
-  c++;
-  #endif
-
   /*perform cross-correlation*/
   corrWave=crossCorrelateTime(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
   //corrWave=crossCorrelateWaves(photWave,data->res,data->nBins,gediIO->pulse,gediIO->pRes);
+
+  #ifdef DEBUG
+  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %f %f %f %f debug2\n",c,data->z[i],wave[i],photWave[i],corrWave[i]);
+  c++;
+  #endif
+
 
   /*tidy up*/
   if(photWave!=wave){
@@ -352,6 +355,11 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   float *temp=NULL;
   float **phots=NULL;
 
+  #ifdef DEBUG
+  static int count=0;
+  fprintf(stdout,"Photon counting\n");
+  #endif
+
   /*set minimum to zero*/
   minI=10000.0;
   for(i=0;i<data->nBins;i++){
@@ -391,6 +399,11 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
       }/*return check*/
     }/*bin loop*/
   }/*apply shot noise check*/
+
+  #ifdef DEBUG
+  for(i=0;i<data->nBins;i++)fprintf(stdout,"%d %f %f %f ta\n",count,data->z[i],temp[i],data->wave[0][i]);
+  count++;
+  #endif
 
   return(temp);
 }/*countWaveform*/
