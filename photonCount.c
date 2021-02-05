@@ -170,7 +170,6 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   for(i=0;i<nBins;i++)stdevW+=(photWave[i]-meanW)*(photWave[i]-meanW);
   stdevW=sqrt(stdevW/(float)nBins);
 
-
   /*loop over bins in time domain*/
   //for(i=pulse->rCent;i<(nBins-pulse->rCent);i++){ /*step in by the cent bins of the pulse*/
   for(i=0;i<nBins;i++){
@@ -343,7 +342,7 @@ void removeAsymmetryPCL(float *wave,int numb)
 
 
 /*####################################################*/
-/*count photons and make pseudo-waveform*/
+/*produce a photon-counting pseudo-waveform*/
 
 float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
 {
@@ -410,7 +409,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
 
 /*####################################################*/
-/*count photons*/
+/*produce photon counting photons*/
 
 float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,int *nPhot,denPar *den,noisePar *noise)
 {

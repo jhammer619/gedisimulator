@@ -2178,7 +2178,7 @@ float *setPulseRange(gediIOstruct *gediIO)
   for(i=0;i<gediIO->pulse->nBins;i++){
     x[i]=(float)i*gediIO->pRes;
 
-    if(gediIO->pcl==0){
+    if((gediIO->pcl==0)&&(gediIO->pclPhoton==0)){
       if(gediIO->pulse->y[i]>max){
         max=gediIO->pulse->y[i];
         gediIO->pulse->centBin=i;
@@ -2187,7 +2187,7 @@ float *setPulseRange(gediIOstruct *gediIO)
   }
 
   /*to allow for chirps*/
-  if(gediIO->pcl)gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);
+  if(gediIO->pcl||gediIO->pclPhoton)gediIO->pulse->centBin=(int)(gediIO->pulse->nBins/2);
 
   return(x);
 }/*setPulseRange*/
