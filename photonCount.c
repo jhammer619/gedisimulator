@@ -150,20 +150,22 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   /*allocate resampled pulse if needed*/
   if(pulse->resamp==NULL)resamplePclPulse(pulse,res,pRes);
 
-  /*find the mean of the pulse and min/max*/
-  meanP=0.0;
-  for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
-  meanP/=(float)pulse->rBins;
+  /*find the averaghe of the pulse*/
+  //meanP=0.0;
+  //for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
+  //meanP/=(float)pulse->rBins;
+  meanP=singleMedian(pulse->resamp,pulse->rBins);
 
   /*find the stdev of the pulse*/
   stdevP=0.0;
   for(i=0;i<pulse->rBins;i++)stdevP+=(pulse->resamp[i]-meanP)*(pulse->resamp[i]-meanP);
   stdevP=sqrt(stdevP/(float)pulse->rBins);
 
-  /*find the mean of the wave*/
-  meanW=0.0;
-  for(i=0;i<nBins;i++)meanW+=photWave[i];
-  meanW/=(float)nBins;
+  /*find the average of the wave*/
+  //meanW=0.0;
+  //for(i=0;i<nBins;i++)meanW+=photWave[i];
+  //meanW/=(float)nBins;
+  meanW=singleMedian(photWave,nBins);
 
   /*find the stdev of the wave*/
   stdevW=0.0;
@@ -182,8 +184,8 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
 
       /*are we within the pulse array?*/
       if((bin>=0)&&(bin<nBins)){
-        //compCorr[i]+=(photWave[bin]-meanW)*(pulse->resamp[pulse->rBins-(j+1)]-meanP)/(stdevP*stdevW);
-        compCorr[i]+=photWave[bin]*pulse->resamp[pulse->rBins-(j+1)]/(stdevP*stdevW);
+        compCorr[i]+=(photWave[bin]-meanW)*(pulse->resamp[pulse->rBins-(j+1)]-meanP)/(stdevP*stdevW);
+        //compCorr[i]+=photWave[bin]*pulse->resamp[pulse->rBins-(j+1)]/(stdevP*stdevW);
         thisCont++;
       }
     }/*pulse bin loop*/
