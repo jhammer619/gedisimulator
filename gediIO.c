@@ -2075,9 +2075,13 @@ gediHDF *tidyGediHDF(gediHDF *hdfData)
 dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int numb)
 {
   int i=0;
+  int sBin=0,eBin=0;
   float zTop=0;
   float *setPulseRange(gediIOstruct *);
+  double sOff=0,eOff=0;
   dataStruct *data=NULL;
+  void findPCLends(int *,int *,float *,int);
+
 
   /*read data from file if needed*/
   if(*hdfGedi==NULL){
@@ -2094,6 +2098,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   /*copy header*/
   if(hdfGedi[0]->varBins==0)data->nBins=hdfGedi[0]->nBins[0];
   else                      data->nBins=hdfGedi[0]->nBins[numb];
+  data->res=fabs(hdfGedi[0]->z0[numb]-hdfGedi[0]->zN[numb])/(float)data->nBins;
   data->nWaveTypes=hdfGedi[0]->nTypeWaves;
   data->useType=0;
   data->demGround=0;
@@ -2115,14 +2120,28 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   }
   data->usable=1;
 
+  /*find start and end of waveform if using PCL*/
+  if(gediIO->pcl||gediIO->pclPhoton){
+    findPCLends(&sBin,&eBin,&hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]],data->nBins);
+    /*elevation offsets*/
+    sOff=(double)sBin*(double)data->res;
+    eOff=(double)(data->nBins-eBin)*(double)data->res;
+    /*trim bins*/
+    data->nBins=eBin-sBin;
+  }else{
+    sBin=0;
+    eBin=data->nBins;
+    sOff=eOff=0.0;
+  }
+
   /*point to arrays rather than copy*/
   data->wave=fFalloc(data->nWaveTypes,"waveform",0);
   data->wave[0]=falloc((uint64_t)data->nBins,"waveform",0);
-  memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]]),data->nBins*4);
+  memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]+sBin]),data->nBins*4);
   if(gediIO->ground){
     data->ground=fFalloc(data->nWaveTypes,"ground waveform",0);
     data->ground[0]=falloc((uint64_t)data->nBins,"waveform",0);
-    memcpy(data->ground[0],&(hdfGedi[0]->ground[data->useType][hdfGedi[0]->sInd[numb]]),data->nBins*4);
+    memcpy(data->ground[0],&(hdfGedi[0]->ground[data->useType][hdfGedi[0]->sInd[numb]+sBin]),data->nBins*4);
   }else data->ground=NULL;
 
   /*read pulse*/
@@ -2145,12 +2164,13 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   for(i=0;i<data->nBins;i++)data->totE[data->useType]+=data->wave[0][i];
 
   /*elevation needs making and resolution passing to structures*/
-  data->res=fabs(hdfGedi[0]->z0[numb]-hdfGedi[0]->zN[numb])/(float)data->nBins;
   gediIO->res=data->res;
   if(gediIO->gFit)gediIO->gFit->res=data->res;
   if(gediIO->den)gediIO->den->res=data->res;
   data->z=dalloc(data->nBins,"z",0);
-  zTop=(hdfGedi[0]->zN[numb]>hdfGedi[0]->z0[numb])?hdfGedi[0]->zN[numb]:hdfGedi[0]->z0[numb];
+  /*which way up are we?*/
+  if(hdfGedi[0]->z0[numb]>hdfGedi[0]->zN[numb])zTop=hdfGedi[0]->z0[numb]-sOff;
+  else                                         zTop=hdfGedi[0]->zN[numb]-eOff;
   for(i=0;i<data->nBins;i++)data->z[i]=(double)(zTop-(float)i*data->res);
 
   /*set up number of messages*/
@@ -2159,6 +2179,45 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
 
   return(data);
 }/*unpackHDFgedi*/
+
+
+/*####################################################*/
+/*find ends of signal for PCL*/
+
+void findPCLends(int *sBin,int *eBin,float *wave,int nBins)
+{
+  int i=0;
+  float max=0,thresh=0;
+
+  /*find maximum absolute value*/
+  max=-1000.0;
+  for(i=0;i<nBins;i++){
+    if(fabs(wave[i])>max)max=fabs(wave[i]);
+  }
+  thresh=max*0.000001;
+
+  /*find the start*/
+  *sBin=0;
+  for(i=0;i<nBins;i++){
+    if(fabs(wave[i])>thresh){
+      *sBin=i-1;
+      break;
+    }
+  }
+  if(*sBin<0)*sBin=0;
+
+  /*find the end*/
+  *eBin=nBins;
+  for(i=nBins-1;i>=0;i--){
+    if(fabs(wave[i])>thresh){
+      *eBin=i+1;
+      break;
+    } 
+  }
+  if(*eBin>nBins)*eBin=nBins;
+
+  return;
+}/*findPCLends*/
 
 
 /*####################################################*/
