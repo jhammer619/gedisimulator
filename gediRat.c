@@ -548,7 +548,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediIO.pFWHM=15.0;   /*12 ns FWHM*/
   dimage->gediIO.fSigma=5.5;  /*86% of energy within a diameter of 20-25m*/
   dimage->gediIO.res=0.15;
-  dimage->gediIO.pRes=dimage->gediIO.res/3.0;
+  dimage->gediIO.pRes=dimage->gediIO.res/4.0;
   dimage->gediRat.coord[0]=624366.0;
   dimage->gediRat.coord[1]=3.69810*pow(10.0,6.0);
   dimage->gediRat.decon=NULL;
@@ -761,6 +761,9 @@ control *readCommands(int argc,char **argv)
 
   /*total number of beams*/
   dimage->gediIO.nTypeWaves=dimage->gediIO.useCount+dimage->gediIO.useFrac+dimage->gediIO.useInt;
+
+  /*ensure pulse is Nyquist sampled*/
+  if(dimage->gediIO.readPulse==0)dimage->gediIO.pRes=dimage->gediIO.res/4.0;
 
   return(dimage);
 }/*readCommands*/
