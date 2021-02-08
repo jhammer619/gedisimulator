@@ -369,6 +369,9 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   temp=falloc(data->nBins,"temp pcl waveform",0);
   for(i=0;i<data->nBins;i++)temp[i]=denoised[i]+minI;
 
+  /*set window size for background noise photons*/
+  photonCount->H=data->res*(float)data->nBins*2.0;  /*this is the two way distance*/
+
   /*extract photon coords along with their flags*/
   phots=countPhotons(temp,data,photonCount,&nPhot,den,noise);
 
@@ -684,7 +687,8 @@ void setPhotonGround(float *minZ,float *maxZ,float H,double gElev,float *wave,fl
 int setNumberNoise(float cov,float noise_mult,float H)
 {
   int nNoise=0;
-  float refl=0,photThresh=0;
+  /*float refl=0; OLD, for varying reflectance*/
+  float photThresh=0;
   float noiseRate=0;
   float c=299792458.0;
   photonStruct tempPhot;
@@ -692,11 +696,11 @@ int setNumberNoise(float cov,float noise_mult,float H)
   /*is any noise being added?*/
   if(noise_mult>TOL){
     /*surface reflectance*/
-    if((cov<0.0)||(cov>1.0))cov=0.5;
-    refl=cov*0.15+(1.0-cov)*0.22;  /*assuming ground and canopy reflectance values*/
+    /*if((cov<0.0)||(cov>1.0))cov=0.5;   OLD, for varying ground reflectance
+    refl=cov*0.15+(1.0-cov)*0.22;*/  /*assuming ground and canopy reflectance values*/
 
     /*noise rate in photons per window*/
-    noiseRate=noise_mult*refl*pow(10.0,6.0);
+    noiseRate=noise_mult*pow(10.0,6.0); //*refl     used to be *refl to account for xchanging surface reflectance
     /*nNoise=(int)(50.0*(H/c)*noiseRate+0.5);  This is to match Kaitlin's matlab code, but unsure where the 50 came from*/
     tempPhot.designval=(H/c)*noiseRate;
 
