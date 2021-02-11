@@ -376,6 +376,7 @@ class gediData(object):
       # make z profile
       self.nBins=self.lenInds[i]
       self.z=np.linspace(self.Z0[i],self.ZN[i],num=self.nBins)
+      self.res=abs(self.Z0[i]-self.ZN[i])/self.nBins
 
       # determine noise for scaling ground return
       reflScale,meanN,stdev=self.meanNoise(i)
