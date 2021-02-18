@@ -105,7 +105,7 @@ void resamplePclPulse(pulseStruct *pulse,float res,float pRes)
   int bin=0;
 
   /*allocate space and zero*/
-  pulse->rBins=(int)((float)pulse->nBins*res/pRes);
+  pulse->rBins=(int)((float)pulse->nBins*pRes/res);
   pulse->resamp=falloc(pulse->rBins,"",0);
   contN=ialloc(pulse->rBins,"",0);
   for(i=0;i<pulse->rBins;i++){
