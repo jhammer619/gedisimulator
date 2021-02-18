@@ -607,7 +607,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
   }else{   /*there is a ground*/
     /*is any adjustment needed*/
     if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
-    else{
+    else{  /*if it is needed, do it*/
       if(den->varNoise||noise->linkNoise){
         fprintf(stderr,"Not able to readjust denoised waveforms just yet\n");
         exit(1);
