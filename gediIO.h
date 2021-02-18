@@ -45,6 +45,7 @@ typedef struct{
   float *resamp;  /*resampled pulse for speed*/
   int rBins;      /*number of resampled bins*/
   int rCent;      /*resampled centre*/
+  float totE;     /*total energy*/
 }pulseStruct;
 
 

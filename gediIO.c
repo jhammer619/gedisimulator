@@ -3188,7 +3188,7 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
 {
   int i=0;
   float CofG=0,tot=0,centre=0;
-  float minSep=0,max=0;
+  float minSep=0,max=0,min=0;
   char line[400];
   char temp1[100],temp2[100];
   FILE *ipoo=NULL;
@@ -3229,17 +3229,21 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   tot=0.0;
   CofG=0.0;
   max=-1000.0;
+  min=100000.0;
   for(i=0;i<gediIO->pulse->nBins;i++){
     CofG+=gediIO->pulse->x[i]*gediIO->pulse->y[i];
     if(gediIO->pulse->y[i]>=max){
       max=gediIO->pulse->y[i];
       centre=gediIO->pulse->x[i];
     }
+    if(gediIO->pulse->y[i]<min)min=gediIO->pulse->y[i];
     tot+=gediIO->pulse->y[i];
   }
-  if(gediIO->pcl==1)centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
-  CofG/=tot;
+
+  if(tot>0.0)CofG/=tot;
   CofG-=centre;
+
+  if(gediIO->pcl==1)centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
 
   /*align pulse*/
   if(gediIO->pcl==0){
@@ -3264,6 +3268,8 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   gediIO->linkPsig=gediIO->pSigma;
 
   /*now normalise*/
+  //tot=tot-min*(float)gediIO->pulse->nBins;
+  //for(i=0;i<gediIO->pulse->nBins;i++)gediIO->pulse->y[i]=(gediIO->pulse->y[i]-min)/tot;
   for(i=0;i<gediIO->pulse->nBins;i++)gediIO->pulse->y[i]/=tot;
 
   if(ipoo){
@@ -4108,7 +4114,7 @@ void applyPulseShape(gediIOstruct *gediIO,gediRatStruct *gediRat,waveStruct *wav
             tempGr[k][i]+=waves->ground[k][bin]*gediIO->pulse->y[j];
             tempC[k][i]+=waves->canopy[k][bin]*gediIO->pulse->y[j];
           }
-          contN+=1.0;
+          contN+=1.0; //=gediIO->pulse->y[j];
         }/*bin bound check*/
       }/*pulse bin loop*/
 

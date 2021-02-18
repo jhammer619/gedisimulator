@@ -14,7 +14,7 @@
 #include "photonCount.h"
 #include "gsl/gsl_fft_complex.h"
 
-//#define DEBUG
+#define DEBUG
 
 
 /*##############################*/
@@ -103,15 +103,17 @@ void resamplePclPulse(pulseStruct *pulse,float res,float pRes)
 {
   int i=0,*contN=NULL;
   int bin=0;
+  float minE=0,tot=0;
 
   /*allocate space and zero*/
-  pulse->rBins=(int)((float)pulse->nBins*pRes/res);
+  pulse->rBins=(int)((float)pulse->nBins*res/pRes);
   pulse->resamp=falloc(pulse->rBins,"",0);
   contN=ialloc(pulse->rBins,"",0);
   for(i=0;i<pulse->rBins;i++){
     pulse->resamp[i]=0.0;
     contN[i]=0;
   }
+
 
   /*resample pulse*/
   for(i=0;i<pulse->nBins;i++){
@@ -121,11 +123,23 @@ void resamplePclPulse(pulseStruct *pulse,float res,float pRes)
       contN[bin]++;
     }
   }
+
   /*normalise resampled*/
+  minE=100000.0;
+  tot=0.0;
   for(i=0;i<pulse->rBins;i++){
     if(contN[i]>0)pulse->resamp[i]/=(float)contN[i];
+    if(pulse->resamp[i]<minE)minE=pulse->resamp[i];
+    tot+=pulse->resamp[i];
   }
   TIDY(contN);
+
+  /*make positive and normalise*/
+  pulse->totE=tot-minE*(float)pulse->rBins;
+  for(i=0;i<pulse->rBins;i++){
+    pulse->resamp[i]=(pulse->resamp[i]-minE)/pulse->totE;
+  }
+
   pulse->rCent=(int)((float)pulse->centBin*pRes/res);
 
   return;
