@@ -3240,10 +3240,10 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   if(tot>0.0)CofG/=tot;
   CofG-=centre;
 
-  if(gediIO->pcl==1)centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
+  if((gediIO->pcl==1)||(gediIO->pclPhoton))centre=gediIO->pulse->x[(int)(gediIO->pulse->nBins/2)];
 
   /*align pulse*/
-  if(gediIO->pcl==0){
+  if((gediIO->pcl==0)&&(gediIO->pclPhoton==0)){
     minSep=1000.0;
     gediIO->pSigma=0.0;
     for(i=0;i<gediIO->pulse->nBins;i++){
