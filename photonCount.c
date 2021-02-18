@@ -369,7 +369,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
     if(denoised[i]<minI)minI=denoised[i];
   }
   temp=falloc(data->nBins,"temp pcl waveform",0);
-  for(i=0;i<data->nBins;i++)temp[i]=denoised[i]+minI;
+  for(i=0;i<data->nBins;i++)temp[i]=denoised[i]-minI;
 
   /*set window size for background noise photons*/
   photonCount->H=data->res*(float)data->nBins*2.0;  /*this is the two way distance*/
@@ -401,7 +401,10 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
         /*add noise and truncate negative*/
         temp[i]+=round(shotNoise);
-        if(temp[i]<0.0)temp[i]=0.0;
+        if(temp[i]<0.0){
+          fprintf(stderr,"This should not be %f\n",temp[i]);
+          temp[i]=0.0;
+        }
       }/*return check*/
     }/*bin loop*/
   }/*apply shot noise check*/
@@ -575,6 +578,7 @@ void knockOffNegativeWaves(float *denoised,dataStruct *data)
     if(denoised[i]<min)min=denoised[i];
   }
 
+
   /*translate waves if needed*/
   if(min<0.0){
     for(i=0;i<data->nBins;i++){
@@ -599,8 +603,7 @@ float *adjustPhotonProb(float *denoised,dataStruct *data,denPar *den,noisePar *n
 
   /*do we have a ground*/
   if(data->ground==NULL){  /*no ground*/
-    wave=falloc((uint64_t)data->nBins,"rescaled erflectance wave",0);
-    memcpy(wave,data->wave[numb],(size_t)(data->nBins*4));
+    wave=denoised;
   }else{   /*there is a ground*/
     /*is any adjustment needed*/
     if(fabs(1.0-phot->rhoVrhoG)<TOL)wave=denoised;
