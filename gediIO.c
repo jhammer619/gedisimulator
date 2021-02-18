@@ -2100,6 +2100,7 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   else                      data->nBins=hdfGedi[0]->nBins[numb];
   data->res=fabs(hdfGedi[0]->z0[numb]-hdfGedi[0]->zN[numb])/(float)data->nBins;
   data->nWaveTypes=hdfGedi[0]->nTypeWaves;
+  if(data->nWaveTypes<=0)data->nWaveTypes=1;
   data->useType=0;
   data->demGround=0;
   data->pSigma=hdfGedi[0]->pSigma;
@@ -3118,7 +3119,6 @@ void setGediPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
   float max=0,tot=0;
   void readSimPulse(gediIOstruct *,gediRatStruct *);
 
-
   if(!(gediIO->pulse=(pulseStruct *)calloc(1,sizeof(pulseStruct)))){
     fprintf(stderr,"error pulseStruct allocation.\n");
     exit(1);
@@ -3197,7 +3197,6 @@ void readSimPulse(gediIOstruct *gediIO,gediRatStruct *gediRat)
     fprintf(stderr,"Error opening input file %s\n",gediIO->pulseFile);
     exit(1);
   }
-
 
   /*count number of bins*/
   gediIO->pulse->nBins=0;

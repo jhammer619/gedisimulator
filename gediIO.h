@@ -156,7 +156,7 @@ typedef struct{
 
   /*system pulse*/
   char readPulse;      /*read pulse to simulate with*/
-  char pulseFile[200];
+  char pulseFile[400];
   pulseStruct *pulse;
   float pRes;
 

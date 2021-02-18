@@ -118,6 +118,7 @@ typedef struct{
   char useBounds;    /*when we will process only a subset of bounds*/
   char writeGauss;   /*write Gaussian parameters*/
   char noCanopy;     /*output the FHD and LAI profile switch*/
+  char readPulse;    /*read pulse from an ASCII file*/
   float laiRes;      /*LAI profile resolution*/
   float maxLAIh;     /*maximum height bin of LAI profile. Put all above this in top bin*/
 
@@ -241,6 +242,8 @@ int main(int argc,char **argv)
   if(dimage->ice2||dimage->gediIO.pclPhoton)setPhotonRates(&dimage->photonCount);
   #endif
 
+  /*read the pulse if needed*/
+  if(dimage->readPulse)setGediPulse(&dimage->gediIO,NULL);
 
   /*allocate metric array*/
   if(!(metric=(metStruct *)calloc(1,sizeof(metStruct)))){
@@ -259,16 +262,13 @@ int main(int argc,char **argv)
     else                        data=readASCIIdata(dimage->gediIO.inList[i],&(dimage->gediIO));
     if(dimage->readL2)setL2ground(data,i,dimage);
 
-
     /*check bounds if needed*/
     if(dimage->useBounds)checkWaveformBounds(data,dimage);
-
 
     /*is the data usable*/
     if(data->usable){
       /*denoise and change pulse if needed*/
       if(dimage->renoiseWave)modifyTruth(data,&dimage->noise);
-
 
       /*determine truths before noising*/
       determineTruth(data,dimage);
@@ -1725,6 +1725,7 @@ control *readCommands(int argc,char **argv)
   dimage->coord2dp=1;         /*round up coords in output*/
   dimage->useBounds=0;        /*process all data provided*/
   dimage->writeGauss=0;       /*do not write Gaussian parameters*/
+  dimage->readPulse=0;        /*don't read a pulse*/
 
   /*set default denoising parameters*/
   setDenoiseDefault(dimage->gediIO.den);
@@ -1874,6 +1875,9 @@ control *readCommands(int argc,char **argv)
         checkArguments(1,i,argc,"-pFile");
         strcpy(dimage->gediIO.den->pNamen,argv[++i]);
         dimage->gediIO.den->deconGauss=0;
+        dimage->readPulse=1;
+        dimage->gediIO.readPulse=1;
+        strcpy(dimage->gediIO.pulseFile,dimage->gediIO.den->pNamen);
       }else if(!strncasecmp(argv[i],"-pSigma",7)){
         dimage->gediIO.den->pSigma=atof(argv[++i]);
       }else if(!strncasecmp(argv[i],"-gold",5)){
