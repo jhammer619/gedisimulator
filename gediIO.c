@@ -197,8 +197,6 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
     }/*line loop*/
     TIDY(numb);
 
-    if(data->res<=0.0)data->res=gediIO->res;
-
     /*add up energy*/
     data->totE=falloc((uint64_t)data->nWaveTypes,"",0);
     for(ind=0;ind<data->nWaveTypes;ind++){
@@ -206,7 +204,8 @@ dataStruct *readASCIIdata(char *namen,gediIOstruct *gediIO)
       for(i=0;i<data->nBins;i++)data->totE[ind]+=data->wave[ind][i];
     }
 
-    gediIO->res=gediIO->den->res=gediIO->gFit->res=fabs(data->z[1]-data->z[0]);
+    gediIO->res=gediIO->den->res=gediIO->gFit->res=fabs(data->z[data->nBins-1]-data->z[0])/(float)(data->nBins-1);
+    if(data->res<=0.0)data->res=gediIO->res;
     if(gediIO->den->res<TOL)data->usable=0;
     if(data->totE[data->useType]<=0.0)data->usable=0;
     if(gediIO->ground==0){   /*set to blank*/

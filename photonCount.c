@@ -14,7 +14,7 @@
 #include "photonCount.h"
 #include "gsl/gsl_fft_complex.h"
 
-//#define DEBUG
+#define DEBUG
 
 
 /*##############################*/
@@ -103,6 +103,8 @@ void resamplePclPulse(pulseStruct *pulse,float res,float pRes)
 {
   int i=0,*contN=NULL;
   int bin=0;
+
+fprintf(stderr,"Res %f %f\n",res,pRes);
 
   /*allocate space and zero*/
   pulse->rBins=(int)((float)pulse->nBins*pRes/res);
