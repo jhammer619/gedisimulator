@@ -773,7 +773,7 @@ double *setRXenergyL1B(gediHDF *hdfData)
 
   for(i=0;i<hdfData->nWaves;i++){
     tempDouble[i]=0.0;
-    for(j=0;j<<hdfData->nBins[0];j++)tempDouble[i]+=hdfData->wave[0][j];
+    for(j=0;j<hdfData->nBins[0];j++)tempDouble[i]+=hdfData->wave[0][j];
   }
 
   return(tempDouble);
