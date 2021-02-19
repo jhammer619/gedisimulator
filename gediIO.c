@@ -422,7 +422,6 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   uint64_t *setShotNumber(int);
   int8_t *tempInt8=NULL;
   int8_t *setSurfaceTypeL1B(int,int);
-  int32_t *tempInt32=NULL;
   int32_t *padInt32ones(int);
   int64_t *tempInt64=NULL;
   float *tempFloat=NULL;
@@ -439,7 +438,7 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   double *setDelayDerivL1B(int);
   double *setRXenergyL1B(gediHDF *);
   hid_t file,group_id,sgID;         /* Handles */
-  herr_t      status;
+  herr_t status;
   TXstruct tx;          /*to hold pulse information for TX*/
   void rearrangePulsetoTX(gediIOstruct *,gediHDF *,TXstruct *);
 
@@ -570,6 +569,10 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   write1dDoubleHDF5(sgID,"smoothing_width",tempDouble,1);
   TIDY(tempDouble);
   status=H5Gclose(sgID);
+ if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
   /*geolocation subgroup*/
   sgID=H5Gcreate2(group_id,"geolocation",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
@@ -661,6 +664,10 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   writeComp2dInt8HDF5(sgID,"surface_type",tempInt8,5,hdfData->nWaves);
   TIDY(tempInt8);
   status=H5Gclose(sgID);
+ if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
   /*geophys_corr subgroup*/
   sgID=H5Gcreate2(group_id,"geophys_corr",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
@@ -677,10 +684,18 @@ void writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   writeComp1dDoubleHDF5(sgID,"tide_pole",tempDouble,hdfData->nWaves);
   TIDY(tempDouble);
   status=H5Gclose(sgID);
+  if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
 
   /*close the beam group*/
   status=H5Gclose(group_id);
+ if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
   /*close file*/
   if(H5Fclose(file)){
@@ -1579,13 +1594,15 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
   hid_t dset,dtype;
   herr_t status;
   void unwrapRealGEDI(uint16_t *,float *,uint64_t *,int,int,gediHDF *,int *);
-  char *namen=NULL;
-  int charLen=0;
 
   /*read data dtype*/
   dset=H5Dopen2(group,"rxwaveform",H5P_DEFAULT);
   dtype=H5Dget_type(dset);
   status=H5Dclose(dset);
+ if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
   /*checkdata type and read in to appropriate array*/
   if(H5Tequal(dtype,H5T_NATIVE_USHORT)||H5Tequal(dtype,H5T_NATIVE_UINT16)){   /*l1a file*/
@@ -1600,6 +1617,10 @@ void readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *
     exit(1);
   }
   status=H5Tclose(dtype);
+ if(status<0){
+    fprintf(stderr,"Error closing HDF5 group\n");
+    exit(1);
+  }
 
   /*unpack and pad all waves to have the same number of bins*/
   unwrapRealGEDI(tempI,tempF,sInds,*nSamps,nUse,hdfData,useInd);
@@ -3647,7 +3668,6 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
 {
   int j=0,numb=0,k=0;
   uint32_t i=0,n=0;
-  float dxPulse=0;
   double maxZ=0,minZ=0;
   double buff=0;
   waveStruct *waves=NULL;
@@ -3680,28 +3700,10 @@ waveStruct *allocateGEDIwaves(gediIOstruct *gediIO,gediRatStruct *gediRat,pCloud
   }
 
   /*determine number of waveform bins*/
-  //if(gediIO->pcl==0){
   waves->minZ=minZ-buff;
   waves->maxZ=maxZ+buff;
   waves->nBins=(int)((waves->maxZ-waves->minZ)/(double)gediIO->res);
 
-  //}else{  /*PCL*/
-  //  dxPulse=gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0];
-  //  waves->nBins=(int)(dxPulse/gediIO->res);
-  //
-  //  /*check that the pulse is long enough*/
-  //  if(dxPulse>(maxZ-minZ)){
-  //    buff=(dxPulse-(maxZ-minZ))*3.0/4.0;
-  //    if(buff<10.0)buff=10.0;
-  //  }else{
-  //    buff=10.0;
-  //    fprintf(stderr,"The chirped pulse is not long enough for this shot. May be errors\n");
-  //  }
-
-  //  waves->minZ=minZ-buff;
-  //  waves->maxZ=waves->minZ+(double)dxPulse;
-  //}/*bin calculation step*/
- 
   waves->nWaves=(int)(gediIO->useCount+gediIO->useInt+gediIO->useFrac);
   if(gediRat->readWave)waves->nWaves*=3;  /*if we are using full waveform*/
   waves->wave=fFalloc(waves->nWaves,"result waveform",0);
