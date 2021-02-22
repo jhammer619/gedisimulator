@@ -401,10 +401,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
         /*add noise and truncate negative*/
         temp[i]+=round(shotNoise);
-        if(temp[i]<0.0){
-          fprintf(stderr,"This should not be %f\n",temp[i]);
-          temp[i]=0.0;
-        }
+        if(temp[i]<0.0)temp[i]=0.0;
       }/*return check*/
     }/*bin loop*/
   }/*apply shot noise check*/
