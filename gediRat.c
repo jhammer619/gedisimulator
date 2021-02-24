@@ -164,8 +164,8 @@ int main(int argc,char **argv)
     /*write HDF if needed and not blank*/
     if(dimage->writeHDF&&(dimage->hdfCount>0)){
       hdfData->nWaves=dimage->hdfCount;  /*account for unusable footprints*/
-      if(dimage->writeL1B) { ISINTRETINT(writeGEDIl1b(hdfData,dimage->outNamen,&(dimage->gediIO))) };
-      else                 { ISINTRETINT(writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO))) };
+      if(dimage->writeL1B) { ISINTRETINT(writeGEDIl1b(hdfData,dimage->outNamen,&(dimage->gediIO))); }
+      else                 { ISINTRETINT(writeGEDIhdf(hdfData,dimage->outNamen,&(dimage->gediIO))); }
     }
   }/*make and write a waveform if needed*/
 

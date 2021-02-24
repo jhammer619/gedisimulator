@@ -75,7 +75,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   }
 
   /*first perform photon counting, if needed*/
-  if(gediIO->pclPhoton) { ASSIGN_CHECKNULL_RETNULL(photWave,countWaveform(wave,data,photonCount,gediIO->den,noise)) };
+  if(gediIO->pclPhoton) { ASSIGN_CHECKNULL_RETNULL(photWave,countWaveform(wave,data,photonCount,gediIO->den,noise)); }
   else                 photWave=wave;
 
   /*perform cross-correlation*/
@@ -107,7 +107,7 @@ int resamplePclPulse(pulseStruct *pulse,float res,float pRes)
 
   /*allocate space and zero*/
   pulse->rBins=(int)((float)pulse->nBins*pRes/res);
-  ASSIGN_CHECKNULL_RETINT(pulse,resamp=falloc(pulse->rBins,"",0));
+  ASSIGN_CHECKNULL_RETINT(pulse->resamp,falloc(pulse->rBins,"",0));
   ASSIGN_CHECKNULL_RETINT(contN,ialloc(pulse->rBins,"",0));
   for(i=0;i<pulse->rBins;i++){
     pulse->resamp[i]=0.0;
@@ -151,7 +151,7 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   ASSIGN_CHECKNULL_RETNULL(compCorr,falloc(nBins,"compCorr",0));
 
   /*allocate resampled pulse if needed*/
-  if(pulse->resamp==NULL) {ISINTRETNULL(resamplePclPulse(pulse,res,pRes)) };
+  if(pulse->resamp==NULL) {ISINTRETNULL(resamplePclPulse(pulse,res,pRes)); }
 
   /*find the averaghe of the pulse*/
   //meanP=0.0;

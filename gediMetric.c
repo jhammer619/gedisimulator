@@ -140,7 +140,7 @@ int main(int argc,char **argv)
       /*do pcl if needed*/
       #ifdef USEPHOTON
       if(dimage->gediIO.pclPhoton||dimage->gediIO.pcl) {
-        ASSIGN_CHECKNULL_RETINT(data,noised=uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO));
+        ASSIGN_CHECKNULL_RETINT(data->noised,uncompressPhotons(pclWave,data,&dimage->photonCount,&dimage->noise,&dimage->gediIO));
       }
       #else
       errorf("Can't use photon, not compiled with -DUSEPHOTON!\n");
@@ -743,8 +743,8 @@ int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *
   ASSIGN_CHECKDBL_RETINT(metric->inflGround,inflGround(smoothed,z,nBins));
 
   /*rh metrics with Gaussian ground*/
-  if((dimage->noRHgauss==0)&&(nGauss>0)) { ASSIGN_CHECKNULL_RETINT(metric,rh=findRH(denoised,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH)) };
-  else                                   { ASSIGN_CHECKNULL_RETINT(metric,rh=blankRH(dimage->rhRes,&metric->nRH)) };
+  if((dimage->noRHgauss==0)&&(nGauss>0)) { ASSIGN_CHECKNULL_RETINT(metric->rh,findRH(denoised,z,nBins,metric->gHeight,dimage->rhRes,&metric->nRH)); }
+  else                                   { ASSIGN_CHECKNULL_RETINT(metric->rh,blankRH(dimage->rhRes,&metric->nRH)); }
 
   /*rh metrics with maximum ground*/
   ASSIGN_CHECKNULL_RETINT(metric->rhMax,findRH(denoised,z,nBins,metric->maxGround,dimage->rhRes,&metric->nRH));
@@ -1678,8 +1678,8 @@ control *readCommands(int argc,char **argv)
         TTIDY((void **)dimage->gediIO.inList,dimage->gediIO.nFiles);
         dimage->gediIO.inList=NULL;
         dimage->gediIO.nFiles=1;
-        ASSIGN_CHECKNULL_RETNULL(dimage,gediIO.inList=chChalloc(dimage->gediIO.nFiles,"input name list",0));
-        ASSIGN_CHECKNULL_RETNULL(dimage,gediIO.inList[0]=challoc((uint64_t)strlen(argv[++i])+10,"input name list",0));
+        ASSIGN_CHECKNULL_RETNULL(dimage->gediIO.inList,chChalloc(dimage->gediIO.nFiles,"input name list",0));
+        ASSIGN_CHECKNULL_RETNULL(dimage->gediIO.inList[0],challoc((uint64_t)strlen(argv[++i])+10,"input name list",0));
         strcpy(&(dimage->gediIO.inList[0][0]),argv[i]);
       }else if(!strncasecmp(argv[i],"-inList",7)){
         ISINTRETNULL(checkArguments(1,i,argc,"-inList"));

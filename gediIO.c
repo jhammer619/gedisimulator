@@ -408,6 +408,7 @@ int trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
 
 int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 {
+  #ifndef WITHOUT_GDAL
   int i=0;
   uint8_t *tempUint8=NULL;
   uint8_t *padUint8zeros(int);
@@ -707,6 +708,9 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
   msgf("Waveforms written to %s\n",namen);
   return 0;
+#else
+  return 0;
+#endif //WITHOUT_GDAL
 }/*writeGEDIl1b*/
 
 
@@ -841,9 +845,9 @@ double *setHalfPiL1B(int numb)
 
 /*####################################################*/
 /*reproject coordinates for L1B format*/
-
 double *setL1Bcoords(int aEPSG,gediHDF *hdfData)
 {
+  #ifndef WITHOUT_GDAL
   int i=0;
   double *tempDouble=NULL,*z=NULL;
   double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG);
@@ -877,8 +881,10 @@ double *setL1Bcoords(int aEPSG,gediHDF *hdfData)
   }
 
   return(tempDouble);
+  #else
+    return NULL;
+  #endif
 }/*setL1Bcoords*/
-
 
 /*####################################################*/
 /*set cover for L1B format*/
@@ -1775,6 +1781,7 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
 int findGDAlVerMaj()
 {
   int verMaj=0;
+  #ifndef WITHOUT_GDAL
   float val=0;
   char vers[20];   /*GDAL version number string*/
 
@@ -1782,6 +1789,7 @@ int findGDAlVerMaj()
   val=atof(vers);
   verMaj=(int)(val/pow(10,(int)(log(val)/log(10.0))));
 
+  #endif
   return(verMaj);
 }/*findGDAlVerMaj*/
 
@@ -3603,7 +3611,7 @@ gediHDF *setUpHDF(gediIOstruct *gediIO,gediRatStruct *gediRat,char useID,char *w
 
   /*header*/
   hdfData->nWaves=gediRat->gNx*gediRat->gNy;
-  ASSIGN_CHECKNULL_RETNULL(hdfData,nBins=ialloc(1,"nBins",0));
+  ASSIGN_CHECKNULL_RETNULL(hdfData->nBins, ialloc(1,"nBins",0));
   if(gediIO->pcl==0)hdfData->nBins[0]=(int)((float)maxBins*0.15/gediIO->res);
   else              hdfData->nBins[0]=(int)((gediIO->pulse->x[gediIO->pulse->nBins-1]-gediIO->pulse->x[0])/gediIO->res)*2;
   hdfData->nTypeWaves=gediIO->nTypeWaves;
