@@ -15,7 +15,7 @@
 #include "photonCount.h"
 #include "gsl/gsl_fft_complex.h"
 
-//#define DEBUG
+#define DEBUG
 
 
 /*##############################*/
@@ -153,11 +153,11 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   /*allocate resampled pulse if needed*/
   if(pulse->resamp==NULL) {ISINTRETNULL(resamplePclPulse(pulse,res,pRes)); }
 
-  /*find the averaghe of the pulse*/
-  //meanP=0.0;
-  //for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
-  //meanP/=(float)pulse->rBins;
-  ASSIGN_CHECKFLT_RETNULL(meanP,singleMedian(pulse->resamp,pulse->rBins));
+  /*find the average of the pulse*/
+  meanP=0.0;
+  for(i=0;i<pulse->rBins;i++)meanP+=pulse->resamp[i];
+  meanP/=(float)pulse->rBins;
+  //meanP=singleMedian(pulse->resamp,pulse->rBins);
 
   /*find the stdev of the pulse*/
   stdevP=0.0;
@@ -165,10 +165,10 @@ float *crossCorrelateTime(float *photWave,float res,int nBins,pulseStruct *pulse
   stdevP=sqrt(stdevP/(float)pulse->rBins);
 
   /*find the average of the wave*/
-  //meanW=0.0;
-  //for(i=0;i<nBins;i++)meanW+=photWave[i];
-  //meanW/=(float)nBins;
-  ASSIGN_CHECKFLT_RETNULL(meanW,singleMedian(photWave,nBins));
+  meanW=0.0;
+  for(i=0;i<nBins;i++)meanW+=photWave[i];
+  meanW/=(float)nBins;
+  //meanW=singleMedian(photWave,nBins);
 
   /*find the stdev of the wave*/
   stdevW=0.0;
