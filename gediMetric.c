@@ -151,7 +151,7 @@ int main(int argc,char **argv)
 
       /*process waveform*/
       /*denoise, or*if we are doing PCL on photon counting, convert to photon count*/
-      ASSIGN_CHECKINT_RETINT(denoised, processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0));
+      ASSIGN_CHECKNULL_RETINT(denoised, processFloWave(data->noised,data->nBins,dimage->gediIO.den,1.0));
 
       /*check that the wave is still usable*/
       if(checkUsable(denoised,data->nBins)){
@@ -718,7 +718,7 @@ int findMetrics(metStruct *metric,float *gPar,int nGauss,float *denoised,float *
   for(i=0;i<nBins;i++)metric->totE+=denoised[i]*dimage->gediIO.res;
 
   /*Blair sensitivity*/
-  ASSIGN_CHECKINT_RETINT(metric->blairSense,findBlairSense(data,&dimage->gediIO));
+  ASSIGN_CHECKFLT_RETINT(metric->blairSense,findBlairSense(data,&dimage->gediIO));
   
   /*smooth waveform for finding ground by max and inflection*/
   setDenoiseDefault(&den);

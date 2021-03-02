@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 3.2)
 project(gedisimulator C CXX)
 
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
-find_package(GDAL REQUIRED)
+cmake_policy(SET CMP0074 NEW)
+# find_package(GDAL REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS C CXX)
 find_package(GEOTIFF REQUIRED)
 find_package(GSL REQUIRED)
 find_package(TIFF REQUIRED)
+find_package(THREADS REQUIRED)
 
 	set(LIBCLIDAR_ROOT ../libclidar)
 	set(HANCOCKTOOLS_ROOT ../tools)
-	set(CMPFIT_ROOT ../cmpfit-1.2)
+	set(CMPFIT_ROOT ../cmpfit-1.4)
 
 if(DEFINED ENV{LIBCLIDAR_ROOT})
 	set(LIBCLIDAR_ROOT $ENV{LIBCLIDAR_ROOT})
@@ -49,8 +52,8 @@ add_definitions(-DUSEPHOTON ${HDF5_C_DEFINITIONS})
 set(LIBTYPE SHARED)
 
 if(WIN32)
-	add_definitions(-DWIN32 -D_WIN32 -D_USE_MATH_DEFINES -DH5_BUILT_AS_DYNAMIC_LIB -DGSL_DLL)
-	set(LIBTYPE STATIC)
+	add_definitions(-DWIN32 -D_WIN32 -D_USE_MATH_DEFINES -DH5_BUILT_AS_DYNAMIC_LIB -DGSL_DLL -DWITHOUT_GDAL)
+	set(LIBTYPE SHARED)
 endif()
 
 add_library(gedisimulator ${LIBTYPE}
@@ -80,7 +83,6 @@ add_executable(gediMetric gediMetric.c photonCount.c)
 add_executable(addNoiseHDF addNoiseHDF.c)
 add_executable(mapLidar mapLidar.c)
 add_executable(lasPoints lasPoints.c)
-add_executable(lvisBullseye lvisBullseye.c)
 
 
 install(TARGETS gedisimulator
@@ -91,4 +93,3 @@ install(TARGETS gediMetric RUNTIME DESTINATION bin)
 install(TARGETS addNoiseHDF RUNTIME DESTINATION bin)
 install(TARGETS mapLidar RUNTIME DESTINATION bin)
 install(TARGETS lasPoints RUNTIME DESTINATION bin)
-install(TARGETS lvisBullseye RUNTIME DESTINATION bin)

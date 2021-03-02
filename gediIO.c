@@ -1770,7 +1770,13 @@ double *reprojectWaveBounds(double *inBounds,int inEPSG,int outEPSG)
   TIDY(z);
   return(bounds);
 #else
-  return(inBounds);
+  double* bounds = NULL;
+  ASSIGN_CHECKNULL_RETNULL(bounds, dalloc(4, "wave bounds", 0));
+  bounds[0] = inBounds[0];
+  bounds[1] = inBounds[1];
+  bounds[2] = inBounds[2];
+  bounds[3] = inBounds[3];
+  return(bounds);
 #endif
 }/*reprojectWaveBounds*/
 
@@ -4579,8 +4585,7 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   else            wave=data->wave[data->useType];
 
   /*determine noise stats for sensitivity metric. Note this is using the threshold to get the mean and stdev*/
-  if(meanNoiseStats(wave,(uint32_t)data->nBins,&meanN,&stdev,&notNeeded,-1.0,1.0,(int)(gediIO->den->statsLen/gediIO->res)))
-    return(-1.1);
+  ISINTRETFLT(meanNoiseStats(wave, (uint32_t)data->nBins, &meanN, &stdev, &notNeeded, -1.0, 1.0, (int)(gediIO->den->statsLen / gediIO->res)));
   stdev-=meanN;
 
   /*total energy*/
@@ -4592,8 +4597,7 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   if(stdev>0.0){
     probNoise=0.05;
     probMiss=0.1;
-    if(gaussThresholds(1.0,XRES,(double)probNoise,(double)probMiss,&nNsig,&nSsig,&gediIO->noiseSigs)==-1)
-      return(-1.1);
+    ISINTRETFLT(gaussThresholds(1.0, XRES, (double)probNoise, (double)probMiss, &nNsig, &nSsig, &gediIO->noiseSigs) == -1);
 
     slope=2.0*M_PI/180.0;
     tanSlope=sin(slope)/cos(slope);
