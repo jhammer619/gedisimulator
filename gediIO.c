@@ -722,7 +722,7 @@ float *setTXegAmpL1B(int nWaves,float maxAmp)
   int i=0;
   float *tempFloat=NULL;
 
-  ASSIGN_CHECKNULL_RETNULL(tempFloat.falloc(nWaves,"setTXegAmpL1B",0));
+  ASSIGN_CHECKNULL_RETNULL(tempFloat,falloc(nWaves,"setTXegAmpL1B",0));
   for(i=0;i<nWaves;i++)tempFloat[i]=maxAmp;
 
   return(tempFloat);
@@ -4597,7 +4597,7 @@ float findBlairSense(dataStruct *data,gediIOstruct *gediIO)
   if(stdev>0.0){
     probNoise=0.05;
     probMiss=0.1;
-    ISINTRETFLT(gaussThresholds(1.0, XRES, (double)probNoise, (double)probMiss, &nNsig, &nSsig, &gediIO->noiseSigs) == -1);
+    ISINTRETFLT(gaussThresholds(1.0, XRES, (double)probNoise, (double)probMiss, &nNsig, &nSsig, &gediIO->noiseSigs));
 
     slope=2.0*M_PI/180.0;
     tanSlope=sin(slope)/cos(slope);
