@@ -443,7 +443,7 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   hid_t file,group_id,sgID;         /* Handles */
   herr_t status;
   TXstruct tx;          /*to hold pulse information for TX*/
-  void rearrangePulsetoTX(gediIOstruct *,gediHDF *,TXstruct *);
+  int rearrangePulsetoTX(gediIOstruct *,gediHDF *,TXstruct *);
 
   /*open new file*/
   file=H5Fcreate(namen,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
@@ -452,99 +452,99 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   group_id=H5Gcreate2(file,"BEAM0000", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   /*write the data*/
-  tempUint16=padUint16zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
-  writeComp1dUint16HDF5(group_id,"beam",tempUint16,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint16, padUint16zeros(hdfData->nWaves));   /*padded zeroes for fake beams*/
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"beam",tempUint16,hdfData->nWaves));
   TIDY(tempUint16);
-  tempUint8=padUint8zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
-  writeComp1dUint8HDF5(group_id,"channel",tempUint8,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint8, padUint8zeros(hdfData->nWaves));   /*padded zeroes for fake beams*/
+  ISINTRETINT(writeComp1dUint8HDF5(group_id,"channel",tempUint8,hdfData->nWaves));
   TIDY(tempUint8);
-  tempDouble=setDeltaTime(hdfData->nWaves);
-  writeComp1dDoubleHDF5(group_id,"delta_time",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setDeltaTime(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"delta_time",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);
-  writeComp1dFloatHDF5(group_id,"master_frac",tempFloat,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempFloat, falloc(hdfData->nWaves,"tempFloat",0));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"master_frac",tempFloat,hdfData->nWaves));
   TIDY(tempFloat);
-  tempUint32=padUint32zeros(hdfData->nWaves);   /*padded zeroes for fake beams*/
-  writeComp1dUint32HDF5(group_id,"master_int",tempUint32,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint32, padUint32zeros(hdfData->nWaves));   /*padded zeroes for fake beams*/
+  ISINTRETINT(writeComp1dUint32HDF5(group_id,"master_int",tempUint32,hdfData->nWaves));
   TIDY(tempUint32);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);    /*needs updating if noise added*/
-  writeComp1dFloatHDF5(group_id,"mean",tempFloat,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempFloat, falloc(hdfData->nWaves,"tempFloat",0));    /*needs updating if noise added*/
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"mean",tempFloat,hdfData->nWaves));
   TIDY(tempFloat);
-  tempDouble=dalloc(hdfData->nWaves,"noise_mean_corrected",0);
-  writeComp1dDoubleHDF5(group_id,"noise_mean_corrected",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"noise_mean_corrected",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"noise_mean_corrected",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"noise_stddev_corrected",0);
-  writeComp1dDoubleHDF5(group_id,"noise_stddev_corrected",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"noise_stddev_corrected",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"noise_stddev_corrected",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"nsemean_even",0);
-  writeComp1dDoubleHDF5(group_id,"nsemean_even",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"nsemean_even",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"nsemean_even",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"nsemean_odd",0);
-  writeComp1dDoubleHDF5(group_id,"nsemean_odd",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"nsemean_odd",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"nsemean_odd",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setRXenergyL1B(hdfData);
-  writeComp1dDoubleHDF5(group_id,"rx_energy",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setRXenergyL1B(hdfData));
+  ISINTRETINT(writeComp1dDoubleHDF5(group_id,"rx_energy",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempUint16=padUint16zeros(hdfData->nWaves);
-  writeComp1dUint16HDF5(group_id,"rx_offset",tempUint16,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint16, padUint16zeros(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"rx_offset",tempUint16,hdfData->nWaves));
   TIDY(tempUint16);
-  tempUint32=padUint32zeros(hdfData->nWaves);
-  writeComp1dUint32HDF5(group_id,"rx_open",tempUint32,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint32, padUint32zeros(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint32HDF5(group_id,"rx_open",tempUint32,hdfData->nWaves));
   TIDY(tempUint32);
-  tempUint16=setRxSampleCount(hdfData->nBins,hdfData->nWaves);
-  writeComp1dUint16HDF5(group_id,"rx_sample_count",tempUint16,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint16, setRxSampleCount(hdfData->nBins,hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"rx_sample_count",tempUint16,hdfData->nWaves));
   TIDY(tempUint16);
-  tempUint64=setRXstarts(hdfData->nWaves,hdfData->nBins);
-  writeComp1dUint64HDF5(group_id,"rx_sample_start_index",tempUint64,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint64,setRXstarts(hdfData->nWaves,hdfData->nBins));
+  ISINTRETINT(writeComp1dUint64HDF5(group_id,"rx_sample_start_index",tempUint64,hdfData->nWaves));
   TIDY(tempUint64);
   if(gediIO->useCount){
-    writeComp1dFloatHDF5(group_id,"rxwaveform",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
-    if(hdfData->ground)writeComp1dFloatHDF5(group_id,"grxwaveform",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]);
+    ISINTRETINT(writeComp1dFloatHDF5(group_id,"rxwaveform",hdfData->wave[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0]));
+    if(hdfData->ground) { ISINTRETINT(writeComp1dFloatHDF5(group_id,"grxwaveform",hdfData->ground[(int)gediIO->useInt],hdfData->nWaves*hdfData->nBins[0])); }
   }else{
     errorf("Issues with HDF5 format and not using the count method\n");
     return -1;
   }
-  tempUint16=setSelectStretchL1B(hdfData->nWaves);
-  writeComp1dUint16HDF5(group_id,"selection_stretchers_x",tempUint16,hdfData->nWaves);
-  writeComp1dUint16HDF5(group_id,"selection_stretchers_y",tempUint16,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint16,setSelectStretchL1B(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"selection_stretchers_x",tempUint16,hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"selection_stretchers_y",tempUint16,hdfData->nWaves));
   TIDY(tempUint16);
-  tempUint64=setShotNumber(hdfData->nWaves);
-  writeComp1dUint64HDF5(group_id,"shot_number",tempUint64,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint64,setShotNumber(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint64HDF5(group_id,"shot_number",tempUint64,hdfData->nWaves));
   TIDY(tempUint64);
-  tempUint8=padUint8zeros(hdfData->nWaves);
-  writeComp1dUint8HDF5(group_id,"stale_return_flag",tempUint8,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint8, padUint8zeros(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint8HDF5(group_id,"stale_return_flag",tempUint8,hdfData->nWaves));
   TIDY(tempUint8);
-  tempUint16=setThUsedL1B(hdfData->nWaves);
-  writeComp1dUint16HDF5(group_id,"th_left_used",tempUint16,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint16,setThUsedL1B(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"th_left_used",tempUint16,hdfData->nWaves));
   TIDY(tempUint16);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*needs updating if noise added*/
-  writeComp1dFloatHDF5(group_id,"tx_egamplitude_error",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_egbias",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_egbias_error",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_eggamma",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_eggamma_error",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_egsigma",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_egsigma_error",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_gloc",tempFloat,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"tx_gloc_error",tempFloat,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempFloat, falloc(hdfData->nWaves,"tempFloat",0));   /*needs updating if noise added*/
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egamplitude_error",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egbias",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egbias_error",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_eggamma",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_eggamma_error",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egsigma",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egsigma_error",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_gloc",tempFloat,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_gloc_error",tempFloat,hdfData->nWaves));
   TIDY(tempFloat);
-  tempUint8=padUint8zeros(hdfData->nWaves);
-  writeComp1dUint8HDF5(group_id,"tx_egflag",tempUint8,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint8, padUint8zeros(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint8HDF5(group_id,"tx_egflag",tempUint8,hdfData->nWaves));
   TIDY(tempUint8);
-  tempUint8=padUint8ones(hdfData->nWaves);
-  writeComp1dUint8HDF5(group_id,"tx_pulseflag",tempUint8,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempUint8, padUint8ones(hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint8HDF5(group_id,"tx_pulseflag",tempUint8,hdfData->nWaves));
   TIDY(tempUint8);
-  tempFloat=falloc(hdfData->nWaves,"tempFloat",0);   /*needs updating if noise added*/
-  writeComp1dFloatHDF5(group_id,"stddev",tempFloat,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempFloat, falloc(hdfData->nWaves,"tempFloat",0));   /*needs updating if noise added*/
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"stddev",tempFloat,hdfData->nWaves));
   TIDY(tempFloat);
 
   /*rearrange the pulse in to the TX format*/
-  rearrangePulsetoTX(gediIO,hdfData,&tx);
-  writeComp1dUint16HDF5(group_id,"tx_sample_count",tx.txCount,hdfData->nWaves);
-  writeComp1dUint64HDF5(group_id,"tx_sample_start_index",tx.txStart,hdfData->nWaves);
-  writeComp1dFloatHDF5(group_id,"txwaveform",tx.txwave,hdfData->nWaves*(int)tx.nBins);
-  tempFloat=setTXegAmpL1B(hdfData->nWaves,tx.maxAmp);
-  writeComp1dFloatHDF5(group_id,"tx_egamplitude",tempFloat,hdfData->nWaves);
+  ISINTRETINT(rearrangePulsetoTX(gediIO,hdfData,&tx));
+  ISINTRETINT(writeComp1dUint16HDF5(group_id,"tx_sample_count",tx.txCount,hdfData->nWaves));
+  ISINTRETINT(writeComp1dUint64HDF5(group_id,"tx_sample_start_index",tx.txStart,hdfData->nWaves));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"txwaveform",tx.txwave,hdfData->nWaves*(int)tx.nBins));
+  ASSIGN_CHECKNULL_RETINT(tempFloat, setTXegAmpL1B(hdfData->nWaves,tx.maxAmp));
+  ISINTRETINT(writeComp1dFloatHDF5(group_id,"tx_egamplitude",tempFloat,hdfData->nWaves));
   TIDY(tempFloat);
 
 
@@ -556,20 +556,20 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
   /*add the sub-groups*/
   /*ancillary subgroup*/
   sgID=H5Gcreate2(group_id,"ancillary",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
-  tempDouble=dalloc(1,"temp double",0);
-  tempDouble[0]=(double)rand();
-  write1dDoubleHDF5(sgID,"master_time_epoch",tempDouble,1);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(1,"temp double",0));
+  tempDouble[0]=(double)frand();
+  ISINTRETINT(write1dDoubleHDF5(sgID,"master_time_epoch",tempDouble,1));
   TIDY(tempDouble);
   if(!(tempInt64=(int64_t *)calloc(1,sizeof(int64_t)))){
     errorf("error in tempInt64 allocation.\n");
     return -1;
   } 
   tempInt64[0]=100;
-  write1dInt64HDF5(sgID,"mean_samples",tempInt64,1);
+  ISINTRETINT(write1dInt64HDF5(sgID,"mean_samples",tempInt64,1));
   TIDY(tempInt64);
-  tempDouble=dalloc(1,"temp double",0);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(1,"temp double",0));
   tempDouble[0]=0.0;
-  write1dDoubleHDF5(sgID,"smoothing_width",tempDouble,1);
+  ISINTRETINT(write1dDoubleHDF5(sgID,"smoothing_width",tempDouble,1));
   TIDY(tempDouble);
   status=H5Gclose(sgID);
  if(status<0){
@@ -579,92 +579,92 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
   /*geolocation subgroup*/
   sgID=H5Gcreate2(group_id,"geolocation",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
-  tempDouble=setAltitude(hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"altitude_instrument",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setAltitude(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"altitude_instrument",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"altitude_instrument_error",0);
-  writeComp1dDoubleHDF5(sgID,"altitude_instrument_error",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"altitude_instrument_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"altitude_instrument_error",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setBounceOffset(hdfData->nWaves,NULL,gediIO->res);
-  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setBounceOffset(hdfData->nWaves,NULL,gediIO->res));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"bounce_time_offset_bin0_error",0);
-  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0_error",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"bounce_time_offset_bin0_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"bounce_time_offset_bin0_error",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setBounceOffset(hdfData->nWaves,hdfData->nBins,gediIO->res);
-  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setBounceOffset(hdfData->nWaves,hdfData->nBins,gediIO->res));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"bounce_time_offset_lastbin_error",0);
-  writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin_error",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"bounce_time_offset_lastbin_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"bounce_time_offset_lastbin_error",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setDeltaTime(hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setDeltaTime(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setDEMl1b(hdfData,(int)gediIO->useInt);
-  writeComp1dDoubleHDF5(sgID,"digital_elevation_model",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setDEMl1b(hdfData,(int)gediIO->useInt));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"digital_elevation_model",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setElevBinL1B(hdfData->nWaves,hdfData->z0);
-  writeComp1dDoubleHDF5(sgID,"elevation_bin0",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setElevBinL1B(hdfData->nWaves,hdfData->z0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"elevation_bin0",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"elevation_bin0_error",0);
-  writeComp1dDoubleHDF5(sgID,"elevation_bin0_error",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"elevation_bin0_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"elevation_bin0_error",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setElevBinL1B(hdfData->nWaves,hdfData->zN);
-  writeComp1dDoubleHDF5(sgID,"elevation_lastbin",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setElevBinL1B(hdfData->nWaves,hdfData->zN));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"elevation_lastbin",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"elevation_lastbin_error",0);
-  writeComp1dDoubleHDF5(sgID,"elevation_lastbin_error",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"elevation_lastbin_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"elevation_lastbin_error",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setCovL1B(hdfData,(int)gediIO->useInt);
-  writeComp1dDoubleHDF5(sgID,"landsat_treecover",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"modis_treecover",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setCovL1B(hdfData,(int)gediIO->useInt));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"landsat_treecover",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"modis_treecover",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
   /*reproject bounds to 4326 for GEDI*/
-  tempDouble=setL1Bcoords(gediIO->aEPSG,hdfData);
-  writeComp1dDoubleHDF5(sgID,"longitude_bin0",&(tempDouble[0]),hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"longitude_lastbin",&(tempDouble[0]),hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"longitude_instrument",&(tempDouble[0]),hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"latitude_bin0",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"latitude_lastbin",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"latitude_instrument",&(tempDouble[hdfData->nWaves]),hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setL1Bcoords(gediIO->aEPSG,hdfData));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_bin0",&(tempDouble[0]),hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_lastbin",&(tempDouble[0]),hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_instrument",&(tempDouble[0]),hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_bin0",&(tempDouble[hdfData->nWaves]),hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_lastbin",&(tempDouble[hdfData->nWaves]),hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_instrument",&(tempDouble[hdfData->nWaves]),hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"latitude_bin0_error",0);
-  writeComp1dDoubleHDF5(sgID,"latitude_bin0_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"latitude_instrument_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"latitude_lastbin_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"local_beam_azimuth",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"local_beam_azimuth_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"local_beam_elevation_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"longitude_bin0_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"longitude_instrument_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"longitude_lastbin_error",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"mean_sea_surface",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"modis_nonvegetated",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"modis_nonvegetated_sd",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"modis_treecover_sd",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"latitude_bin0_error",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_bin0_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_instrument_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"latitude_lastbin_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"local_beam_azimuth",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"local_beam_azimuth_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"local_beam_elevation_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_bin0_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_instrument_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"longitude_lastbin_error",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"mean_sea_surface",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"modis_nonvegetated",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"modis_nonvegetated_sd",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"modis_treecover_sd",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setHalfPiL1B(hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"local_beam_elevation",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setHalfPiL1B(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"local_beam_elevation",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=setDelayDerivL1B(hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_bin0",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_lastbin",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setDelayDerivL1B(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_bin0",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"neutat_delay_derivative_lastbin",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"neutat_delay_total_bin0",0);
-  writeComp1dDoubleHDF5(sgID,"neutat_delay_total_bin0",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"neutat_delay_total_lastbin",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"range_bias_correction",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"solar_azimuth",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"solar_elevation",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"neutat_delay_total_bin0",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"neutat_delay_total_bin0",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"neutat_delay_total_lastbin",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"range_bias_correction",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"solar_azimuth",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"solar_elevation",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempUint64=setShotNumber(hdfData->nWaves);
-  tempDouble=dalloc(hdfData->nWaves,"shot_number",0);
+  ASSIGN_CHECKNULL_RETINT(tempUint64,setShotNumber(hdfData->nWaves));
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"shot_number",0));
   for(i=0;i<hdfData->nWaves;i++)tempDouble[i]=(double)tempUint64[i];
-  writeComp1dDoubleHDF5(sgID,"shot_number",tempDouble,hdfData->nWaves);
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"shot_number",tempDouble,hdfData->nWaves));
   TIDY(tempUint64);
   TIDY(tempDouble);
-  tempInt8=setSurfaceTypeL1B(hdfData->nWaves,5);
-  writeComp2dInt8HDF5(sgID,"surface_type",tempInt8,5,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempInt8,setSurfaceTypeL1B(hdfData->nWaves,5));
+  ISINTRETINT(writeComp2dInt8HDF5(sgID,"surface_type",tempInt8,5,hdfData->nWaves));
   TIDY(tempInt8);
   status=H5Gclose(sgID);
  if(status<0){
@@ -674,17 +674,17 @@ int writeGEDIl1b(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
   /*geophys_corr subgroup*/
   sgID=H5Gcreate2(group_id,"geophys_corr",H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
-  tempDouble=setDeltaTime(hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, setDeltaTime(hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"delta_time",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
-  tempDouble=dalloc(hdfData->nWaves,"dynamic_atmosphere_correction",0);
-  writeComp1dDoubleHDF5(sgID,"dynamic_atmosphere_correction",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"geoid",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"tide_earth",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"tide_load",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"tide_ocean",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"tide_ocean_pole",tempDouble,hdfData->nWaves);
-  writeComp1dDoubleHDF5(sgID,"tide_pole",tempDouble,hdfData->nWaves);
+  ASSIGN_CHECKNULL_RETINT(tempDouble, dalloc(hdfData->nWaves,"dynamic_atmosphere_correction",0));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"dynamic_atmosphere_correction",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"geoid",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"tide_earth",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"tide_load",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"tide_ocean",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"tide_ocean_pole",tempDouble,hdfData->nWaves));
+  ISINTRETINT(writeComp1dDoubleHDF5(sgID,"tide_pole",tempDouble,hdfData->nWaves));
   TIDY(tempDouble);
   status=H5Gclose(sgID);
   if(status<0){
@@ -722,7 +722,7 @@ float *setTXegAmpL1B(int nWaves,float maxAmp)
   int i=0;
   float *tempFloat=NULL;
 
-  tempFloat=falloc(nWaves,"setTXegAmpL1B",0);
+  ASSIGN_CHECKNULL_RETNULL(tempFloat.falloc(nWaves,"setTXegAmpL1B",0));
   for(i=0;i<nWaves;i++)tempFloat[i]=maxAmp;
 
   return(tempFloat);
@@ -739,7 +739,7 @@ uint16_t *setThUsedL1B(int nWaves)
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
     errorf("error in tempUint16 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<nWaves;i++)tempUint16[i]=260;
@@ -758,7 +758,7 @@ uint16_t *setSelectStretchL1B(int nWaves)
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
     errorf("error in tempUint16 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<nWaves;i++)tempUint16[i]=50;
@@ -794,7 +794,7 @@ double *setDelayDerivL1B(int nWaves)
   int i=0;
   double *tempDouble=NULL;
 
-  tempDouble=dalloc(nWaves,"setDelayDerivL1B",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(nWaves,"setDelayDerivL1B",0));
   for(i=0;i<nWaves;i++)tempDouble[i]=-8.82508928*pow(10.0,-8.0);
 
   return(tempDouble);
@@ -812,7 +812,7 @@ int8_t *setSurfaceTypeL1B(int nWaves,int nLayers)
   /*allocate space*/
   if(!(tempInt8=(int8_t *)calloc(nWaves*nLayers,sizeof(int8_t)))){
     errorf("error in txCount allocation.\n");
-    exit(1);
+    return NULL;
   } 
 
   for(i=0;i<nLayers;i++){
@@ -835,7 +835,7 @@ double *setHalfPiL1B(int numb)
   int i=0;
   double *tempDouble=NULL,pi2=0;
 
-  tempDouble=dalloc(numb,"setHalfPiL1B",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(numb,"setHalfPiL1B",0));
   pi2=M_PI/2.0;
   for(i=0;i<numb;i++)tempDouble[i]=pi2;
 
@@ -855,7 +855,7 @@ double *setL1Bcoords(int aEPSG,gediHDF *hdfData)
   OGRSpatialReferenceH hSourceSRS,hTargetSRS;
 
   /*allocate space*/
-  tempDouble=dalloc(2*hdfData->nWaves,"setL1Bcoords",0);  /*x*nWaves,y*nWaves*/
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(2*hdfData->nWaves,"setL1Bcoords",0));  /*x*nWaves,y*nWaves*/
 
   /*copy relevant data*/
   for(i=0;i<hdfData->nWaves;i++){
@@ -866,7 +866,7 @@ double *setL1Bcoords(int aEPSG,gediHDF *hdfData)
   /*does it need reprojecting?*/
   if(aEPSG!=4326){
     /*make dummy z array*/
-    z=dalloc(hdfData->nWaves,"Z setL1Bcoords",0);
+    ASSIGN_CHECKNULL_RETNULL(z,dalloc(hdfData->nWaves,"Z setL1Bcoords",0));
 
     hSourceSRS=OSRNewSpatialReference(NULL);
     hTargetSRS=OSRNewSpatialReference(NULL);
@@ -895,7 +895,7 @@ double *setCovL1B(gediHDF *hdfData,int useInt)
   float tot=0,totG=0;
   double *tempDouble=NULL;
 
-  tempDouble=dalloc(hdfData->nWaves,"setCovL1B",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(hdfData->nWaves,"setCovL1B",0));
 
   if(hdfData->ground){
     /*loop over waves*/
@@ -922,7 +922,7 @@ double *setElevBinL1B(int nWaves,float *z0)
   int i=0;
   double *tempDouble=NULL;
 
-  tempDouble=dalloc(nWaves,"setElevBinL1B",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(nWaves,"setElevBinL1B",0));
   for(i=0;i<nWaves;i++)tempDouble[i]=(double)z0[i];
 
   return(tempDouble);
@@ -939,7 +939,7 @@ double *setDEMl1b(gediHDF *hdfData,int useInt)
   double z=0,contN=0,res=0;
 
   /*allocate space*/
-  tempDouble=dalloc(hdfData->nWaves,"setDEMl1b",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(hdfData->nWaves,"setDEMl1b",0));
 
   /*do we have ground data?*/
   if(hdfData->ground){
@@ -969,7 +969,7 @@ double *setDeltaTime(int nWaves)
   int i=0;
   double *tempDouble=NULL;
 
-  tempDouble=dalloc(nWaves,"setDeltaTime",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(nWaves,"setDeltaTime",0));
 
   for(i=0;i<nWaves;i++)tempDouble[i]=40179291.0+(double)i/484.0;  /*a dummy time for now, but with the right spacing*/
 
@@ -986,7 +986,7 @@ double *setBounceOffset(int nWaves,int *nBins,float res)
   double *tempDouble=NULL;
   double c=0;
 
-  tempDouble=dalloc(nWaves,"setBounceOffset",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(nWaves,"setBounceOffset",0));
 
   /*is this dfor bin 0 or bin 1*/
   if(nBins){
@@ -1008,7 +1008,7 @@ double *setAltitude(int nWaves)
   int i=0;
   double *tempDouble=NULL;
 
-  tempDouble=dalloc(nWaves,"setAltitude",0);
+  ASSIGN_CHECKNULL_RETNULL(tempDouble,dalloc(nWaves,"setAltitude",0));
   for(i=0;i<nWaves;i++)tempDouble[i]=410560.0;
 
   return(tempDouble);
@@ -1018,7 +1018,7 @@ double *setAltitude(int nWaves)
 /*####################################################*/
 /*Rearrange pulse information in to TX structure*/
 
-void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
+int rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
 {
   int i=0,j=0;
   int *contN=NULL;
@@ -1032,18 +1032,18 @@ void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
   /*allocate space*/
   if(!(tx->txCount=(uint16_t *)calloc(hdfData->nWaves,sizeof(uint16_t)))){
     errorf("error in txCount allocation.\n");
-    exit(1);
+    return -1;
   }
   if(!(tx->txStart=(uint64_t *)calloc(hdfData->nWaves,sizeof(uint64_t)))){
     errorf("error in txStart allocation.\n");
-    exit(1);
+    return -1;
   }
 
 
   /*make a resampled pulse*/
-  tx->txwave=falloc((int)tx->nBins*hdfData->nWaves,"txwave",0);
-  txwave=falloc((int)tx->nBins,"temp txwave",0);
-  contN=ialloc((int)tx->nBins,"txwave counter",0);
+  ASSIGN_CHECKNULL_RETINT(tx->txwave,falloc((int)tx->nBins*hdfData->nWaves,"txwave",0));
+  ASSIGN_CHECKNULL_RETINT(txwave,falloc((int)tx->nBins,"temp txwave",0));
+  ASSIGN_CHECKNULL_RETINT(contN,ialloc((int)tx->nBins,"txwave counter",0));
 
   /*zero counters*/
   for(i=0;i<(int)tx->nBins;i++){
@@ -1077,7 +1077,7 @@ void rearrangePulsetoTX(gediIOstruct *gediIO,gediHDF *hdfData,TXstruct *tx)
   }
   TIDY(txwave);
 
-  return;
+  return 0;
 }/*rearrangePulsetoTX*/
 
 
@@ -1091,7 +1091,7 @@ int32_t *padInt32ones(int numb)
 
   if(!(jimlad=(int32_t *)calloc(numb,sizeof(int32_t)))){
     errorf("error in padInt32ones allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<numb;i++)jimlad[i]=1;
@@ -1110,7 +1110,7 @@ uint64_t *setShotNumber(int nWaves)
 
   if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
     errorf("error in tempUint64 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<nWaves;i++)tempUint64[i]=(uint64_t)i;
@@ -1129,7 +1129,7 @@ uint64_t *setRXstarts(int nWaves,int *nBins)
 
   if(!(tempUint64=(uint64_t *)calloc(nWaves,sizeof(uint64_t)))){
     errorf("error in tempUint64 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<nWaves;i++)tempUint64[i]=(uint64_t)i*(uint64_t)nBins[0];
@@ -1148,7 +1148,7 @@ uint16_t *setRxSampleCount(int *nBins,int nWaves)
 
   if(!(tempUint16=(uint16_t *)calloc(nWaves,sizeof(uint16_t)))){
     errorf("error in tempUint16 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<nWaves;i++)tempUint16[i]=(uint16_t)nBins[0];
@@ -1167,7 +1167,7 @@ uint8_t *padUint8zeros(int numb)
 
   if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
     errorf("error in tempUint8 allocation.\n");
-    exit(1);
+    return NULL;
   } 
 
   for(i=0;i<numb;i++)tempUint8[i]=0;
@@ -1186,7 +1186,7 @@ uint8_t *padUint8ones(int numb)
 
   if(!(tempUint8=(uint8_t *)calloc(numb,sizeof(uint8_t)))){
     errorf("error in tempUint8 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<numb;i++)tempUint8[i]=1;
@@ -1205,7 +1205,7 @@ uint16_t *padUint16zeros(int numb)
 
   if(!(tempUint16=(uint16_t *)calloc(numb,sizeof(uint16_t)))){
     errorf("error in tempUint16 allocation.\n");
-    exit(1);
+    return NULL;
   }
 
   for(i=0;i<numb;i++)tempUint16[i]=0;
@@ -1225,7 +1225,7 @@ uint32_t *padUint32zeros(int numb)
 
   if(!(tempUint32=(uint32_t *)calloc(numb,sizeof(uint32_t)))){
     errorf("error in tempUint32 allocation.\n");
-    exit(1);
+    return NULL;
   } 
 
   for(i=0;i<numb;i++)tempUint32[i]=0;
@@ -1247,10 +1247,10 @@ int writeGEDIhdf(gediHDF *hdfData,char *namen,gediIOstruct *gediIO)
 
 
  /*write header*/
-  write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1);
-  write1dIntHDF5(file,"NBINS",&hdfData->nBins[0],1);
-  write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1);
-  write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1);
+  ISINTRETINT(write1dIntHDF5(file,"NWAVES",&hdfData->nWaves,1));
+  ISINTRETINT(write1dIntHDF5(file,"NBINS",&hdfData->nBins[0],1));
+  ISINTRETINT(write1dIntHDF5(file,"NTYPEWAVES",&hdfData->nTypeWaves,1));
+  ISINTRETINT(write1dIntHDF5(file,"IDLENGTH",&hdfData->idLength,1));
   ISINTRETINT(write1dFloatHDF5(file,"FSIGMA",&hdfData->fSigma,1));
   ISINTRETINT(write1dFloatHDF5(file,"PSIGMA",&hdfData->pSigma,1));
   ISINTRETINT(write1dIntHDF5(file,"NPBINS",&hdfData->nPbins,1));
