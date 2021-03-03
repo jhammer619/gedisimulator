@@ -712,7 +712,7 @@ int setNumberNoise(float cov,float noise_mult,float H)
 
     /*pick from a Poisson*/
     ISINTRETINT(setPhotonProb(&tempPhot));
-    photThresh=(float)rand()/(float)RAND_MAX;
+    photThresh=(float)frand()/(float)RAND_MAX;
     nNoise=(int)pickArrayElement(photThresh,tempPhot.prob,tempPhot.pBins,0);
     TIDY(tempPhot.prob);
   }else nNoise=0;

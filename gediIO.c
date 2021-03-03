@@ -1612,12 +1612,12 @@ int readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *h
   status=H5Dclose(dset);
  if(status<0){
     errorf("Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
   /*checkdata type and read in to appropriate array*/
   if(H5Tequal(dtype,H5T_NATIVE_USHORT)||H5Tequal(dtype,H5T_NATIVE_UINT16)){   /*l1a file*/
-    tempI=read1dUint16HDF5(group,"rxwaveform",nSamps);
+    ASSIGN_CHECKNULL_RETINT(tempI,read1dUint16HDF5(group,"rxwaveform",nSamps));
     *l1b=0;
   }else if(H5Tequal(dtype,H5T_NATIVE_FLOAT)||H5Tequal(dtype,H5T_STD_I32BE)||H5Tequal(dtype,H5T_STD_I32LE)||\
             H5Tequal(dtype,H5T_IEEE_F32BE)||H5Tequal(dtype,H5T_IEEE_F32LE)||H5Tequal(dtype,H5T_INTEL_I32)||H5Tequal(dtype,H5T_INTEL_B32)){   /*l1b file*/
@@ -1630,7 +1630,7 @@ int readGEDIwaveform(hid_t group,int *nSamps,uint64_t *sInds,int nUse,gediHDF *h
   status=H5Tclose(dtype);
  if(status<0){
     errorf("Error closing HDF5 group\n");
-    exit(1);
+    return -1;
   }
 
   /*unpack and pad all waves to have the same number of bins*/
