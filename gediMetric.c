@@ -1662,6 +1662,7 @@ control *readCommands(int argc,char **argv)
   /*PCL*/
   dimage->gediIO.pcl=0; /*full waveform rather thsn PCL*/
   dimage->gediIO.pclPhoton=0;  
+  dimage->gediIO.writePcl=0;
   /*others*/
   rhoG=0.4;
   rhoC=0.57;
@@ -1885,6 +1886,8 @@ control *readCommands(int argc,char **argv)
         dimage->gediIO.pclPhoton=1;        /*Pulse compression lidar with photon counting*/
       }else if(!strncasecmp(argv[i],"-pcl",4)){
         dimage->gediIO.pcl=1;              /*Pulse compression lidar*/
+      }else if(!strncasecmp(argv[i],"-writePcl",4)){
+        dimage->gediIO.writePcl=1;
       }else if(!strncasecmp(argv[i],"-shotNoise",4)){
         dimage->noise.shotNoise=1;
       }else if(!strncasecmp(argv[i],"-nPhotons",9)){
@@ -1997,6 +2000,7 @@ void writeHelp()
   msgf("\nUnfinished\n\
 -photonPCL;       convert to photon counting pulse-compressed before processing\n\
 -pcl;             pulse-compressed processing\n\
+-writePcl;        write out the intermediate PCL waves\n\
 -shotNoise;       apply shot noise\n\
 ");
   msgf("\nDenoising:\n\

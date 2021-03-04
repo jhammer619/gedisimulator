@@ -62,6 +62,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   float *corrWave=NULL;
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
   float *crossCorrelateTime(float *,float,int,pulseStruct *,float);
+  void writePCLwaves(dataStruct *,float *,float *,float *);
 
   #ifdef DEBUG
   int i=0;
@@ -86,6 +87,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   for(i=0;i<data->nBins;i++)msgf("%d %f %f %f %f debug2\n",c,data->z[i],wave[i],photWave[i],corrWave[i]);
   c++;
   #endif
+  if(gediIO->writePcl)writePCLwaves(data,wave,photWave,corrWave);
 
 
   /*tidy up*/
@@ -95,6 +97,37 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 
   return(corrWave);
 }/*uncompressPhotons*/
+
+
+/*####################################################*/
+/*write PCL waveforms*/
+
+void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
+{
+  int i=0;
+  char waveNamen[250];
+  FILE *opoo=NULL;
+
+  /*name and open file*/
+  sprintf(waveNamen,"pclWave.%s.txt",data->waveID);
+  if((opoo=fopen(waveNamen,"w"))==NULL){
+    fprintf(stderr,"Error opening output file %s\n",waveNamen);
+    exit(1);
+  }
+
+  /*write data*/
+  fprintf(opoo,"# 1 z, 2 waveform, 3 photonWave, 4 correlated\n");
+  for(i=0;i<data->nBins;i++)fprintf(opoo,"%f %f %f %f\n",data->z[i],wave[i],photWave[i],corrWave[i]);
+
+  /*close up*/
+  if(opoo){
+    fclose(opoo);
+    opoo=NULL;
+  }
+  fprintf(stdout,"PCL waves written to %s\n",waveNamen);
+
+  return;
+}/*writePCLwaves*/
 
 
 /*####################################################*/

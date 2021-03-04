@@ -179,6 +179,7 @@ typedef struct{
   /*pcl*/
   char pcl;          /*use PCL full-waveform*/
   char pclPhoton;    /*use PCL photon counting*/
+  char writePcl;     /*write PCL intermediate waves*/
 
   /*others*/
   int nMessages;  /*number of progress messages*/
