@@ -105,11 +105,12 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
 {
   int i=0;
+  static int c=0;
   char waveNamen[250];
   FILE *opoo=NULL;
 
   /*name and open file*/
-  sprintf(waveNamen,"pclWave.%s.txt",data->waveID);
+  sprintf(waveNamen,"pclWave.%s.count.%d.txt",data->waveID,c);
   if((opoo=fopen(waveNamen,"w"))==NULL){
     fprintf(stderr,"Error opening output file %s\n",waveNamen);
     exit(1);
@@ -125,6 +126,7 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
     opoo=NULL;
   }
   fprintf(stdout,"PCL waves written to %s\n",waveNamen);
+  c++;
 
   return;
 }/*writePCLwaves*/
