@@ -512,14 +512,19 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*Noise*/
   /*set bounds of search window*/
-  if(!pcl){
+  if(!pcl){  /*for ICESat-2 mode, set bounds relative to ground*/
     if(data->ground)thisGr=data->ground[data->useType];
     else            thisGr=NULL;
     setPhotonGround(&minZ,&maxZ,photonCount->H,data->gElev,data->wave[data->useType],thisGr,data->z,data->nBins);
     thisGr=NULL;
-  }else{
-    maxZ=data->z[0];
-    minZ=data->z[data->nBins-1];
+  }else{     /*for PCL mode, set bounds from data*/
+    if(data->z[0]>data->z[data->nBins-1]){
+      maxZ=data->z[0];
+      minZ=data->z[data->nBins-1];
+    }else:
+      minZ=data->z[0];
+      maxZ=data->z[data->nBins-1];
+    }
   }
 
   /*add noise photons*/
