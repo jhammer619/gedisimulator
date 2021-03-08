@@ -521,7 +521,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
     if(data->z[0]>data->z[data->nBins-1]){
       maxZ=data->z[0];
       minZ=data->z[data->nBins-1];
-    }else:
+    }else{
       minZ=data->z[0];
       maxZ=data->z[data->nBins-1];
     }
