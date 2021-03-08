@@ -408,10 +408,10 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   for(i=0;i<data->nBins;i++)temp[i]=denoised[i]-minI;
 
   /*set window size for background noise photons*/
-  photonCount->H=data->res*(float)data->nBins*2.0;  /*this is the two way distance*/
+  photonCount->H=data->res*(float)data->nBins*2.0;  /*two way distance*/
 
   /*extract photon coords along with their flags*/
-  ASSIGN_CHECKNULL_RETNULL(phots,countPhotons(temp,data,photonCount,&nPhot,den,noise));
+  ASSIGN_CHECKNULL_RETNULL(phots,countPhotons(temp,data,photonCount,&nPhot,den,noise,1));
 
   /*reset temp array*/
   for(i=0;i<data->nBins;i++)temp[i]=0.0;
@@ -454,7 +454,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 /*####################################################*/
 /*produce photon counting photons*/
 
-float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,int *nPhot,denPar *den,noisePar *noise)
+float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,int *nPhot,denPar *den,noisePar *noise,char pcl)
 {
   int i=0;
   int nPhotons=0,nNoise=0;
@@ -512,10 +512,15 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*Noise*/
   /*set bounds of search window*/
-  if(data->ground)thisGr=data->ground[data->useType];
-  else            thisGr=NULL;
-  setPhotonGround(&minZ,&maxZ,photonCount->H,data->gElev,data->wave[data->useType],thisGr,data->z,data->nBins);
-  thisGr=NULL;
+  if(!pcl){
+    if(data->ground)thisGr=data->ground[data->useType];
+    else            thisGr=NULL;
+    setPhotonGround(&minZ,&maxZ,photonCount->H,data->gElev,data->wave[data->useType],thisGr,data->z,data->nBins);
+    thisGr=NULL;
+  }else{
+    maxZ=data->z[0];
+    minZ=data->z[data->nBins-1];
+  }
 
   /*add noise photons*/
   #ifdef DEBUG
@@ -562,7 +567,7 @@ int photonCountCloud(float *denoised,dataStruct *data,photonStruct *photonCount,
   }
 
   /*generate photons*/
-  phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise);
+  phots=countPhotons(denoised,data,photonCount,&nPhot,den,noise,0);
 
   /*get true RH metrics*/
   ASSIGN_CHECKNULL_RETINT(rhReal,findRH(data->wave[data->useType],data->z,data->nBins,data->gElev,5.0,&nRH));
@@ -715,11 +720,11 @@ void setPhotonGround(float *minZ,float *maxZ,float H,double gElev,float *wave,fl
       CofG+=(float)z[i]*wave[i];
     }
     CofG/=tot;
-    *maxZ=(float)gElev+H/2.0;
-    *minZ=(float)gElev-H/2.0;
-  }else CofG=gElev;  /*otehrwise use the ground elevation*/
-  *maxZ=(float)CofG+H/2.0;
-  *minZ=(float)CofG-H/2.0;
+    *maxZ=(float)gElev+H/4.0;  /*divided by 4 as H is the 2 way distance*/
+    *minZ=(float)gElev-H/4.0;
+  }else CofG=gElev;  /*otherwise use the ground elevation*/
+  *maxZ=(float)CofG+H/4.0;
+  *minZ=(float)CofG-H/4.0;
 
   return;
 }/*setPhotonGround*/

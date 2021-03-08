@@ -1997,7 +1997,7 @@ void writeHelp()
   msgf("\nPhoton counting\n\
 -photonCount;     output point cloud from photon counting\n\
 -nPhotons n;      mean number of photons\n\
--photonWind x;    window length for photon counting search, metres\n\
+-photonWind x;    twice window length for photon counting search, metres (2 way distance)\n\
 -noiseMult x;     noise multiplier for photon-counting. Noise photon rate in micro Hz\n\
 -rhoVrhoG x;      ratio of canopy to ground reflectance at this wavelength. Not different from rhoV and rhoG\n\
 -nPhotC n;        mean number of canopy photons (replaces nPhotons and rhoVrhoG)\n\
