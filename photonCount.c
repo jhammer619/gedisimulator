@@ -867,6 +867,7 @@ float poissonPDF(float n,float lambda)
 float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate)
 {
   int i=0;
+  int start=0,end=0;
   float x=0,y0=0;
   float tot=0,*cumul=NULL;
 
@@ -882,11 +883,17 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
   }
   photThresh*=tot;
 
-  /*determine point above*/
-  for(i=0;i<nBins;i++)if(cumul[i]>=photThresh)break;
+  /*determine cross point with binary search*/
+  start=0;
+  end=nBins-1;
+  while((end-start)>1){
+    i=(end+start)/2;
+    if(cumul[i]>photThresh)end=i;
+    else if(cumul[i]<photThresh)start=i;
+    else break;
+  }
 
   /*extrapolate between two elements*/
-  /*REPLACE with binary search when possible*/
   if(interpolate){
     if(i>0)y0=cumul[i-1];
     else   y0=0.0;
