@@ -884,23 +884,31 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
   photThresh*=tot;
 
   /*determine cross point with binary search*/
-  start=0;
-  end=nBins-1;
-  while((end-start)>1){
-    i=(end+start)/2;
-    if(cumul[i]>photThresh)end=i;
-    else if(cumul[i]<photThresh)start=i;
-    else break;
-  }
-  if(i<0)i=0;
-  else if(i>=nBins)i=nBins-1;
+  for(i=0;i<nBins;i++)if(cumul[i]>=photThresh)break;
+  //start=0;
+  //end=nBins-1;
+  //while((end-start)>1){
+  //  i=(end+start)/2;
+  //  if(cumul[i]>photThresh)end=i;
+  //  else if(cumul[i]<photThresh)start=i;
+  //  else break;
+  //}
+  //if(cumul[i]>photThresh)i--;  /*get to the right side of the divide*/
+  //if(i<0)i=0;
+  //else if(i>=nBins)i=nBins-1;
 
   /*extrapolate between two elements*/
   if(interpolate){
-    if(i>0)y0=cumul[i-1];
-    else   y0=0.0;
-    if(i<(nBins-1))x=(cumul[i]-photThresh)/(cumul[i]-y0)+(float)i;
-    else           x=(float)(nBins-1);
+    if(fabs(cumul[i]-photThresh)<TOL)x=(float)i;
+    else{
+      if(i>0)y0=cumul[i-1];
+      else   y0=0.0;
+      if(fabs(cumul[i]-y0)<TOL)x=(float)i;
+      else{
+        if(i<(nBins-1))x=(cumul[i]-photThresh)/(cumul[i]-y0)+(float)i;
+        else           x=(float)(nBins-1);
+      }
+    }
   }else x=(float)i;
   TIDY(cumul);
 
