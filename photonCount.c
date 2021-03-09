@@ -387,12 +387,14 @@ void removeAsymmetryPCL(float *wave,int numb)
 float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
 {
   int i=0,nPhot=0;
+  int truncPhot=0;
   int bin=0;
   float minI=0;
   float shotSig=0;
   float shotNoise=0;
   float *temp=NULL;
   float **phots=NULL;
+  float truncScale=0;
 
   #ifdef DEBUG
   static int count=0;
@@ -437,9 +439,24 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
         /*add noise and truncate negative*/
         temp[i]+=(float)round(shotNoise);
-        if(temp[i]<0.0)temp[i]=0.0;
+        /*if(temp[i]<0.0)temp[i]=0.0;*/  /*ignore truncation to allow small numbers*/
+        truncPhot+=(int)temp[i];
       }/*return check*/
     }/*bin loop*/
+
+    /*account for truncation if needed*/
+    /*this does not work due to small number rounding*/
+    /*if(truncPhot!=nPhot){
+      truncScale=(float)nPhot/(float)truncPhot;
+      truncPhot=0;
+
+      for(i=0;i<data->nBins;i++){
+        temp[i]=round(temp[i]*truncScale);
+        truncPhot+=(int)temp[i];
+      }
+
+      fprintf(stderr,"Scaled phots %d %d %f\n",truncPhot,nPhot,truncScale);
+    }*//*account for truncation check*/
   }/*apply shot noise check*/
 
   #ifdef DEBUG
@@ -473,7 +490,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   char testPhotonGround(dataStruct *,float);
 
 
-  /*remove negagives if needed*/
+  /*remove negatives if needed*/
   knockOffNegativeWaves(denoised,data);
 
   /*rescale waveform for reflectance*/
