@@ -387,14 +387,11 @@ void removeAsymmetryPCL(float *wave,int numb)
 float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,denPar *den,noisePar *noise)
 {
   int i=0,nPhot=0;
-  int truncPhot=0;
   int bin=0;
   float minI=0;
-  float shotSig=0;
-  float shotNoise=0;
   float *temp=NULL;
   float **phots=NULL;
-  float truncScale=0;
+  void applyShotNoise(float *,int);
 
   #ifdef DEBUG
   static int count=0;
@@ -426,38 +423,7 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
   TTIDY((void **)phots,3);
 
   /*apply shot noise if neeed*/
-  if(noise->shotNoise){
-    /*loop over bins*/
-    for(i=0;i<data->nBins;i++){
-      /*only if there are photons*/
-      if(temp[i]>0.0){
-        /*set sigma*/
-        shotSig=sqrt(temp[i]);
-  
-        /*draw Gaussian random number*/
-        shotNoise=GaussNoise()*shotSig;
-
-        /*add noise and truncate negative*/
-        temp[i]+=(float)round(shotNoise);
-        /*if(temp[i]<0.0)temp[i]=0.0;*/  /*ignore truncation to allow small numbers*/
-        truncPhot+=(int)temp[i];
-      }/*return check*/
-    }/*bin loop*/
-
-    /*account for truncation if needed*/
-    /*this does not work due to small number rounding*/
-    /*if(truncPhot!=nPhot){
-      truncScale=(float)nPhot/(float)truncPhot;
-      truncPhot=0;
-
-      for(i=0;i<data->nBins;i++){
-        temp[i]=round(temp[i]*truncScale);
-        truncPhot+=(int)temp[i];
-      }
-
-      fprintf(stderr,"Scaled phots %d %d %f\n",truncPhot,nPhot,truncScale);
-    }*//*account for truncation check*/
-  }/*apply shot noise check*/
+  if(noise->shotNoise)applyShotNoise(temp,data->nBins);
 
   #ifdef DEBUG
   for(i=0;i<data->nBins;i++)msgf("%d %f %f %f ta\n",count,data->z[i],temp[i],data->wave[0][i]);
@@ -466,6 +432,47 @@ float *countWaveform(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   return(temp);
 }/*countWaveform*/
+
+
+/*####################################################*/
+/*apply shot noise*/
+
+void applyShotNoise(float *temp,int nBins)
+{
+  int i=0,bin=0;
+  int lostPhots=0;
+  float shotSig=0;
+  float shotNoise=0;
+  float photThresh=0;
+
+  /*loop over bins*/
+  for(i=0;i<nBins;i++){
+    /*only if there are photons*/
+    if(temp[i]>0.0){
+      /*set sigma*/
+      shotSig=sqrt(temp[i]);
+
+      /*draw Gaussian random number*/
+      shotNoise=(float)round(GaussNoise()*shotSig);
+
+      /*count truncated negative*/
+      temp[i]+=shotNoise;
+      if(temp[i]<0.0){
+        lostPhots-=(int)temp[i];
+        temp[i]=0.0;
+      }
+    }/*return check*/
+  }/*bin loop*/
+
+  /*redeploy negative numbers*/
+  for(i=0;i<lostPhots;i++){
+    photThresh=(float)rand()/(float)RAND_MAX;
+    bin=(int)pickArrayElement(photThresh,temp,nBins,0);
+    if(temp[bin]>0.0)temp[bin]-=1.0;
+  }
+
+  return;
+}/*applyShotNoise*/
 
 
 /*####################################################*/
@@ -879,6 +886,7 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
   for(i=0;i<nBins;i++)if(cumul[i]>=photThresh)break;
 
   /*extrapolate between two elements*/
+  /*REPLACE with binary search when possible*/
   if(interpolate){
     if(i>0)y0=cumul[i-1];
     else   y0=0.0;
