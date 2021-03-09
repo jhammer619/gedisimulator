@@ -892,6 +892,8 @@ float pickArrayElement(float photThresh,float *jimlad,int nBins,char interpolate
     else if(cumul[i]<photThresh)start=i;
     else break;
   }
+  if(i<0)i=0;
+  else if(i>=nBins)i=nBins-1;
 
   /*extrapolate between two elements*/
   if(interpolate){
