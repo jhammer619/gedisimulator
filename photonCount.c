@@ -117,8 +117,8 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
   }
 
   /*write data*/
-  fprintf(opoo,"# 1 z, 2 waveform, 3 photonWave, 4 correlated\n");
-  for(i=0;i<data->nBins;i++)fprintf(opoo,"%f %f %f %f\n",data->z[i],wave[i],photWave[i],corrWave[i]);
+  fprintf(opoo,"# 1 z, 2 waveform, 3 photonWave, 4 correlated, 5 original\n");
+  for(i=0;i<data->nBins;i++)fprintf(opoo,"%f %f %f %f\n",data->z[i],wave[i],photWave[i],corrWave[i],data->wave[0][i]);
 
   /*close up*/
   if(opoo){
