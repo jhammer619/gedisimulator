@@ -343,7 +343,7 @@ int trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
   }
 
   /*if we are doing PCL, do not zero pad and just save the pulse*/
-  if(gediIO->pcl+gediIO->pclPhoton)maxBins=(int)((float)hdfData->nPbins*hdfData->pRes/gediIO->res);
+  if(gediIO->pcl+gediIO->pclPhoton)maxBins=(int)((float)hdfData->nPbins*hdfData->pRes/gediIO->res*4.0);
 
   ASSIGN_CHECKNULL_RETINT(hdfData->nBins,ialloc(1,"bins",0));
   hdfData->nBins[0]=maxBins;
@@ -3549,7 +3549,7 @@ int packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *ge
     if(start<0)start=0;
     buff=0.0;
     TIDY(thresh);
-    //msgf("Start %d\n",start);
+    /*msgf(stdout,"Start %d\n",start);*/
   }
 
   /*copy data*/
@@ -4419,7 +4419,7 @@ waveStruct *makeGediWaves(gediRatStruct *gediRat,gediIOstruct *gediIO,pCloudStru
       ISINTRETNULL(waveFromShadows(gediRat,gediIO,data,waves,pointmap));
 
     /*clean outliers if needed*/
-    if(gediRat->cleanOut){
+    if(gediRat->cleanOut&&(!gediIO->pcl)&&(!gediIO->pclPhoton)){
       ISINTRETNULL(cleanOutliers(waves,gediIO));
     } else waves->groundBreakElev=-100000000.0;
 

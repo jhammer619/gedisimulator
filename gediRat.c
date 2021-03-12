@@ -429,7 +429,7 @@ int writeGEDIwave(control *dimage,waveStruct *waves,int numb)
 
     fprintf(opoo,"%f",r);
     for(j=0;j<dimage->gediIO.nTypeWaves;j++){
-      fprintf(opoo," %f",waves->wave[j][i]);
+      fprintf(opoo," %.10f",waves->wave[j][i]);
        if(dimage->gediIO.ground&&(j<3))fprintf(opoo," %f %f",waves->canopy[j][i],waves->ground[j][i]);
     }
     fprintf(opoo,"\n");
