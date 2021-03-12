@@ -2184,8 +2184,6 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   ASSIGN_CHECKNULL_RETNULL(data->wave[0],falloc((uint64_t)data->nBins,"waveform",0));
   memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]+sBin]),data->nBins*4);
 
-for(i=0;i<data->nBins;i++)fprintf(stdout,"gah %f %f\n",data->z[i],data->wave[0][i]);
-
   if(gediIO->ground){
     ASSIGN_CHECKNULL_RETNULL(data->ground,fFalloc(data->nWaveTypes,"ground waveform",0));
     ASSIGN_CHECKNULL_RETNULL(data->ground[0],falloc((uint64_t)data->nBins,"waveform",0));
