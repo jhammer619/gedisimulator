@@ -343,7 +343,7 @@ int trimDataLength(dataStruct **data,gediHDF *hdfData,gediIOstruct *gediIO)
   }
 
   /*if we are doing PCL, do not zero pad and just save the pulse*/
-  if(gediIO->pcl)maxBins=(int)((float)hdfData->nPbins*hdfData->pRes/gediIO->res);
+  if(gediIO->pcl+gediIO->pclPhoton)maxBins=(int)((float)hdfData->nPbins*hdfData->pRes/gediIO->res);
 
   ASSIGN_CHECKNULL_RETINT(hdfData->nBins,ialloc(1,"bins",0));
   hdfData->nBins[0]=maxBins;
@@ -2183,6 +2183,9 @@ dataStruct *unpackHDFgedi(char *namen,gediIOstruct *gediIO,gediHDF **hdfGedi,int
   ASSIGN_CHECKNULL_RETNULL(data->wave,fFalloc(data->nWaveTypes,"waveform",0));
   ASSIGN_CHECKNULL_RETNULL(data->wave[0],falloc((uint64_t)data->nBins,"waveform",0));
   memcpy(data->wave[0],&(hdfGedi[0]->wave[data->useType][hdfGedi[0]->sInd[numb]+sBin]),data->nBins*4);
+
+for(i=0;i<data->nBins;i++)fprintf(stdout,"gah %f %f\n",data->z[i],data->wave[0][i]);
+
   if(gediIO->ground){
     ASSIGN_CHECKNULL_RETNULL(data->ground,fFalloc(data->nWaveTypes,"ground waveform",0));
     ASSIGN_CHECKNULL_RETNULL(data->ground[0],falloc((uint64_t)data->nBins,"waveform",0));
@@ -3575,9 +3578,7 @@ int packGEDIhdf(waveStruct *waves,gediHDF *hdfData,int waveNumb,gediIOstruct *ge
   memcpy(&hdfData->waveID[numb*hdfData->idLength],thisWaveID,idLength);
 
   /*waveform*/
-  //if(gediIO->pcl==0)
   nBins=(hdfData->nBins[0]<(waves->nBins-start))?hdfData->nBins[0]:waves->nBins-start;
-  //else              nBins=hdfData->nBins[0];
   for(j=0;j<hdfData->nTypeWaves;j++){
     memcpy(&hdfData->wave[j][numb*hdfData->nBins[0]],&waves->wave[j][start],nBins*sizeof(float));
   }
