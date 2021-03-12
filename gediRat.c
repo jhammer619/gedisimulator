@@ -562,6 +562,7 @@ control *readCommands(int argc,char **argv)
   dimage->gediRat.defWfront=0;  /*Gaussian footprint*/
   dimage->gediRat.wavefront=NULL;
   dimage->gediIO.pcl=0;         /*do not use PCL*/
+  dimage->gediIO.pclPhoton=0;         /*do not use PCL*/
 
   /*beams*/
   dimage->gediIO.useCount=dimage->gediIO.useFrac=dimage->gediIO.useInt=1;
