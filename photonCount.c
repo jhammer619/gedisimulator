@@ -441,9 +441,11 @@ void applyShotNoise(float *temp,int nBins)
 {
   int i=0,bin=0;
   int lostPhots=0;
+  int nCulled=0;
   float shotSig=0;
   float shotNoise=0;
   float photThresh=0;
+  float *mask=NULL;
 
   /*loop over bins*/
   for(i=0;i<nBins;i++){
@@ -465,10 +467,25 @@ void applyShotNoise(float *temp,int nBins)
   }/*bin loop*/
 
   /*redeploy negative numbers*/
-  for(i=0;i<lostPhots;i++){
-    photThresh=(float)rand()/(float)RAND_MAX;
-    bin=(int)pickArrayElement(photThresh,temp,nBins,0);
-    if(temp[bin]>0.0)temp[bin]-=1.0;
+  if(lostPhots>0){
+    mask=falloc(nBins,"temporary mask",0);
+    nCulled=0;
+
+    while(nCulled<lostPhots){
+      /*make the mask array*/
+      for(i=0;i<nBins;i++){
+        if(temp[i]>0.0)mask[i]=1.0;
+        else           mask[i]=0.0;
+      }
+
+      photThresh=(float)rand()/(float)RAND_MAX;
+      bin=(int)pickArrayElement(photThresh,mask,nBins,0);
+      if(temp[bin]>0.0){
+        temp[bin]-=1.0;
+        nCulled++;
+      }
+    }
+    TIDY(mask);
   }
 
   return;
