@@ -112,7 +112,7 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
   /*name and open file*/
   sprintf(waveNamen,"pclWave.%s.count.%d.txt",data->waveID,c);
   if((opoo=fopen(waveNamen,"w"))==NULL){
-    fprintf(stderr,"Error opening output file %s\n",waveNamen);
+    errorf("Error opening output file %s\n",waveNamen);
     exit(1);
   }
 
@@ -125,7 +125,7 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
     fclose(opoo);
     opoo=NULL;
   }
-  fprintf(stdout,"PCL waves written to %s\n",waveNamen);
+  msgf("PCL waves written to %s\n",waveNamen);
   c++;
 
   return;
@@ -570,7 +570,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
 
   /*add noise photons*/
   #ifdef DEBUG
-  fprintf(stdout,"Adding %d noise over %f signal %d\n",nNoise,photonCount->H,nPhotons);
+  msgf("Adding %d noise over %f signal %d\n",nNoise,photonCount->H,nPhotons);
   #endif
 
   for(i=0;i<nNoise;i++){
