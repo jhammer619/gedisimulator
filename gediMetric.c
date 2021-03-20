@@ -1536,7 +1536,7 @@ control *readCommands(int argc,char **argv)
   void writeHelp();
 
   /*by default, set the seed as time. Can be overridden later*/
-  srand((long)time(NULL));
+  srand2((long)time(NULL));
 
   /*allocate structures*/
   if(!(dimage=(control *)calloc(1,sizeof(control)))){
