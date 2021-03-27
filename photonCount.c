@@ -62,7 +62,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   float *corrWave=NULL;
   float *crossCorrelateWaves(float *,float,int,pulseStruct *,float);
   float *crossCorrelateTime(float *,float,int,pulseStruct *,float);
-  void writePCLwaves(dataStruct *,float *,float *,float *);
+  int writePCLwaves(dataStruct *,float *,float *,float *);
 
   #ifdef DEBUG
   int i=0;
@@ -87,7 +87,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
   for(i=0;i<data->nBins;i++)msgf("%d %f %f %f %f debug2\n",c,data->z[i],wave[i],photWave[i],corrWave[i]);
   c++;
   #endif
-  if(gediIO->writePcl)writePCLwaves(data,wave,photWave,corrWave);
+  if(gediIO->writePcl) { ISINTRETNULL(writePCLwaves(data,wave,photWave,corrWave)); }
 
 
   /*tidy up*/
@@ -102,7 +102,7 @@ float *uncompressPhotons(float *wave,dataStruct *data,photonStruct *photonCount,
 /*####################################################*/
 /*write PCL waveforms*/
 
-void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
+int writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
 {
   int i=0;
   static int c=0;
@@ -113,7 +113,7 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
   sprintf(waveNamen,"pclWave.%s.count.%d.txt",data->waveID,c);
   if((opoo=fopen(waveNamen,"w"))==NULL){
     errorf("Error opening output file %s\n",waveNamen);
-    exit(1);
+    return -1;
   }
 
   /*write data*/
@@ -128,7 +128,7 @@ void writePCLwaves(dataStruct *data,float *wave,float *photWave,float *corrWave)
   msgf("PCL waves written to %s\n",waveNamen);
   c++;
 
-  return;
+  return 0;
 }/*writePCLwaves*/
 
 
@@ -478,7 +478,7 @@ void applyShotNoise(float *temp,int nBins)
         else           mask[i]=0.0;
       }
 
-      photThresh=(float)rand()/(float)RAND_MAX;
+      photThresh=(float)frand()/(float)RAND_MAX;
       bin=(int)pickArrayElement(photThresh,mask,nBins,0);
       if(temp[bin]>0.0){
         temp[bin]-=1.0;
@@ -527,7 +527,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   }
 
   /*choose a number of signal photons to use*/
-  photThresh=(float)rand()/(float)RAND_MAX;
+  photThresh=(float)frand()/(float)RAND_MAX;
   ASSIGN_CHECKINT_RETNULL(nPhotons,(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0));
 
   /*generate noise photons*/
