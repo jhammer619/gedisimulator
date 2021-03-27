@@ -478,7 +478,7 @@ void applyShotNoise(float *temp,int nBins)
         else           mask[i]=0.0;
       }
 
-      photThresh=(float)frand()/(float)RAND_MAX;
+      photThresh=frand();
       bin=(int)pickArrayElement(photThresh,mask,nBins,0);
       if(temp[bin]>0.0){
         temp[bin]-=1.0;
@@ -527,7 +527,7 @@ float **countPhotons(float *denoised,dataStruct *data,photonStruct *photonCount,
   }
 
   /*choose a number of signal photons to use*/
-  photThresh=(float)frand()/(float)RAND_MAX;
+  photThresh=frand();
   ASSIGN_CHECKINT_RETNULL(nPhotons,(int)pickArrayElement(photThresh,photonCount->prob,photonCount->pBins,0));
 
   /*generate noise photons*/
@@ -802,7 +802,7 @@ int setNumberNoise(float cov,float noise_mult,float H)
 
     /*pick from a Poisson*/
     ISINTRETINT(setPhotonProb(&tempPhot));
-    photThresh=(float)frand()/(float)RAND_MAX;
+    photThresh=frand();
     nNoise=(int)pickArrayElement(photThresh,tempPhot.prob,tempPhot.pBins,0);
     TIDY(tempPhot.prob);
   }else nNoise=0;
